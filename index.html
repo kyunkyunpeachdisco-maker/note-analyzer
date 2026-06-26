@@ -353,6 +353,7 @@ function tryLoad(text){
   try{
     var obj = JSON.parse(text);
     loadData(obj);
+    localStorage.setItem('na_data_cache', text);
     msg.textContent='読み込みました ✅'; msg.style.color='var(--good)';
   }catch(e){
     msg.textContent='エラー: '+e.message; msg.style.color='var(--bad)';
@@ -843,7 +844,11 @@ function sampleData(){
 
 /* ====================== 初期化 ====================== */
 buildTabs();
-switchTab('data');
+(function(){
+  var cached=localStorage.getItem('na_data_cache');
+  if(cached){ try{ loadData(JSON.parse(cached)); }catch(e){ switchTab('data'); } }
+  else{ switchTab('data'); }
+})();
 $('#loadBtn').onclick=function(){ tryLoad($('#jsonInput').value); };
 $('#sampleBtn').onclick=function(){ loadData(sampleData()); $('#loadMsg').textContent='サンプル表示中'; $('#loadMsg').style.color='var(--mut)'; };
 $('#fileInput').onchange=function(e){ var f=e.target.files[0]; if(!f)return; var r=new FileReader(); r.onload=function(){ $('#jsonInput').value=r.result; tryLoad(r.result); }; r.readAsText(f); };
