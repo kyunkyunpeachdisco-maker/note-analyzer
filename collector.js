@@ -119,7 +119,7 @@
       imageCount: imageCount,
       xLinksSelf: xSelf, xLinksOther: xOther,
       noteLinksSelf: noteSelf, noteLinksOther: noteOther,
-      text: text.replace(/\s+\n/g, '\n').slice(0, 12000) // 構造解析用の本文（先頭12000字）
+      text: text.replace(/\s+\n/g, '\n') // 構造解析用の本文（全文）
     };
   }
 
