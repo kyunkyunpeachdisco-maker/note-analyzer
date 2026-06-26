@@ -368,6 +368,7 @@ function tryLoad(text){
   try{
     var obj = JSON.parse(text);
     loadData(obj);
+    $('#jsonInput').value=text;
     msg.textContent='読み込みました ✅'; msg.style.color='var(--good)';
   }catch(e){
     msg.textContent='エラー: '+e.message; msg.style.color='var(--bad)';
