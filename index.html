@@ -263,14 +263,23 @@
       <span class="mut" id="qExtMsg"></span>
     </div>
     <div class="panel">
-      <strong style="font-size:14px">noteトレンド記事をサンプリング</strong>
-      <p class="mut" style="margin:6px 0">指定タグの最近の人気記事をr.jina.ai経由で取得・解析します（公開記事のみ・取得できない記事はスキップ）。</p>
-      <div class="row" style="gap:8px;flex-wrap:wrap">
-        <input id="sampleTag" placeholder="タグ（例: AI, エッセイ）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:140px">
-        <input id="sampleN" type="number" value="5" min="1" max="20" placeholder="件数" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;width:80px">
-        <button class="btn ghost" id="runSample">サンプリング</button>
+      <strong style="font-size:14px">note記事を検索・構造解析</strong>
+      <p class="mut" style="margin:6px 0">r.jina.ai経由で公開記事を取得・解析します。取得できない記事はスキップ。</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <select id="sampleMode" class="ctrl">
+          <option value="keyword">キーワード検索</option>
+          <option value="tag">タグ（トレンド）</option>
+          <option value="tag_new">タグ（新着）</option>
+        </select>
+        <input id="sampleTag" placeholder="キーワード or タグ名" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:140px">
+        <input id="sampleN" type="number" value="5" min="1" max="20" placeholder="件数" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;width:72px">
       </div>
-      <span class="mut" id="sampleMsg"></span>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <input id="sampleInclude" placeholder="タイトル絞り込み（AND）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:140px">
+        <input id="sampleExclude" placeholder="タイトル除外（OR）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:140px">
+      </div>
+      <button class="btn ghost" id="runSample">🔍 検索・解析</button>
+      <span class="mut" id="sampleMsg" style="margin-left:8px"></span>
     </div>
     <div class="panel" style="padding:0"><div class="tablewrap"><table id="qTable"></table></div></div>
   </section>
@@ -369,6 +378,8 @@ function loadData(obj){
       nSelf:a.noteLinksSelf||0, nOther:a.noteLinksOther||0
     });
   });
+  // Gistから外部記事を復元
+  if(obj._qext && Array.isArray(obj._qext)) QEXT=obj._qext;
   renderAll();
   var asof = obj.meta && obj.meta.exportedAt ? fmtDateTime(obj.meta.exportedAt) : null;
   $('#metaInfo').textContent = obj.meta ? (obj.meta.count+'記事 / '+(HAS_VIEWS?'ビューあり':'ビューなし')+(asof?' / '+asof+'時点':'')) : '';
@@ -955,6 +966,7 @@ function naGistHeaders(){ return {'Authorization':'Bearer '+naGhPat,'Accept':'ap
 function syncStructToData(){
   var map={}; ARTS.forEach(function(a){ if(a.struct) map[aid(a)]=a.struct; });
   (DATA.articles||[]).forEach(function(a){ if(map[aid(a)]) a.struct=map[aid(a)]; });
+  DATA._qext=QEXT; // 外部記事もGistに保存
 }
 var _gistSaving=false;
 function autoSaveToGist(silent){
@@ -1443,28 +1455,57 @@ function drawQ(pts){
 function bindSampling(){
   $('#runSample').onclick=function(){
     if(!ensureKey())return;
-    var tag=$('#sampleTag').value.trim();
-    if(!tag){ $('#sampleMsg').textContent='タグを入力してください'; return; }
+    var mode=$('#sampleMode').value;
+    var query=$('#sampleTag').value.trim();
+    if(!query){ $('#sampleMsg').textContent='キーワードまたはタグを入力してください'; return; }
     var n=Math.min(20,Math.max(1,parseInt($('#sampleN').value)||5));
     var model=$('#qModel').value;
+    var inc=($('#sampleInclude').value||'').trim().toLowerCase();
+    var excStr=($('#sampleExclude').value||'').trim().toLowerCase();
+    var fetchUrl;
+    if(mode==='keyword') fetchUrl='https://note.com/search?q='+encodeURIComponent(query)+'&context=note';
+    else if(mode==='tag_new') fetchUrl='https://note.com/hashtag/'+encodeURIComponent(query)+'?f=new';
+    else fetchUrl='https://note.com/hashtag/'+encodeURIComponent(query)+'?f=trend';
     $('#runSample').disabled=true; $('#sampleMsg').textContent='一覧取得中…';
-    fetchReader('https://note.com/hashtag/'+encodeURIComponent(tag)+'?f=trend')
+    fetchReader(fetchUrl)
       .then(function(html){
-        // 記事URLを抽出
+        // URLを重複排除して抽出
         var re=/https:\/\/note\.com\/[^/\s"'<>]+\/n\/[a-z0-9]+/g;
         var matches=html.match(re)||[];
-        var urls=matches.filter(function(u,i,a){return a.indexOf(u)===i;}).slice(0,n);
-        if(!urls.length){ $('#sampleMsg').textContent='記事URLが取得できませんでした（noteのHTML構造が変わっている可能性）'; $('#runSample').disabled=false; return; }
-        $('#sampleMsg').textContent='取得済み '+urls.length+'件・解析中 0/'+urls.length;
+        var seen={}; var allUrls=[];
+        matches.forEach(function(u){ if(!seen[u]){seen[u]=1;allUrls.push(u);} });
+        // URLごとにタイトル候補をreader本文から推測（行単位でマッピング）
+        var titleMap={};
+        var lines=html.split('\n'); var lastUrl='';
+        lines.forEach(function(line){
+          var m=line.match(/https:\/\/note\.com\/[^/\s"'<>]+\/n\/[a-z0-9]+/);
+          if(m) lastUrl=m[0];
+          if(lastUrl && /^#+\s/.test(line.trim()) && !titleMap[lastUrl])
+            titleMap[lastUrl]=line.trim().replace(/^#+\s*/,'');
+        });
+        // include/excludeフィルタ（タイトルが取れなければURLで判定）
+        var urls=allUrls.filter(function(u){
+          var t=(titleMap[u]||u).toLowerCase();
+          if(inc && !inc.split(/\s+/).every(function(w){return t.includes(w);})) return false;
+          if(excStr && excStr.split(/\s+/).some(function(w){return t.includes(w);})) return false;
+          return true;
+        }).slice(0,n);
+        if(!urls.length){ $('#sampleMsg').textContent='記事URLが取得できませんでした（フィルタが厳しすぎるかも）'; $('#runSample').disabled=false; return; }
+        $('#sampleMsg').textContent='対象 '+urls.length+'件・解析中 0/'+urls.length;
         var done=0;
         runPool(urls, function(url){
           return fetchReader(url)
-            .then(function(text){ return analyzeText(String(text), model).then(function(r){
-              var label=url.split('/n/')[0].split('/').pop()+' / '+url.split('/n/')[1];
-              QEXT.push({label:label,url:url,reach:null,external:true,struct:Object.assign(qualityScore(r),{raw:r})});
-              done++; $('#sampleMsg').textContent='解析中 '+done+'/'+urls.length;
-            }); })
-            .catch(function(){}); // スキップ
+            .then(function(text){
+              // reader本文の先頭#行からタイトル取得
+              var titleLine=(text.split('\n').find(function(l){return /^#+\s/.test(l.trim());})||'').trim();
+              var label=titleLine.replace(/^#+\s*/,'')||titleMap[url]||url.split('/n/').pop();
+              return analyzeText(String(text), model).then(function(r){
+                QEXT.push({label:label,url:url,reach:null,external:true,struct:Object.assign(qualityScore(r),{raw:r})});
+                done++; $('#sampleMsg').textContent='解析中 '+done+'/'+urls.length;
+                autoSaveToGist(true);
+              });
+            })
+            .catch(function(){}); // 取得失敗はスキップ
         }, 2, null).then(function(){
           $('#runSample').disabled=false; $('#sampleMsg').textContent='完了（'+done+'件解析）';
           renderQuality(); renderCorr();
