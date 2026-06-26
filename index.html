@@ -142,7 +142,11 @@
     <h2 class="sec">記事一覧</h2>
     <p class="desc">列見出しをタップで並び替え。スキ率＝スキ÷ビュー。左端のチェックで選び「構造解析」を押すと、選択記事の本文をLLMで解析して質スコアを付けます（本文が収集されている記事のみ）。</p>
     <div class="row" style="gap:8px;flex-wrap:wrap;margin:0 0 8px">
-      <button class="btn ghost" id="selAll">全選択/解除</button>
+      <input id="artFilter" placeholder="タイトルで絞り込み（スペース区切りでAND）" style="font-size:16px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;flex:1;min-width:200px">
+      <input id="artExclude" placeholder="除外キーワード（例: 週末リメイク）" style="font-size:16px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;flex:1;min-width:200px">
+    </div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin:0 0 8px">
+      <button class="btn ghost" id="selAll">表示を全選択/解除</button>
       <button class="btn" id="runStruct">🧭 選択を構造解析</button>
       <span class="mut" id="structMsg"></span>
     </div>
@@ -426,6 +430,21 @@ function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return 
 
 /* ---------- 記事一覧 ---------- */
 var sortState={key:'perf',dir:-1};
+
+function artFilterFn(a){
+  var title=(a.title||'').toLowerCase();
+  var inc=$('#artFilter'); var exc=$('#artExclude');
+  if(inc&&inc.value.trim()){
+    var terms=inc.value.trim().toLowerCase().split(/\s+/);
+    if(!terms.every(function(t){return title.indexOf(t)>=0;})) return false;
+  }
+  if(exc&&exc.value.trim()){
+    var excTerms=exc.value.trim().toLowerCase().split(/\s+/);
+    if(excTerms.some(function(t){return t&&title.indexOf(t)>=0;})) return false;
+  }
+  return true;
+}
+
 function renderArticles(){
   var cols=[
     {k:'title',label:'タイトル',fmt:function(a){return '<a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a>';}},
@@ -457,8 +476,10 @@ function renderArticles(){
     if(typeof x==='string'){return sortState.dir*String(x).localeCompare(String(y),'ja');}
     return sortState.dir*((y==null?-Infinity:y)-(x==null?-Infinity:x));
   });
+  var visible=rows.filter(artFilterFn);
+  var hidden=rows.length-visible.length;
   var tb=el('tbody');
-  rows.forEach(function(a){
+  visible.forEach(function(a){
     var r=el('tr');
     var cb=el('input'); cb.type='checkbox'; cb.checked=SELECTED[aid(a)]?true:false; if(!a.text) cb.disabled=true;
     cb.onchange=function(){ if(cb.checked)SELECTED[aid(a)]=true; else delete SELECTED[aid(a)]; };
@@ -467,6 +488,10 @@ function renderArticles(){
     r.appendChild(el('td',null, a.struct? qBadge(a.struct):'—'));
     tb.appendChild(r);
   });
+  if(hidden>0){
+    var tr2=el('tr'); tr2.innerHTML='<td colspan="'+(cols.length+2)+'" style="text-align:center;color:var(--mut);padding:8px;font-size:12px">'+hidden+'件を非表示中（フィルタ適用）</td>';
+    tb.appendChild(tr2);
+  }
   t.appendChild(tb);
 }
 
@@ -1012,14 +1037,22 @@ function renderCorr(){
 function bindQuality(){
   $('#qKey').onclick=qKeyPrompt;
   $('#selAll').onclick=function(){
-    var any=ARTS.some(function(a){return a.text && !SELECTED[aid(a)];});
-    ARTS.forEach(function(a){ if(a.text){ if(any)SELECTED[aid(a)]=true; else delete SELECTED[aid(a)]; } });
+    var visible=ARTS.filter(artFilterFn);
+    var any=visible.some(function(a){return a.text && !SELECTED[aid(a)];});
+    visible.forEach(function(a){ if(a.text){ if(any)SELECTED[aid(a)]=true; else delete SELECTED[aid(a)]; } });
     renderArticles();
   };
+  // フィルタ入力でリアルタイム更新
+  ['artFilter','artExclude'].forEach(function(id){
+    var el2=$('#'+id); if(el2) el2.oninput=function(){ renderArticles(); };
+  });
   $('#runAll').onclick=function(){
     if(!qKeyGet()){ qKeyPrompt(); if(!qKeyGet())return; }
-    var all=ARTS.filter(function(a){ return a.text; });
-    if(!all.length){ $('#runAllMsg').textContent='本文のある記事がありません（コレクター設定でCOLLECT_TEXTを有効に）'; return; }
+    // フィルタを考慮：表示中かつチェック済みの記事のみ（チェックなければ表示中全件）
+    var visible=ARTS.filter(function(a){ return artFilterFn(a) && a.text; });
+    var checked=visible.filter(function(a){ return SELECTED[aid(a)]; });
+    var all=checked.length ? checked : visible;
+    if(!all.length){ $('#runAllMsg').textContent='対象記事がありません（フィルタ・チェックを確認）'; return; }
     var model=$('#qModel').value;
     $('#runAll').disabled=true; $('#runAllMsg').textContent='解析中 0/'+all.length;
     runPool(all, function(a){
