@@ -243,6 +243,7 @@
       <select id="qModel" class="ctrl"><option value="claude-opus-4-8">Opus 4.8（高精度）</option><option value="claude-sonnet-4-6">Sonnet 4.6（高速・安価）</option><option value="gemini-2.0-flash">Gemini 2.0 Flash（無料枠あり）</option><option value="gemini-1.5-flash">Gemini 1.5 Flash（無料枠あり）</option></select>
       <button class="btn ghost" id="qKey">🔑 Claude APIキー</button>
       <button class="btn" id="runAll">⚡ 全件解析</button>
+      <button class="btn ghost" id="cancelAll" style="display:none">⏹ 中断</button>
       <span class="mut" id="runAllMsg"></span>
     </div>
     <div class="panel" id="qChart"></div>
@@ -936,19 +937,23 @@ $('#sampleBtn').onclick=function(){ loadData(sampleData()); $('#loadMsg').textCo
 $('#fileInput').onchange=function(e){ var f=e.target.files[0]; if(!f)return; var r=new FileReader(); r.onload=function(){ $('#jsonInput').value=r.result; tryLoad(r.result); }; r.readAsText(f); };
 $('#shareBtn').onclick=makeShareImage;
 function naGistHeaders(){ return {'Authorization':'Bearer '+naGhPat,'Accept':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'}; }
-// ARTSのstruct結果をDATA.articlesに書き戻してGistに保存
+// ARTSのstruct結果をDATA.articlesに書き戻す
 function syncStructToData(){
   var map={}; ARTS.forEach(function(a){ if(a.struct) map[aid(a)]=a.struct; });
   (DATA.articles||[]).forEach(function(a){ if(map[aid(a)]) a.struct=map[aid(a)]; });
 }
-function autoSaveToGist(){
-  if(!naGistId||!naGhPat) return; // 設定なければスキップ
+var _gistSaving=false;
+function autoSaveToGist(silent){
+  if(!naGistId||!naGhPat) return;
+  if(_gistSaving) return; // 前の保存が終わるまで待つ
+  _gistSaving=true;
   syncStructToData();
   var payload=JSON.stringify(DATA, null, 2);
   var body=JSON.stringify({files:{'note-analyzer.json':{content:payload}}});
   fetch('https://api.github.com/gists/'+naGistId,{method:'PATCH',headers:naGistHeaders(),body:body})
-  .then(function(r){if(!r.ok)throw new Error(r.status); naGistMsg('☁️ Gistに保存しました');})
-  .catch(function(e){ naGistMsg('⚠️ Gist保存失敗: '+(e.message||e)); });
+  .then(function(r){if(!r.ok)throw new Error(r.status); if(!silent)naGistMsg('☁️ 保存');})
+  .catch(function(e){ naGistMsg('⚠️ Gist保存失敗: '+(e.message||e)); })
+  .then(function(){ _gistSaving=false; });
 }
 var _naToastTimer;
 function naGistMsg(s){
@@ -1247,12 +1252,15 @@ function qualityScore(r){
 }
 function qBadge(s){ var col=s.mode==='偽の発見'?'#f87171':(s.mode==='制御'?'var(--good)':'#fbbf24'); return '<span style="color:'+col+';font-weight:700">'+s.score+'</span> <span class="mut" style="font-size:11px">'+esc(s.mode)+'</span>'; }
 
+var _poolCancel=false;
+function cancelPool(){ _poolCancel=true; }
 function runPool(items, worker, conc, onprog){
+  _poolCancel=false;
   return new Promise(function(resolve){
     var i=0, done=0, active=0;
     function next(){
-      if(done>=items.length){ resolve(); return; }
-      while(active<conc && i<items.length){
+      if(_poolCancel||done>=items.length){ resolve(); return; }
+      while(!_poolCancel && active<conc && i<items.length){
         (function(idx){ active++;
           worker(items[idx]).catch(function(){}).then(function(){ active--; done++; if(onprog)onprog(done,items.length); next(); });
         })(i++);
@@ -1302,6 +1310,7 @@ function updateKeyBtn(){
 function bindQuality(){
   $('#qKey').onclick=function(){ if(isGeminiModel($('#qModel').value)) gemKeyPrompt(); else qKeyPrompt(); };
   $('#qModel').onchange=updateKeyBtn; updateKeyBtn();
+  $('#cancelAll').onclick=function(){ cancelPool(); naGistMsg('中断中…'); };
   $('#selAll').onclick=function(){
     var visible=ARTS.filter(artFilterFn);
     var any=visible.some(function(a){return a.text && !SELECTED[aid(a)];});
@@ -1326,12 +1335,13 @@ function bindQuality(){
     var all=checked.length ? checked : visible;
     if(!all.length){ $('#runAllMsg').textContent='対象記事がありません（フィルタ・チェックを確認）'; return; }
     var model=$('#qModel').value;
-    $('#runAll').disabled=true; $('#runAllMsg').textContent='解析中 0/'+all.length;
+    $('#runAll').disabled=true; $('#cancelAll').style.display=''; $('#runAllMsg').textContent='解析中 0/'+all.length;
     runPool(all, function(a){
-      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); })
+      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); autoSaveToGist(true); })
         .catch(function(e){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; });
     }, 2, function(d,t){ $('#runAllMsg').textContent='解析中 '+d+'/'+t; naGistMsg('解析中 '+d+'/'+all.length); }).then(function(){
-      $('#runAll').disabled=false; $('#runAllMsg').textContent='完了（'+all.length+'件）';
+      $('#runAll').disabled=false; $('#cancelAll').style.display='none';
+      $('#runAllMsg').textContent=_poolCancel?'中断しました':'完了（'+all.length+'件）';
       renderArticles(); renderQuality(); renderCorr();
       autoSaveToGist();
     });
@@ -1342,7 +1352,7 @@ function bindQuality(){
     if(!sel.length){ qmsg('本文のある記事を選んでください（本文未収集の記事はチェック不可）'); return; }
     var model=$('#qModel').value; $('#runStruct').disabled=true; qmsg('解析中 0/'+sel.length); naGistMsg('解析中 0/'+sel.length);
     runPool(sel, function(a){
-      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); })
+      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); autoSaveToGist(true); })
         .catch(function(e){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; });
     }, 2, function(d,t){ qmsg('解析中 '+d+'/'+t); naGistMsg('解析中 '+d+'/'+sel.length); }).then(function(){
       $('#runStruct').disabled=false; qmsg('完了'); renderArticles(); renderQuality(); renderCorr(); switchTab('quality');
