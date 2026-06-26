@@ -353,7 +353,11 @@ function tryLoad(text){
   try{
     var obj = JSON.parse(text);
     loadData(obj);
-    localStorage.setItem('na_data_cache', text);
+    // textフィールドを除いてキャッシュ（本文は大きいためlocalStorage 5MB制限対策）
+    try{
+      var slim=Object.assign({},obj,{articles:obj.articles.map(function(a){var c=Object.assign({},a);delete c.text;return c;})});
+      localStorage.setItem('na_data_cache', JSON.stringify(slim));
+    }catch(e2){ /* QuotaExceededError等は無視 */ }
     msg.textContent='読み込みました ✅'; msg.style.color='var(--good)';
   }catch(e){
     msg.textContent='エラー: '+e.message; msg.style.color='var(--bad)';
