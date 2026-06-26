@@ -89,15 +89,15 @@
   .quote-detail{color:var(--mut);font-size:12px;border-left:2px solid var(--line);padding-left:8px;margin-top:4px}
   select.ctrl2{background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px}
   /* 記事カード（スマホ用） */
-  .art-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start}
-  .art-card-cb{flex-shrink:0;margin-top:3px}
-  .art-card-body{flex:1;min-width:0}
-  .art-card-title{font-size:14px;font-weight:600;line-height:1.4;margin-bottom:6px}
+  #artCards{padding:0 0 8px}
+  .art-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start}
+  .art-card input[type=checkbox]{width:18px;height:18px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
+  .art-card input[type=checkbox]:disabled{opacity:.4}
+  .art-card-title{font-size:14px;font-weight:600;line-height:1.5;margin-bottom:6px;word-break:break-all}
   .art-card-title a{color:var(--fg);text-decoration:none}
-  .art-card-title a:hover{color:var(--accent)}
-  .art-card-row{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--mut);margin-bottom:4px}
-  .art-card-row span{white-space:nowrap}
-  .art-card-row .val{color:var(--fg);font-weight:600}
+  .art-card-stats{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12px;margin-bottom:2px}
+  .art-card-stats .lbl{color:var(--mut)}
+  .art-card-stats .val{color:var(--fg);font-weight:600}
 </style>
 </head>
 <body>
@@ -300,8 +300,9 @@
 var DATA = null;       // {meta, articles}
 var ARTS = [];         // 派生指標を付与した記事配列
 /* Gist同期 */
-var naGhPat  = localStorage.getItem('na_github_pat')||'';
-var naGistId = localStorage.getItem('na_gist_id')||'';
+var naGhPat   = localStorage.getItem('na_github_pat')||'';
+var naGistId  = localStorage.getItem('na_gist_id')||'';
+var naGistUrl = localStorage.getItem('na_gist_url')||'';
 var HAS_VIEWS = false;
 var PERF_KEY = 'views';   // 主指標（ビューが無ければスキ）
 var PERF_LABEL = 'ビュー';
@@ -532,22 +533,21 @@ function renderArticles(){
   visible.forEach(function(a){
     var checked=SELECTED[aid(a)]?'checked':'';
     var disabled=a.text?'':'disabled';
+    function stat(lbl,val){ return val!=null?'<span><span class="lbl">'+lbl+'</span> <span class="val">'+val+'</span></span>':''; }
     cardsHtml+='<div class="art-card">'+
-      '<input class="art-card-cb" type="checkbox" data-aid="'+esc(aid(a))+'" '+checked+' '+disabled+'>'+
-      '<div class="art-card-body">'+
-        '<div class="art-card-title"><a href="'+esc(a.url)+'" target="_blank" rel="noopener">'+esc(a.title)+'</a></div>'+
-        '<div class="art-card-row">'+
-          (HAS_VIEWS?'<span>ビュー <span class="val">'+num(a.views)+'</span></span>':'')+
-          '<span>スキ <span class="val">'+num(a.likes)+'</span></span>'+
-          (a.likeRate!=null?'<span>スキ率 <span class="val">'+(a.likeRate*100).toFixed(1)+'%</span></span>':'')+
+      '<input type="checkbox" data-aid="'+esc(aid(a))+'" '+checked+' '+disabled+'>'+
+      '<div>'+
+        '<div class="art-card-title"><a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a></div>'+
+        '<div class="art-card-stats">'+
+          (HAS_VIEWS?stat('ビュー',num(a.views)):'')+
+          stat('スキ',num(a.likes))+
+          (a.likeRate!=null?stat('スキ率',(a.likeRate*100).toFixed(1)+'%'):'')+
+          stat('文字',num(a.charCount))+
+          stat('画像',num(a.imageCount))+
+          stat('見出し',num(a.headingCount))+
+          (a.publishAt?'<span class="lbl">'+esc(a.publishAt.slice(0,10))+'</span>':'')+
         '</div>'+
-        '<div class="art-card-row">'+
-          '<span>文字 <span class="val">'+num(a.charCount)+'</span></span>'+
-          '<span>画像 <span class="val">'+num(a.imageCount)+'</span></span>'+
-          '<span>見出し <span class="val">'+num(a.headingCount)+'</span></span>'+
-          (a.publishAt?'<span>'+esc(a.publishAt.slice(0,10))+'</span>':'')+
-        '</div>'+
-        (a.struct?'<div style="margin-top:4px">'+qBadge(a.struct)+'</div>':'')+
+        (a.struct?'<div style="margin-top:6px">'+qBadge(a.struct)+'</div>':'')+
       '</div>'+
     '</div>';
   });
@@ -892,21 +892,22 @@ function sampleData(){
 window.addEventListener('resize', function(){ if(ARTS.length) renderArticles(); });
 buildTabs();
 switchTab('data');
-// GistID設定済みなら起動時に自動読み込み
+// 保存済みGist URLを復元して自動読み込み
 (function(){
+  if(naGistUrl) $('#gistUrl').value=naGistUrl;
   if(!naGistId) return;
+  naGistMsg('読み込み中…');
   var headers=naGhPat?naGistHeaders():{'Accept':'application/vnd.github+json'};
-  naGistMsg('起動時自動読み込み中…');
   fetch('https://api.github.com/gists/'+naGistId,{headers:headers})
-  .then(function(r){if(!r.ok)throw new Error('Gist API '+r.status);return r.json();})
+  .then(function(r){if(!r.ok)throw new Error('Gist '+r.status+' — publicに設定されているか確認');return r.json();})
   .then(function(meta){
     var files=meta.files;
     var key=Object.keys(files).find(function(f){return f.endsWith('.json');});
     if(!key)throw new Error('JSONファイルが見つかりません');
     return fetch(files[key].raw_url).then(function(r){return r.text();});
   }).then(function(text){
-    tryLoad(text); naGistMsg('自動読み込み完了 ✅');
-  }).catch(function(e){ naGistMsg('自動読み込み失敗: '+(e.message||e)); });
+    tryLoad(text); naGistMsg('読み込みました ✅');
+  }).catch(function(e){ naGistMsg('⚠️ '+e.message); });
 })();
 $('#loadBtn').onclick=function(){ tryLoad($('#jsonInput').value); };
 $('#sampleBtn').onclick=function(){ loadData(sampleData()); $('#loadMsg').textContent='サンプル表示中'; $('#loadMsg').style.color='var(--mut)'; };
@@ -927,13 +928,14 @@ $('#saveGist').onclick=function(){
   if(!DATA){ alert('先にデータを読み込んでください'); return; }
   naGistMsg('アップロード中…'); $('#saveGist').disabled=true;
   var payload=JSON.stringify(DATA, null, 2);
-  var body=JSON.stringify({description:'note-analyzer data',public:false,files:{'note-analyzer.json':{content:payload}}});
+  var body=JSON.stringify({description:'note-analyzer data',public:true,files:{'note-analyzer.json':{content:payload}}});
   fetch(naGistId?'https://api.github.com/gists/'+naGistId:'https://api.github.com/gists',
     {method:naGistId?'PATCH':'POST',headers:naGistHeaders(),body:body})
   .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,80));});return r.json();})
   .then(function(j){
     if(!naGistId){naGistId=j.id; localStorage.setItem('na_gist_id',naGistId);}
     var url='https://gist.github.com/'+j.owner.login+'/'+j.id;
+    naGistUrl=url; localStorage.setItem('na_gist_url',url);
     $('#gistUrl').value=url;
     naGistMsg('保存しました ✅  '+url);
     $('#saveGist').disabled=false;
@@ -958,8 +960,11 @@ $('#loadGist').onclick=function(){
     var files=meta.files;
     var key=Object.keys(files).find(function(f){return f.endsWith('.json');});
     if(!key)throw new Error('JSONファイルがGistに見つかりません');
-    // GistIDをlocalStorageに保存（次回起動時の自動読み込みに使用）
+    // GistIDとURLをlocalStorageに保存（次回起動時の自動読み込みに使用）
     if(gid!==naGistId){ naGistId=gid; localStorage.setItem('na_gist_id',naGistId); }
+    var loadedUrl='https://gist.github.com/'+meta.owner.login+'/'+gid;
+    naGistUrl=loadedUrl; localStorage.setItem('na_gist_url',loadedUrl);
+    $('#gistUrl').value=loadedUrl;
     return fetch(files[key].raw_url).then(function(r){return r.text();});
   }).then(function(text){
     tryLoad(text);
