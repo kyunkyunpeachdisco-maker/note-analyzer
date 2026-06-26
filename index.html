@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>note アナライザー</title>
+<meta property="og:title" content="note アナライザー">
+<meta property="og:description" content="自分のnoteを多角的に分析するダッシュボード">
+<meta property="og:type" content="website">
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232c; --line:#2a3340;
+    --fg:#e6edf3; --mut:#8b97a5; --accent:#3b82f6; --good:#22c55e;
+    --warn:#f59e0b; --bad:#ef4444; --gem:#a855f7;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+    font-size:15px; line-height:1.6; min-height:100dvh;
+  }
+  header{
+    position:sticky; top:0; z-index:20; background:rgba(14,17,22,.92);
+    backdrop-filter:blur(8px); border-bottom:1px solid var(--line);
+  }
+  .htop{display:flex; align-items:center; gap:10px; padding:12px 16px;}
+  .htop h1{font-size:17px; margin:0; font-weight:700;}
+  .htop .sub{color:var(--mut); font-size:12px;}
+  nav.tabs{display:flex; gap:4px; overflow-x:auto; padding:0 12px 10px; scrollbar-width:none;}
+  nav.tabs::-webkit-scrollbar{display:none}
+  nav.tabs button{
+    flex:0 0 auto; background:var(--panel); color:var(--mut); border:1px solid var(--line);
+    padding:8px 12px; border-radius:999px; font-size:13px; cursor:pointer; white-space:nowrap;
+  }
+  nav.tabs button.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+  main{max-width:980px; margin:0 auto; padding:16px;}
+  section.tab{display:none}
+  section.tab.active{display:block; animation:fade .2s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  h2.sec{font-size:16px; margin:4px 0 4px;}
+  p.desc{color:var(--mut); font-size:13px; margin:0 0 14px;}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:16px;}
+  textarea, input, select{
+    font-size:16px; /* iOSズーム防止 */ width:100%; background:var(--panel2); color:var(--fg);
+    border:1px solid var(--line); border-radius:10px; padding:10px; font-family:inherit;
+  }
+  textarea{min-height:120px; font-family:ui-monospace,monospace; font-size:13px;}
+  .btn{
+    display:inline-block; background:var(--accent); color:#fff; border:0; border-radius:10px;
+    padding:11px 16px; font-size:15px; font-weight:700; cursor:pointer;
+  }
+  .btn.ghost{background:var(--panel2); color:var(--fg); border:1px solid var(--line); font-weight:500;}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+  .cards{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px;}
+  .card{background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:14px;}
+  .card .k{color:var(--mut); font-size:12px;}
+  .card .v{font-size:22px; font-weight:800; margin-top:2px;}
+  .card .v small{font-size:12px; color:var(--mut); font-weight:500;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  .tablewrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  th,td{padding:8px 10px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line);}
+  th:first-child,td:first-child{text-align:left; white-space:normal; min-width:180px;}
+  th{color:var(--mut); font-weight:600; cursor:pointer; user-select:none; position:sticky; top:0; background:var(--panel);}
+  tbody tr:hover{background:var(--panel2);}
+  td a{color:var(--accent); text-decoration:none;}
+  .bar{height:8px; background:var(--panel2); border-radius:4px; overflow:hidden; min-width:60px;}
+  .bar>span{display:block; height:100%; background:var(--accent);}
+  .tag{display:inline-block; background:var(--panel2); border:1px solid var(--line); border-radius:999px; padding:2px 8px; font-size:11px; margin:1px;}
+  .pill{display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700;}
+  .pill.gem{background:rgba(168,85,247,.15); color:#c084fc;}
+  .pill.good{background:rgba(34,197,94,.15); color:#4ade80;}
+  .pill.bad{background:rgba(239,68,68,.15); color:#f87171;}
+  .pill.warn{background:rgba(245,158,11,.15); color:#fbbf24;}
+  .insight{background:var(--panel2); border-left:3px solid var(--accent); border-radius:8px; padding:10px 12px; margin:8px 0; font-size:13px;}
+  .muted{color:var(--mut);}
+  .empty{color:var(--mut); text-align:center; padding:40px 16px;}
+  svg{max-width:100%; height:auto;}
+  .legend{font-size:11px; color:var(--mut); display:flex; gap:14px; flex-wrap:wrap; margin-top:6px;}
+  .dot{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; vertical-align:middle;}
+  details{margin-top:8px;}
+  summary{cursor:pointer; color:var(--accent); font-size:13px;}
+  code{background:var(--panel2); padding:1px 5px; border-radius:4px; font-size:12px;}
+  .verdict{font-size:15px;font-weight:700;margin:6px 0}
+  .t-強制{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(34,197,94,.15);color:var(--good)}
+  .t-好み{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(245,158,11,.15);color:var(--warn)}
+  .t-未制御{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(239,68,68,.15);color:var(--bad)}
+  .smuggle{border-left:3px solid var(--bad);padding-left:10px;margin:8px 0}
+  .quote-detail{color:var(--mut);font-size:12px;border-left:2px solid var(--line);padding-left:8px;margin-top:4px}
+  select.ctrl2{background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <div class="htop">
+    <h1>📊 note アナライザー</h1>
+    <span class="sub" id="metaInfo"></span>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+</header>
+<main>
+  <!-- データ -->
+  <section class="tab" data-tab="data">
+    <h2 class="sec">データを読み込む</h2>
+    <p class="desc">ブックマークレットで出力したJSONを貼り付けるか、ファイルを選択してください。</p>
+    <div class="panel">
+      <textarea id="jsonInput" placeholder='{"meta":{...},"articles":[...]} をここに貼り付け'></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="loadBtn">読み込む</button>
+        <label class="btn ghost" style="cursor:pointer">ファイル選択<input type="file" id="fileInput" accept=".json,application/json" hidden></label>
+        <button class="btn ghost" id="sampleBtn">サンプルを表示</button>
+        <span id="loadMsg" class="muted"></span>
+      </div>
+    </div>
+    <div class="panel">
+      <h2 class="sec">使い方</h2>
+      <ol style="margin:0; padding-left:20px; color:var(--mut); font-size:13px; line-height:1.8">
+        <li>noteにログインした状態で <code>collector.js</code> をブックマークレットとして実行</li>
+        <li>表示されたJSONをコピー</li>
+        <li>このページに貼り付けて「読み込む」</li>
+      </ol>
+      <p class="desc" style="margin-top:10px">データはこのブラウザ内だけで処理され、どこにも送信されません。</p>
+    </div>
+  </section>
+
+  <!-- 概要 -->
+  <section class="tab" data-tab="overview">
+    <div class="row" style="justify-content:space-between">
+      <div><h2 class="sec">概要</h2><p class="desc">全体サマリーと自動で見つけたポイント。</p></div>
+      <div class="row">
+        <button class="btn ghost" id="katexBtn">📐 KaTeX出力</button>
+        <button class="btn ghost" id="shareBtn">🖼 画像で保存</button>
+      </div>
+    </div>
+    <div class="cards" id="ovCards"></div>
+    <div id="ovInsights" style="margin-top:16px"></div>
+    <div id="ovUnder" style="margin-top:16px"></div>
+  </section>
+
+  <!-- 記事一覧 -->
+  <section class="tab" data-tab="articles">
+    <h2 class="sec">記事一覧</h2>
+    <p class="desc">列見出しをタップで並び替え。スキ率＝スキ÷ビュー。左端のチェックで選び「構造解析」を押すと、選択記事の本文をLLMで解析して質スコアを付けます（本文が収集されている記事のみ）。</p>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin:0 0 8px">
+      <button class="btn ghost" id="selAll">全選択/解除</button>
+      <button class="btn" id="runStruct">🧭 選択を構造解析</button>
+      <span class="mut" id="structMsg"></span>
+    </div>
+    <div class="panel" style="padding:0">
+      <div class="tablewrap"><table id="artTable"></table></div>
+    </div>
+  </section>
+
+  <!-- B: 埋もれた佳作 -->
+  <section class="tab" data-tab="gems">
+    <h2 class="sec">💎 埋もれた佳作（品質×リーチ）</h2>
+    <p class="desc">スキ率は高い（刺さってる）のにビューが低い（届いてない）記事＝Xで再宣伝すべき記事。</p>
+    <div class="panel" id="gemChart"></div>
+    <div class="panel" id="gemList"></div>
+  </section>
+
+  <!-- F: 勝てるタグ -->
+  <section class="tab" data-tab="tags">
+    <h2 class="sec">🏷 タグ分析・勝てるタグ</h2>
+    <p class="desc">タグ別の成績と競合度（タグ全体の記事数）。競合少×自分の成績良＝ニッチ勝ち筋。</p>
+    <div class="panel" id="tagWin"></div>
+    <div class="panel" style="padding:0"><div class="tablewrap"><table id="tagTable"></table></div></div>
+  </section>
+
+  <!-- G: 構成 -->
+  <section class="tab" data-tab="structure">
+    <h2 class="sec">📐 構成密度の最適解</h2>
+    <p class="desc">本文量・画像頻度・見出し間隔ごとの平均成績。あなたにとっての最適バランスを探す。</p>
+    <div class="panel" id="structCharts"></div>
+  </section>
+
+  <!-- D: タイトル -->
+  <section class="tab" data-tab="title">
+    <h2 class="sec">✍️ タイトル方程式</h2>
+    <p class="desc">タイトルの特徴ごとの平均成績。あなた専用の勝ちタイトルパターン。</p>
+    <div class="panel" id="titleAnalysis"></div>
+  </section>
+
+  <!-- E: エバーグリーン -->
+  <section class="tab" data-tab="evergreen">
+    <h2 class="sec">🌱 エバーグリーン判定</h2>
+    <p class="desc">公開からの日割りビューで「初速型」と「伸び続ける型」を分離。リライト候補も見える。</p>
+    <div class="panel" id="evergreen"></div>
+  </section>
+
+  <!-- C: コア読者 -->
+  <section class="tab" data-tab="fans">
+    <h2 class="sec">👥 コア読者・リピーター分析</h2>
+    <p class="desc">繰り返しスキしてくれる人＝あなたの本当のファン。常連定着度を可視化。</p>
+    <div class="panel" id="fans"></div>
+  </section>
+
+  <!-- 構造の質（自由度アナライザ統合） -->
+  <section class="tab" data-tab="quality">
+    <h2 class="sec">🧭 構造の質 × 反響</h2>
+    <p class="desc">記事本文をLLMで手筋に分解し、①構造制御（強制/好み/未制御・偽の発見・装飾引用）と②操作可能性（表れ型＝センスなしで実行できる指示 / 抽象型＝判断・センスが要る）を検査。判定はvibeでなく抽出からの機械計算。<strong>これは「ダメさ」検出器</strong>（崩れ・僭称・未操作化を捕る）で、<strong>独創性＝良さは測りません</strong>。自分の記事は下の「全件解析」または「記事一覧」で選んで解析、他人の記事はURL/本文から追加。</p>
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <select id="qModel" class="ctrl"><option value="claude-opus-4-8">Opus 4.8（高精度）</option><option value="claude-sonnet-4-6">Sonnet 4.6（高速・安価）</option></select>
+      <button class="btn ghost" id="qKey">🔑 APIキー</button>
+      <button class="btn" id="runAll">⚡ 全件解析</button>
+      <span class="mut" id="runAllMsg"></span>
+    </div>
+    <div class="panel" id="qChart"></div>
+    <div class="panel" id="qCorr" style="display:none"></div>
+    <div class="panel">
+      <strong style="font-size:14px">外部記事を追加（他人の記事など）</strong>
+      <p class="mut" style="margin:6px 0">URLを入れると reader プロキシ（r.jina.ai）経由で本文取得を試みます（第三者サービス・公開記事のみ・取得できない時は本文を直接貼ってください）。反響（スキ数等）は分かれば手入力。</p>
+      <input id="qUrl" placeholder="https://note.com/.../n/...（任意）" style="width:100%;font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px">
+      <textarea id="qText" placeholder="または本文を直接貼り付け" style="width:100%;min-height:90px;font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px"></textarea>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:6px">
+        <input id="qLabel" placeholder="ラベル（記事名）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:140px">
+        <input id="qReach" type="number" placeholder="反響(任意)" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;width:120px">
+        <button class="btn" id="qAdd">追加して解析</button>
+      </div>
+      <span class="mut" id="qExtMsg"></span>
+    </div>
+    <div class="panel">
+      <strong style="font-size:14px">noteトレンド記事をサンプリング</strong>
+      <p class="mut" style="margin:6px 0">指定タグの最近の人気記事をr.jina.ai経由で取得・解析します（公開記事のみ・取得できない記事はスキップ）。</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <input id="sampleTag" placeholder="タグ（例: AI, エッセイ）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:140px">
+        <input id="sampleN" type="number" value="5" min="1" max="20" placeholder="件数" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;width:80px">
+        <button class="btn ghost" id="runSample">サンプリング</button>
+      </div>
+      <span class="mut" id="sampleMsg"></span>
+    </div>
+    <div class="panel" style="padding:0"><div class="tablewrap"><table id="qTable"></table></div></div>
+  </section>
+</main>
+
+<!-- 構造詳細モーダル -->
+<div id="qDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:50;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px">
+  <div style="max-width:900px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <strong id="qDetailLabel" style="font-size:16px;flex:1;margin-right:12px"></strong>
+      <button class="btn ghost" id="qDetailClose">閉じる</button>
+    </div>
+    <div class="verdict" id="qDetailVerdict"></div>
+    <div id="qDetailSignals" style="margin:8px 0"></div>
+    <div class="muted" id="qDetailProfile" style="margin-bottom:12px"></div>
+    <canvas id="qDetailMap" width="900" height="380" style="width:100%;height:auto;background:#0d1117;border:1px solid var(--line);border-radius:10px;display:block"></canvas>
+    <div class="muted" style="font-size:12px;margin:6px 0 16px">右上＝黄金比の瞬間（強制×高射程）／下段＝漏れ（好み・未制御）。点番号は手筋表に対応。</div>
+    <h3 style="font-size:14px;margin:0 0 8px">手筋（制御度を上書き可・その場で再計算）</h3>
+    <div class="tablewrap"><table id="qDetailMoves" style="font-size:13px">
+      <thead><tr><th>#</th><th>手筋</th><th>射程</th><th>制御度</th><th>根拠</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <h3 style="font-size:14px;margin:16px 0 8px">構造主張の検査（偽の発見）</h3>
+    <div id="qDetailStructs"></div>
+    <h3 style="font-size:14px;margin:16px 0 8px">引用負荷テスト</h3>
+    <div class="tablewrap"><table id="qDetailCites" style="font-size:13px">
+      <thead><tr><th>出典</th><th>強制したステップ</th><th>負荷</th><th>判定理由</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <h3 style="font-size:14px;margin:16px 0 8px">操作可能性</h3>
+    <div class="tablewrap"><table id="qDetailVerify" style="font-size:13px">
+      <thead><tr><th>荷重主張</th><th>型</th><th>読者の検証手続き／理由</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ====================== 状態・ユーティリティ ====================== */
+var DATA = null;       // {meta, articles}
+var ARTS = [];         // 派生指標を付与した記事配列
+var HAS_VIEWS = false;
+var PERF_KEY = 'views';   // 主指標（ビューが無ければスキ）
+var PERF_LABEL = 'ビュー';
+
+var TABS = [
+  {id:'data', label:'📥 データ'},
+  {id:'overview', label:'📊 概要'},
+  {id:'articles', label:'📝 記事一覧'},
+  {id:'gems', label:'💎 埋もれた佳作'},
+  {id:'tags', label:'🏷 タグ'},
+  {id:'structure', label:'📐 構成'},
+  {id:'title', label:'✍️ タイトル'},
+  {id:'evergreen', label:'🌱 エバーグリーン'},
+  {id:'fans', label:'👥 コア読者'},
+  {id:'quality', label:'🧭 構造の質'}
+];
+
+function $(s,el){return (el||document).querySelector(s);}
+function $all(s,el){return Array.prototype.slice.call((el||document).querySelectorAll(s));}
+function el(tag,attrs,html){var e=document.createElement(tag); if(attrs)for(var k in attrs)e.setAttribute(k,attrs[k]); if(html!=null)e.innerHTML=html; return e;}
+function num(n){return n==null?'—':Number(n).toLocaleString('ja-JP');}
+function pct(n,d){if(d==null||!d)return '—'; return (n/d*100).toFixed(1)+'%';}
+function f1(n){return n==null?'—':(Math.round(n*10)/10).toLocaleString('ja-JP');}
+function mean(a){a=a.filter(function(x){return x!=null;}); return a.length?a.reduce(function(s,x){return s+x;},0)/a.length:null;}
+function median(a){a=a.filter(function(x){return x!=null;}).sort(function(x,y){return x-y;}); if(!a.length)return null; var m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2;}
+function daysSince(iso){if(!iso)return null; var t=new Date(iso).getTime(); if(isNaN(t))return null; var d=(Date.now()-t)/86400000; return Math.max(d,1);}
+function fmtDateTime(iso){var d=new Date(iso); if(isNaN(d.getTime()))return iso; var p=function(n){return (n<10?'0':'')+n;}; return d.getFullYear()+'/'+p(d.getMonth()+1)+'/'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());}
+
+/* ====================== データ読込 ====================== */
+function loadData(obj){
+  if(!obj || !obj.articles || !obj.articles.length){ throw new Error('articles が空です'); }
+  DATA = obj;
+  HAS_VIEWS = !!(obj.meta && obj.meta.hasViews) && obj.articles.some(function(a){return a.views!=null;});
+  PERF_KEY = HAS_VIEWS ? 'views' : 'likes';
+  PERF_LABEL = HAS_VIEWS ? 'ビュー' : 'スキ';
+  ARTS = obj.articles.map(function(a){
+    var age = daysSince(a.publishAt);
+    var perf = a[PERF_KEY];
+    return Object.assign({}, a, {
+      likeRate: (a.views ? a.likes/a.views : null),
+      commentRate: (a.views ? a.comments/a.views : null),
+      ageDays: age,
+      perf: perf,
+      perfPerDay: (age && perf!=null ? perf/age : null),
+      totalImg: a.imageCount,
+      imgPer1k: (a.charCount ? a.imageCount/(a.charCount/1000) : null),
+      headInterval: (a.headingCount ? a.charCount/a.headingCount : null),
+      xSelf:a.xLinksSelf||0, xOther:a.xLinksOther||0,
+      nSelf:a.noteLinksSelf||0, nOther:a.noteLinksOther||0
+    });
+  });
+  renderAll();
+  var asof = obj.meta && obj.meta.exportedAt ? fmtDateTime(obj.meta.exportedAt) : null;
+  $('#metaInfo').textContent = obj.meta ? (obj.meta.count+'記事 / '+(HAS_VIEWS?'ビューあり':'ビューなし')+(asof?' / '+asof+'時点':'')) : '';
+  switchTab('overview');
+}
+
+function tryLoad(text){
+  var msg=$('#loadMsg');
+  try{
+    var obj = JSON.parse(text);
+    loadData(obj);
+    msg.textContent='読み込みました ✅'; msg.style.color='var(--good)';
+  }catch(e){
+    msg.textContent='エラー: '+e.message; msg.style.color='var(--bad)';
+  }
+}
+
+/* ====================== レンダリング統括 ====================== */
+function renderAll(){
+  renderOverview(); renderArticles(); renderGems();
+  renderTags(); renderStructure(); renderTitle(); renderEvergreen(); renderFans();
+  renderQuality();
+}
+
+/* ---------- 概要 ---------- */
+function renderOverview(){
+  var c=$('#ovCards'); c.innerHTML='';
+  var totalViews=ARTS.reduce(function(s,a){return s+(a.views||0);},0);
+  var totalLikes=ARTS.reduce(function(s,a){return s+(a.likes||0);},0);
+  var totalComments=ARTS.reduce(function(s,a){return s+(a.comments||0);},0);
+  var avgLikeRate=mean(ARTS.map(function(a){return a.likeRate;}));
+  var dates=ARTS.map(function(a){return a.publishAt?new Date(a.publishAt).getTime():null;}).filter(Boolean);
+  var spanDays = dates.length>1 ? (Math.max.apply(null,dates)-Math.min.apply(null,dates))/86400000 : null;
+  var freq = spanDays ? (ARTS.length/(spanDays/30)) : null; // 月あたり本数
+  var asof = DATA.meta && DATA.meta.exportedAt ? fmtDateTime(DATA.meta.exportedAt) : null;
+  var cards=[
+    ['データ取得日時', asof?'<span style="font-size:15px">'+asof+'</span>':'—'],
+    ['記事数', num(ARTS.length)],
+    ['総ビュー', HAS_VIEWS?num(totalViews):'—'],
+    ['総スキ', num(totalLikes)],
+    ['総コメント', num(totalComments)],
+    ['平均スキ率', avgLikeRate!=null?(avgLikeRate*100).toFixed(2)+'%':'—'],
+    ['投稿ペース', freq!=null?f1(freq)+'<small> 本/月</small>':'—']
+  ];
+  cards.forEach(function(p){
+    var d=el('div',{'class':'card'});
+    d.innerHTML='<div class="k">'+p[0]+'</div><div class="v">'+p[1]+'</div>';
+    c.appendChild(d);
+  });
+
+  // 自動インサイト
+  var ins=$('#ovInsights'); ins.innerHTML='<h2 class="sec">気づきポイント</h2>';
+  var lines=[];
+  var byPerf=ARTS.slice().sort(function(a,b){return (b.perf||0)-(a.perf||0);});
+  if(byPerf[0]) lines.push('最も'+PERF_LABEL+'が多いのは「'+esc(byPerf[0].title)+'」（'+num(byPerf[0].perf)+'）');
+  var gems=findGems();
+  if(gems.length) lines.push('💎 「刺さってるのに届いてない」記事が <b>'+gems.length+'件</b>。Xでの再宣伝候補です（💎タブ）');
+  if(HAS_VIEWS){
+    var best=ARTS.slice().filter(function(a){return a.likeRate!=null;}).sort(function(a,b){return b.likeRate-a.likeRate;})[0];
+    if(best) lines.push('スキ率が最も高いのは「'+esc(best.title)+'」（'+(best.likeRate*100).toFixed(1)+'%）');
+  }
+  var ever=ARTS.slice().filter(function(a){return a.ageDays>90 && a.perfPerDay!=null;}).sort(function(a,b){return b.perfPerDay-a.perfPerDay;})[0];
+  if(ever) lines.push('🌱 公開90日超でも伸び続けている代表格は「'+esc(ever.title)+'」（日割り'+f1(ever.perfPerDay)+PERF_LABEL+'）');
+  if(!lines.length) lines.push('データを読み込むと、ここに自動の気づきが表示されます。');
+  lines.forEach(function(t){ ins.appendChild(el('div',{'class':'insight'},t)); });
+  renderUnderperformers();
+}
+
+/* ---------- 伸び悩み記事の共通点（上位四分位 vs 下位四分位）---------- */
+function renderUnderperformers(){
+  var box=$('#ovUnder'); box.innerHTML='';
+  var arr=ARTS.filter(function(a){return a.perf!=null;}).sort(function(a,b){return a.perf-b.perf;});
+  if(arr.length<8) return;
+  var q=Math.max(1,Math.floor(arr.length/4));
+  var low=arr.slice(0,q), high=arr.slice(-q);
+  var feats=[
+    {k:'charCount',label:'文字数'},{k:'imageCount',label:'画像数'},
+    {k:'headingCount',label:'見出し数'},{k:'titleLength',label:'タイトル長'},
+    {k:'xSelf',label:'X誘導(自分)'},{k:'nSelf',label:'note内リンク(自分)'}
+  ];
+  var h='<h2 class="sec">伸び悩み記事の共通点</h2><p class="desc">'+PERF_LABEL+'が下位25%の記事と上位25%の記事で、各要素の平均を比較。</p>';
+  h+='<div class="tablewrap"><table><thead><tr><th>要素</th><th>伸び悩み(下位)</th><th>好調(上位)</th><th>差</th></tr></thead><tbody>';
+  var hints=[];
+  feats.forEach(function(f){
+    var lo=mean(low.map(function(a){return a[f.k];})), hi=mean(high.map(function(a){return a[f.k];}));
+    var diff=(lo!=null&&hi!=null)?hi-lo:null;
+    var pill='';
+    if(diff!=null && hi){ var rel=(hi-lo)/Math.abs(hi||1);
+      if(rel>0.2) pill='<span class="pill good">好調は多い</span>';
+      else if(rel<-0.2) pill='<span class="pill warn">好調は少ない</span>';
+    }
+    if(diff!=null){
+      if(diff>0 && lo<hi*0.8) hints.push('好調記事は'+f.label+'が多め（'+f1(hi)+' vs 伸び悩み'+f1(lo)+'）');
+      if(diff<0 && lo>hi*1.2) hints.push('伸び悩み記事は'+f.label+'が多すぎる傾向（'+f1(lo)+' vs 好調'+f1(hi)+'）');
+    }
+    h+='<tr><td>'+f.label+'</td><td>'+f1(lo)+'</td><td>'+f1(hi)+'</td><td>'+pill+'</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  if(hints.length) h+='<div class="insight" style="margin-top:10px">'+hints.slice(0,3).join('<br>')+'</div>';
+  box.innerHTML=h;
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+
+/* ---------- 記事一覧 ---------- */
+var sortState={key:'perf',dir:-1};
+function renderArticles(){
+  var cols=[
+    {k:'title',label:'タイトル',fmt:function(a){return '<a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a>';}},
+    {k:'views',label:'ビュー',fmt:function(a){return num(a.views);}},
+    {k:'likes',label:'スキ',fmt:function(a){return num(a.likes);}},
+    {k:'comments',label:'コメ',fmt:function(a){return num(a.comments);}},
+    {k:'likeRate',label:'スキ率',fmt:function(a){return a.likeRate!=null?(a.likeRate*100).toFixed(1)+'%':'—';}},
+    {k:'charCount',label:'文字数',fmt:function(a){return num(a.charCount);}},
+    {k:'imageCount',label:'画像',fmt:function(a){return num(a.imageCount);}},
+    {k:'headingCount',label:'見出し',fmt:function(a){return num(a.headingCount);}},
+    {k:'xSelf',label:'X自',fmt:function(a){return num(a.xSelf);}},
+    {k:'xOther',label:'X他',fmt:function(a){return num(a.xOther);}},
+    {k:'nSelf',label:'note自',fmt:function(a){return num(a.nSelf);}},
+    {k:'nOther',label:'note他',fmt:function(a){return num(a.nOther);}},
+    {k:'publishAt',label:'公開日',fmt:function(a){return a.publishAt?a.publishAt.slice(0,10):'—';}}
+  ];
+  var t=$('#artTable'); t.innerHTML='';
+  var thead=el('thead'); var tr=el('tr');
+  tr.appendChild(el('th',null,'✓'));
+  cols.forEach(function(c){
+    var th=el('th',null,c.label+(sortState.key===c.k?(sortState.dir<0?' ▼':' ▲'):''));
+    th.onclick=function(){ if(sortState.key===c.k)sortState.dir*=-1; else {sortState.key=c.k; sortState.dir=-1;} renderArticles(); };
+    tr.appendChild(th);
+  });
+  tr.appendChild(el('th',null,'質'));
+  thead.appendChild(tr); t.appendChild(thead);
+  var rows=ARTS.slice().sort(function(a,b){
+    var x=a[sortState.key], y=b[sortState.key];
+    if(typeof x==='string'){return sortState.dir*String(x).localeCompare(String(y),'ja');}
+    return sortState.dir*((y==null?-Infinity:y)-(x==null?-Infinity:x));
+  });
+  var tb=el('tbody');
+  rows.forEach(function(a){
+    var r=el('tr');
+    var cb=el('input'); cb.type='checkbox'; cb.checked=SELECTED[aid(a)]?true:false; if(!a.text) cb.disabled=true;
+    cb.onchange=function(){ if(cb.checked)SELECTED[aid(a)]=true; else delete SELECTED[aid(a)]; };
+    var ctd=el('td'); ctd.appendChild(cb); r.appendChild(ctd);
+    cols.forEach(function(c){ r.appendChild(el('td',null,c.fmt(a))); });
+    r.appendChild(el('td',null, a.struct? qBadge(a.struct):'—'));
+    tb.appendChild(r);
+  });
+  t.appendChild(tb);
+}
+
+/* ---------- B: 埋もれた佳作 ---------- */
+function findGems(){
+  if(!HAS_VIEWS) return [];
+  var withRate=ARTS.filter(function(a){return a.likeRate!=null && a.views!=null;});
+  if(withRate.length<4) return [];
+  var medV=median(withRate.map(function(a){return a.views;}));
+  var medR=median(withRate.map(function(a){return a.likeRate;}));
+  return withRate.filter(function(a){return a.likeRate>=medR && a.views<medV;})
+    .sort(function(a,b){return b.likeRate-a.likeRate;});
+}
+function renderGems(){
+  var chart=$('#gemChart'), list=$('#gemList');
+  if(!HAS_VIEWS){ chart.innerHTML=''; list.innerHTML='<div class="empty">ビュー数が無いため品質×リーチ分析は表示できません。</div>'; return; }
+  var withRate=ARTS.filter(function(a){return a.likeRate!=null && a.views!=null;});
+  if(withRate.length<4){ chart.innerHTML=''; list.innerHTML='<div class="empty">記事数が少ないため分析できません。</div>'; return; }
+  var medV=median(withRate.map(function(a){return a.views;}));
+  var medR=median(withRate.map(function(a){return a.likeRate;}));
+  var maxV=Math.max.apply(null,withRate.map(function(a){return a.views;}));
+  var maxR=Math.max.apply(null,withRate.map(function(a){return a.likeRate;}));
+  // 散布図 SVG
+  var W=600,H=360,P=44;
+  function sx(v){return P+(v/maxV)*(W-P*1.5);}
+  function sy(r){return H-P-(r/maxR)*(H-P*1.5);}
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%">';
+  svg+='<line x1="'+sx(medV)+'" y1="'+(P/2)+'" x2="'+sx(medV)+'" y2="'+(H-P)+'" stroke="#2a3340" stroke-dasharray="4"/>';
+  svg+='<line x1="'+P+'" y1="'+sy(medR)+'" x2="'+(W-P/2)+'" y2="'+sy(medR)+'" stroke="#2a3340" stroke-dasharray="4"/>';
+  svg+='<text x="'+P+'" y="'+(P/2)+'" fill="#a855f7" font-size="11">←低ビュー × 高スキ率＝埋もれた佳作</text>';
+  withRate.forEach(function(a){
+    var gem=(a.likeRate>=medR && a.views<medV);
+    svg+='<circle cx="'+sx(a.views)+'" cy="'+sy(a.likeRate)+'" r="'+(gem?6:4)+'" fill="'+(gem?'#a855f7':'#3b82f6')+'" fill-opacity="'+(gem?.95:.5)+'"><title>'+esc(a.title)+'\nビュー'+num(a.views)+' / スキ率'+(a.likeRate*100).toFixed(1)+'%</title></circle>';
+  });
+  svg+='<text x="'+(W/2)+'" y="'+(H-8)+'" fill="#8b97a5" font-size="11" text-anchor="middle">ビュー →</text>';
+  svg+='<text x="14" y="'+(H/2)+'" fill="#8b97a5" font-size="11" transform="rotate(-90 14 '+(H/2)+')" text-anchor="middle">スキ率 →</text>';
+  svg+='</svg><div class="legend"><span><span class="dot" style="background:#a855f7"></span>埋もれた佳作</span><span><span class="dot" style="background:#3b82f6"></span>その他</span></div>';
+  chart.innerHTML='<h2 class="sec">品質×リーチ マップ</h2>'+svg;
+
+  var gems=findGems();
+  var html='<h2 class="sec">再宣伝候補リスト（'+gems.length+'件）</h2>';
+  if(!gems.length){ html+='<div class="muted">該当なし。バランス良く届いています。</div>'; }
+  else{
+    html+='<div class="tablewrap"><table><thead><tr><th>タイトル</th><th>ビュー</th><th>スキ率</th><th>X誘導</th></tr></thead><tbody>';
+    gems.forEach(function(a){
+      html+='<tr><td><a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a> <span class="pill gem">佳作</span></td><td>'+num(a.views)+'</td><td>'+(a.likeRate*100).toFixed(1)+'%</td><td>'+(a.xSelf>0?'済':'<span class="pill warn">未</span>')+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+  }
+  list.innerHTML=html;
+}
+
+/* ---------- F: タグ ---------- */
+function tagAgg(){
+  var map={};
+  ARTS.forEach(function(a){
+    (a.tags||[]).forEach(function(t){
+      if(!map[t]) map[t]={tag:t,count:0,views:[],likeRate:[],perf:[]};
+      map[t].count++;
+      map[t].views.push(a.views);
+      map[t].likeRate.push(a.likeRate);
+      map[t].perf.push(a.perf);
+    });
+  });
+  var stats=(DATA.meta&&DATA.meta.tagStats)||{};
+  return Object.keys(map).map(function(t){
+    var m=map[t];
+    return {tag:t, count:m.count, avgViews:mean(m.views), avgLikeRate:mean(m.likeRate),
+            avgPerf:mean(m.perf), competition: stats[t]!=null?stats[t]:null};
+  });
+}
+function comboAgg(){
+  var map={};
+  ARTS.forEach(function(a){
+    var tags=(a.tags||[]).slice().sort();
+    for(var i=0;i<tags.length;i++){ for(var j=i+1;j<tags.length;j++){
+      var key=tags[i]+' × '+tags[j];
+      if(!map[key]) map[key]={combo:key,count:0,perf:[]};
+      map[key].count++; map[key].perf.push(a.perf);
+    }}
+  });
+  return Object.keys(map).map(function(k){return {combo:k,count:map[k].count,avgPerf:mean(map[k].perf)};})
+    .filter(function(c){return c.count>=2;}).sort(function(a,b){return (b.avgPerf||0)-(a.avgPerf||0);});
+}
+function renderTags(){
+  var tags=tagAgg();
+  if(!tags.length){ $('#tagWin').innerHTML=''; $('#tagTable').innerHTML='<tbody><tr><td class="empty">タグがありません。</td></tr></tbody>'; return; }
+  // 勝てるタグ：自分の成績(中央値以上) × 競合少(中央値以下)
+  var medPerf=median(tags.map(function(t){return t.avgPerf;}));
+  var comps=tags.map(function(t){return t.competition;}).filter(function(x){return x!=null;});
+  var medComp= comps.length?median(comps):null;
+  var win=$('#tagWin');
+  var winners=tags.filter(function(t){ return t.count>=1 && t.avgPerf!=null && t.avgPerf>=medPerf && (medComp==null||t.competition==null||t.competition<=medComp); })
+                  .sort(function(a,b){return (b.avgPerf||0)-(a.avgPerf||0);}).slice(0,8);
+  var h='<h2 class="sec">勝てるタグ候補</h2>';
+  if(medComp==null) h+='<p class="desc">※競合度（タグ全体の記事数）が取得できていないため、成績のみで選定しています。</p>';
+  if(!winners.length) h+='<div class="muted">該当なし。</div>';
+  else { winners.forEach(function(t){
+    h+='<span class="tag" style="font-size:13px;padding:6px 12px;margin:3px">#'+esc(t.tag)+' <b>'+f1(t.avgPerf)+'</b>'+PERF_LABEL+(t.competition!=null?' / 競合'+num(t.competition):'')+'</span>';
+  }); }
+  // タグの組み合わせ別 勝ちパターン
+  var combos=comboAgg();
+  if(combos.length){
+    h+='<h2 class="sec" style="margin-top:18px">タグの組み合わせ別 勝ちパターン</h2>';
+    h+='<p class="desc">2記事以上で使われたタグの組み合わせを平均'+PERF_LABEL+'順に。</p>';
+    h+='<div class="tablewrap"><table><thead><tr><th>組み合わせ</th><th>記事数</th><th>平均'+PERF_LABEL+'</th></tr></thead><tbody>';
+    combos.slice(0,8).forEach(function(c){
+      h+='<tr><td>'+esc(c.combo)+'</td><td>'+num(c.count)+'</td><td>'+f1(c.avgPerf)+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  win.innerHTML=h;
+
+  // 全タグ表
+  var rows=tags.sort(function(a,b){return (b.avgPerf||0)-(a.avgPerf||0);});
+  var t=$('#tagTable');
+  t.innerHTML='<thead><tr><th>タグ</th><th>記事数</th><th>平均ビュー</th><th>平均スキ率</th><th>競合度</th></tr></thead>';
+  var tb=el('tbody');
+  rows.forEach(function(r){
+    var win=r.avgPerf!=null&&r.avgPerf>=medPerf&&(medComp==null||r.competition==null||r.competition<=medComp);
+    tb.appendChild(el('tr',null,
+      '<td>#'+esc(r.tag)+(win?' <span class="pill good">勝</span>':'')+'</td>'+
+      '<td>'+num(r.count)+'</td>'+
+      '<td>'+(HAS_VIEWS?f1(r.avgViews):'—')+'</td>'+
+      '<td>'+(r.avgLikeRate!=null?(r.avgLikeRate*100).toFixed(1)+'%':'—')+'</td>'+
+      '<td>'+(r.competition!=null?num(r.competition):'—')+'</td>'));
+  });
+  t.appendChild(tb);
+}
+
+/* ---------- 汎用：バケット別平均バー ---------- */
+function bucketBars(title, buckets){
+  // buckets: [{label, vals:[perf...]}]
+  var rows=buckets.map(function(b){return {label:b.label, avg:mean(b.vals), n:b.vals.filter(function(x){return x!=null;}).length};});
+  var max=Math.max.apply(null, rows.map(function(r){return r.avg||0;}))||1;
+  var h='<h3 style="font-size:14px;margin:4px 0 10px">'+title+'</h3>';
+  rows.forEach(function(r){
+    var w=r.avg?Math.round(r.avg/max*100):0;
+    h+='<div style="display:grid;grid-template-columns:110px 1fr 70px;gap:8px;align-items:center;margin:5px 0;font-size:12px">'+
+       '<div class="muted">'+r.label+'<br><span style="font-size:10px">n='+r.n+'</span></div>'+
+       '<div class="bar"><span style="width:'+w+'%"></span></div>'+
+       '<div style="text-align:right">'+(r.avg!=null?f1(r.avg):'—')+'</div></div>';
+  });
+  return h;
+}
+function quantileBuckets(getX, getY, labels){
+  var arr=ARTS.filter(function(a){return getX(a)!=null && getY(a)!=null;}).map(function(a){return {x:getX(a),y:getY(a)};});
+  arr.sort(function(a,b){return a.x-b.x;});
+  if(arr.length<4) return null;
+  var n=labels.length, out=[];
+  for(var i=0;i<n;i++){
+    var lo=Math.floor(i*arr.length/n), hi=Math.floor((i+1)*arr.length/n);
+    var slice=arr.slice(lo,hi);
+    var xs=slice.map(function(s){return s.x;});
+    var lab=labels[i]+'\n('+f1(Math.min.apply(null,xs))+'〜'+f1(Math.max.apply(null,xs))+')';
+    out.push({label:lab.replace('\n','<br>'), vals:slice.map(function(s){return s.y;})});
+  }
+  return out;
+}
+function renderStructure(){
+  var box=$('#structCharts');
+  var perfLabel='平均'+PERF_LABEL;
+  var b1=quantileBuckets(function(a){return a.charCount;}, function(a){return a.perf;}, ['短い','やや短','やや長','長い']);
+  var b2=quantileBuckets(function(a){return a.imgPer1k;}, function(a){return a.perf;}, ['画像少','やや少','やや多','画像多']);
+  var b3=quantileBuckets(function(a){return a.headInterval;}, function(a){return a.perf;}, ['見出し密','やや密','やや疎','見出し疎']);
+  var h='';
+  h+= b1?'<div style="margin-bottom:18px">'+bucketBars('本文の長さ × '+perfLabel,b1)+'</div>':'';
+  h+= b2?'<div style="margin-bottom:18px">'+bucketBars('画像頻度（1000字あたり） × '+perfLabel,b2)+'</div>':'';
+  h+= b3?'<div>'+bucketBars('見出し間隔（字／見出し） × '+perfLabel,b3)+'</div>':'';
+  box.innerHTML= h || '<div class="empty">構成データが不足しています。</div>';
+}
+
+/* ---------- D: タイトル方程式 ---------- */
+function titleFeatures(title){
+  var t=title||'';
+  return {
+    '数字入り': /[0-9０-９]/.test(t),
+    '疑問形': /[?？]/.test(t),
+    'カギカッコ':/[「」『』]/.test(t),
+    '【】':/[【】]/.test(t),
+    '記号区切り':/[:：|｜・]/.test(t),
+    '長め(20字↑)': t.length>=20
+  };
+}
+function renderTitle(){
+  var feats=['数字入り','疑問形','カギカッコ','【】','記号区切り','長め(20字↑)'];
+  var box=$('#titleAnalysis');
+  var rows=feats.map(function(f){
+    var withF=[], without=[];
+    ARTS.forEach(function(a){ (titleFeatures(a.title)[f]?withF:without).push(a.perf); });
+    return {f:f, withAvg:mean(withF), woAvg:mean(without), nWith:withF.filter(function(x){return x!=null;}).length};
+  });
+  var h='<div class="tablewrap"><table><thead><tr><th>特徴</th><th>該当記事</th><th>あり平均'+PERF_LABEL+'</th><th>なし平均</th><th>効果</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var lift = (r.withAvg!=null&&r.woAvg)? (r.withAvg/r.woAvg-1):null;
+    var pill = lift==null?'':(lift>0.15?'<span class="pill good">+'+(lift*100).toFixed(0)+'%</span>':(lift<-0.15?'<span class="pill bad">'+(lift*100).toFixed(0)+'%</span>':'<span class="pill">±</span>'));
+    h+='<tr><td>'+r.f+'</td><td>'+r.nWith+'</td><td>'+f1(r.withAvg)+'</td><td>'+f1(r.woAvg)+'</td><td>'+pill+'</td></tr>';
+  });
+  h+='</tbody></table></div><p class="desc" style="margin-top:10px">「効果」は〈ありの平均〉÷〈なしの平均〉。+表示の特徴があなたの勝ちパターン。</p>';
+  box.innerHTML=h;
+}
+
+/* ---------- E: エバーグリーン ---------- */
+function renderEvergreen(){
+  var box=$('#evergreen');
+  var arr=ARTS.filter(function(a){return a.perfPerDay!=null && a.ageDays!=null;});
+  if(!arr.length){ box.innerHTML='<div class="empty">公開日・'+PERF_LABEL+'が不足しています。</div>'; return; }
+  var medPPD=median(arr.map(function(a){return a.perfPerDay;}));
+  var top=arr.slice().sort(function(a,b){return b.perfPerDay-a.perfPerDay;}).slice(0,10);
+  var h='<h3 style="font-size:14px;margin:4px 0 4px">日割り'+PERF_LABEL+' トップ（伸び続ける記事）</h3>';
+  h+='<p class="desc">公開90日超×高日割り＝エバーグリーン。古い当たり記事はリライト候補。</p>';
+  h+='<div class="tablewrap"><table><thead><tr><th>タイトル</th><th>経過日数</th><th>累計'+PERF_LABEL+'</th><th>日割り</th><th>判定</th></tr></thead><tbody>';
+  top.forEach(function(a){
+    var tag = a.ageDays>90 ? '<span class="pill good">エバーグリーン</span>' : '<span class="pill warn">初速型</span>';
+    h+='<tr><td><a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a></td><td>'+Math.round(a.ageDays)+'日</td><td>'+num(a.perf)+'</td><td>'+f1(a.perfPerDay)+'</td><td>'+tag+'</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  // リライト候補：古い × 日割り低
+  var fade=arr.filter(function(a){return a.ageDays>180 && a.perfPerDay<medPPD;}).sort(function(a,b){return a.perfPerDay-b.perfPerDay;}).slice(0,8);
+  if(fade.length){
+    h+='<h3 style="font-size:14px;margin:18px 0 4px">リライト候補（古くて失速）</h3><div class="tablewrap"><table><thead><tr><th>タイトル</th><th>経過日数</th><th>日割り</th></tr></thead><tbody>';
+    fade.forEach(function(a){ h+='<tr><td><a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a></td><td>'+Math.round(a.ageDays)+'日</td><td>'+f1(a.perfPerDay)+'</td></tr>'; });
+    h+='</tbody></table></div>';
+  }
+  box.innerHTML=h;
+}
+
+/* ---------- C: コア読者 ---------- */
+function renderFans(){
+  var box=$('#fans');
+  var hasLikers=ARTS.some(function(a){return a.likers&&a.likers.length;});
+  if(!hasLikers){ box.innerHTML='<div class="empty">スキした人のデータがありません。<br>collector.js の COLLECT_LIKERS を有効にして再取得してください。</div>'; return; }
+  var counter={};
+  ARTS.forEach(function(a){ (a.likers||[]).forEach(function(u){ counter[u]=(counter[u]||0)+1; }); });
+  var people=Object.keys(counter).map(function(u){return {u:u, n:counter[u]};}).sort(function(a,b){return b.n-a.n;});
+  var total=people.length;
+  var repeat=people.filter(function(p){return p.n>=2;}).length;
+  var core=people.filter(function(p){return p.n>=3;}).length;
+  var avgLikesPerArticle=mean(ARTS.map(function(a){return a.likers?a.likers.length:null;}));
+  var h='<div class="cards">';
+  h+='<div class="card"><div class="k">スキしてくれた延べ人数</div><div class="v">'+num(total)+'</div></div>';
+  h+='<div class="card"><div class="k">リピーター(2回↑)</div><div class="v">'+num(repeat)+'<small> '+pct(repeat,total)+'</small></div></div>';
+  h+='<div class="card"><div class="k">コアファン(3回↑)</div><div class="v">'+num(core)+'<small> '+pct(core,total)+'</small></div></div>';
+  h+='<div class="card"><div class="k">一見さん率</div><div class="v">'+pct(total-repeat,total)+'</div></div>';
+  h+='</div>';
+  h+='<h3 style="font-size:14px;margin:18px 0 6px">あなたのコア読者 トップ</h3>';
+  h+='<div class="tablewrap"><table><thead><tr><th>ユーザー</th><th>スキした記事数</th></tr></thead><tbody>';
+  people.slice(0,20).forEach(function(p){
+    h+='<tr><td><a href="https://note.com/'+esc(p.u)+'" target="_blank" rel="noopener">@'+esc(p.u)+'</a></td><td>'+p.n+'</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  box.innerHTML=h;
+}
+
+/* ====================== シェア画像（Canvas / 方法1）====================== */
+function makeShareImage(){
+  if(!ARTS.length){ alert('先にデータを読み込んでください'); return; }
+  var W=1200,H=630, c=document.createElement('canvas'); c.width=W; c.height=H;
+  var x=c.getContext('2d');
+  var g=x.createLinearGradient(0,0,W,H); g.addColorStop(0,'#0e1116'); g.addColorStop(1,'#1c2a44');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  x.fillStyle='#3b82f6'; x.fillRect(0,0,12,H);
+  x.fillStyle='#e6edf3'; x.font='bold 46px sans-serif';
+  x.fillText('📊 note 分析ダッシュボード', 56, 96);
+  x.fillStyle='#8b97a5'; x.font='24px sans-serif';
+  x.fillText('@'+((DATA.meta&&DATA.meta.urlname)||''), 56, 140);
+
+  var totalViews=ARTS.reduce(function(s,a){return s+(a.views||0);},0);
+  var totalLikes=ARTS.reduce(function(s,a){return s+(a.likes||0);},0);
+  var avgRate=mean(ARTS.map(function(a){return a.likeRate;}));
+  var stats=[
+    ['記事数', num(ARTS.length)],
+    [HAS_VIEWS?'総ビュー':'総スキ', HAS_VIEWS?num(totalViews):num(totalLikes)],
+    ['総スキ', num(totalLikes)],
+    ['平均スキ率', avgRate!=null?(avgRate*100).toFixed(1)+'%':'—']
+  ];
+  stats.forEach(function(s,i){
+    var bx=56+(i%2)*560, by=210+Math.floor(i/2)*150;
+    x.fillStyle='rgba(255,255,255,.05)'; roundRect(x,bx,by,520,128,16); x.fill();
+    x.fillStyle='#8b97a5'; x.font='24px sans-serif'; x.fillText(s[0], bx+28, by+44);
+    x.fillStyle='#e6edf3'; x.font='bold 56px sans-serif'; x.fillText(s[1], bx+28, by+104);
+  });
+  var top=ARTS.slice().sort(function(a,b){return (b.perf||0)-(a.perf||0);})[0];
+  if(top){ x.fillStyle='#a855f7'; x.font='22px sans-serif';
+    x.fillText('🏆 最も読まれた: '+clip(top.title,34), 56, 560); }
+  var asof=DATA.meta&&DATA.meta.exportedAt?fmtDateTime(DATA.meta.exportedAt):null;
+  if(asof){ x.fillStyle='#8b97a5'; x.font='20px sans-serif'; x.fillText(asof+' 時点', 56, 600); }
+
+  var url=c.toDataURL('image/png');
+  var a=document.createElement('a'); a.href=url; a.download='note-dashboard.png'; a.click();
+}
+function roundRect(x,X,Y,w,h,r){x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);x.arcTo(X+w,Y+h,X,Y+h,r);x.arcTo(X,Y+h,X,Y,r);x.arcTo(X,Y,X+w,Y,r);x.closePath();}
+function clip(s,n){s=String(s||'');return s.length>n?s.slice(0,n)+'…':s;}
+
+/* ====================== タブ ====================== */
+function buildTabs(){
+  var nav=$('#tabs');
+  TABS.forEach(function(t){
+    var b=el('button',{'data-go':t.id},t.label);
+    b.onclick=function(){switchTab(t.id);};
+    nav.appendChild(b);
+  });
+}
+function switchTab(id){
+  $all('section.tab').forEach(function(s){ s.classList.toggle('active', s.getAttribute('data-tab')===id); });
+  $all('#tabs button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-go')===id); });
+  window.scrollTo(0,0);
+}
+
+/* ====================== サンプル ====================== */
+function sampleData(){
+  var tags=[['エッセイ','日記'],['プログラミング','AI'],['レビュー'],['AI','ChatGPT'],['日記'],['エッセイ','読書'],['プログラミング'],['AI']];
+  var arts=[];
+  var base=Date.now();
+  for(var i=0;i<14;i++){
+    var views=200+Math.floor(Math.abs(Math.sin(i*1.3))*3000);
+    var likes=Math.floor(views*(0.02+Math.abs(Math.cos(i))*0.06));
+    var age=10+i*40;
+    arts.push({
+      id:String(i), key:'sample'+i, url:'https://note.com/kyunkyun_p_d/n/sample'+i,
+      title:(i%3===0?'【保存版】':'')+'サンプル記事 '+(i+1)+(i%2?'って知ってる？':'の話'),
+      titleLength:12+i, publishAt:new Date(base-age*86400000).toISOString(),
+      views:views, likes:likes, comments:Math.floor(likes*0.1),
+      tags:tags[i%tags.length], charCount:800+i*350, headingCount:2+(i%5), imageCount:i%6,
+      xLinksSelf:i%4===0?1:0, xLinksOther:i%3===0?2:0, noteLinksSelf:i%2, noteLinksOther:i%5===0?1:0,
+      likers:Array.apply(null,{length:Math.min(likes,30)}).map(function(_,j){return 'reader'+((j+i)%18);})
+    });
+  }
+  return {meta:{urlname:'kyunkyun_p_d',count:arts.length,hasViews:true,hasLikers:true,
+    tagStats:{'エッセイ':120000,'日記':900000,'プログラミング':45000,'AI':800000,'ChatGPT':300000,'レビュー':60000,'読書':150000},schema:1}, articles:arts};
+}
+
+/* ====================== 初期化 ====================== */
+buildTabs();
+switchTab('data');
+$('#loadBtn').onclick=function(){ tryLoad($('#jsonInput').value); };
+$('#sampleBtn').onclick=function(){ loadData(sampleData()); $('#loadMsg').textContent='サンプル表示中'; $('#loadMsg').style.color='var(--mut)'; };
+$('#fileInput').onchange=function(e){ var f=e.target.files[0]; if(!f)return; var r=new FileReader(); r.onload=function(){ $('#jsonInput').value=r.result; tryLoad(r.result); }; r.readAsText(f); };
+$('#shareBtn').onclick=makeShareImage;
+
+/* ====================== KaTeX出力（note本文に貼る用） ====================== */
+// noteは数式記法(KaTeX)対応。HTML不可・表はarrayで作る。display数式は $$ … $$。
+function katNum(n){ return n==null?'-':String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,'{,}'); }
+function katText(s){ // \text{} 内に入れる文字をサニタイズ
+  s=String(s==null?'':s).replace(/\\/g,'').replace(/[{}]/g,'').replace(/\^/g,'').replace(/~/g,'〜');
+  return s.replace(/[$#%&_]/g,function(m){return '\\'+m;});
+}
+function katClip(s,n){ s=String(s||''); return s.length>n?s.slice(0,n)+'…':s; }
+function makeKatex(){
+  if(!ARTS.length){ alert('先にデータを読み込んでください'); return; }
+  var totalViews=ARTS.reduce(function(s,a){return s+(a.views||0);},0);
+  var totalLikes=ARTS.reduce(function(s,a){return s+(a.likes||0);},0);
+  var avgRate=mean(ARTS.map(function(a){return a.likeRate;}));
+  var asof=DATA.meta&&DATA.meta.exportedAt?fmtDateTime(DATA.meta.exportedAt):null;
+  var rows=[
+    ['記事数', katNum(ARTS.length)],
+    [HAS_VIEWS?'総ビュー':'総スキ', HAS_VIEWS?katNum(totalViews):katNum(totalLikes)],
+    ['総スキ', katNum(totalLikes)],
+    ['平均スキ率', avgRate!=null?(avgRate*100).toFixed(1)+'\\%':'-']
+  ];
+  if(asof) rows.push(['取得日時', '\\text{'+katText(asof)+'}']);
+  var t1='\\begin{array}{|l|r|}\n\\hline\n\\textbf{\\text{指標}} & \\textbf{\\text{値}} \\\\ \\hline\n';
+  rows.forEach(function(r){ t1+='\\text{'+katText(r[0])+'} & '+r[1]+' \\\\ \\hline\n'; });
+  t1+='\\end{array}';
+
+  // 上位記事（バーは \rule で表現）
+  var metric=HAS_VIEWS?'views':'likes';
+  var top=ARTS.slice().sort(function(a,b){return (b[metric]||0)-(a[metric]||0);}).slice(0,5);
+  var max=top.length?(top[0][metric]||1):1;
+  var t2='\\begin{array}{|r|l|l|}\n\\hline\n\\# & \\text{タイトル} & \\text{'+(HAS_VIEWS?'ビュー':'スキ')+'} \\\\ \\hline\n';
+  top.forEach(function(a,i){
+    var v=a[metric]||0; var w=(Math.max(v/max,0.04)*6).toFixed(2);
+    t2+=(i+1)+' & \\text{'+katText(katClip(a.title,18))+'} & \\rule{'+w+'em}{0.7em}\\,'+katNum(v)+' \\\\ \\hline\n';
+  });
+  t2+='\\end{array}';
+
+  var name=(DATA.meta&&DATA.meta.urlname)||'';
+  var out='$$\n'+t1+'\n$$\n\n$$\n'+t2+'\n$$';
+  showCopyModal('KaTeX出力（noteの本文にそのまま貼り付け）',
+    'note編集画面で本文に貼り付けてください（$$ … $$ がそのまま数式ブロックになります）。\n@'+name+(asof?' / '+asof+'時点':''),
+    out);
+}
+$('#katexBtn').onclick=makeKatex;
+
+/* コピー用モーダル */
+function showCopyModal(title, note, text){
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var box=document.createElement('div');
+  box.style.cssText='background:#161b22;border:1px solid #30363d;border-radius:12px;max-width:680px;width:100%;max-height:90dvh;display:flex;flex-direction:column;padding:16px;gap:10px';
+  var h=document.createElement('div'); h.textContent=title; h.style.cssText='font-weight:700;font-size:16px';
+  var p=document.createElement('div'); p.textContent=note; p.style.cssText='font-size:13px;color:#8b97a5;white-space:pre-wrap';
+  var ta=document.createElement('textarea'); ta.value=text; ta.readOnly=true;
+  ta.style.cssText='flex:1;min-height:220px;width:100%;font-size:16px;font-family:monospace;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:8px;padding:10px;-webkit-overflow-scrolling:touch';
+  var row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;justify-content:flex-end';
+  var copy=document.createElement('button'); copy.className='btn'; copy.textContent='📋 コピー';
+  copy.onclick=function(){ ta.select(); try{document.execCommand('copy');}catch(e){} if(navigator.clipboard)navigator.clipboard.writeText(text); copy.textContent='✓ コピーしました'; setTimeout(function(){copy.textContent='📋 コピー';},1500); };
+  var close=document.createElement('button'); close.className='btn ghost'; close.textContent='閉じる';
+  close.onclick=function(){ document.body.removeChild(ov); };
+  ov.onclick=function(e){ if(e.target===ov) document.body.removeChild(ov); };
+  row.appendChild(copy); row.appendChild(close);
+  box.appendChild(h); box.appendChild(p); box.appendChild(ta); box.appendChild(row);
+  ov.appendChild(box); document.body.appendChild(ov);
+  ta.focus();
+}
+
+/* ====================== 構造の質（自由度アナライザ統合） ====================== */
+var SELECTED={};          // 選択中の記事 aid -> true
+var QEXT=[];              // 外部記事 [{label,url,reach,struct}]
+function aid(a){ return a.key||a.id||a.url||a.title; }
+function qKeyGet(){ return localStorage.getItem('anthropic-api-key')||''; }
+function qKeyPrompt(){ var k=prompt('Anthropic APIキー (sk-ant-...)', qKeyGet()); if(k!=null) localStorage.setItem('anthropic-api-key', k.trim()); }
+function qmsg(s){ var e=$('#structMsg'); if(e)e.textContent=s; }
+function qext(s){ var e=$('#qExtMsg'); if(e)e.textContent=s; }
+
+var Q_SYSTEM=[
+'あなたは文章の「構造制御」を分析する抽出器です。vibe採点はしません。記事を手筋に分解し、各手筋を分類し、構造主張と引用を検査して、JSONだけを返します。',
+'',
+'# 枠組み',
+'黄金比＝対象の構造全体を制御し、恣意的な自由度を残さない（結論が強制され、著者自身が中身に入らない）。',
+'各手筋の「制御度」：',
+'- 強制 … データ/論理/外部の公平機構によって結論がそう決まる（著者の好みでは動かせない。約分・観測・最小仮説・秘密投票など）',
+'- 好み … 著者の趣味・都合・満足でツマミを埋めている（決めの値・0.7掛け・下駄・好みで変更・でもいい）',
+'- 未制御 … 主張が支持されず開いている（無根拠の一般化・案出し・読者への丸投げ・反証不能）',
+'「射程」＝その手筋が押さえる構造の非自明さ（低/中/高）。',
+'重要：表層の厳密さ（数式・引用・整った構成）は強制を意味しない。見かけに釣られるな。',
+'',
+'# 偽の発見（pseudo-structure）検査',
+'「本質は〜」「つまり〜と同じ」など構造・本質・等値を主張する箇所を見つけ、',
+'1) 主張された構造の定義特徴を挙げる（例：因数分解＝「積構造」＋「共通項の括り出し」）、',
+'2) 写像先の対象がその特徴を満たすか各々検査、',
+'3) 欠けていれば smuggled=true（構造を僭称＝偽の発見）。',
+'',
+'# 引用負荷テスト',
+'各引用について、論証のどのステップを強制するかを問い、出典が本当にそれを確立しているか判定。消しても論理の強さが変わらない／同語反復なら forces_step=false（権威の装飾）。',
+'',
+'# 操作可能性（厳密読み）',
+'荷重を担う主張・指示（記事の結論を支える主張や読者への行動指示）ごとに、センスや判断力なしで実行できるかを判定。',
+'- type=表れ型 … 「センス/IQの無い人」が手順通り実行して同じ結果に至れる。明確な操作・閾値・手続きがある。',
+'- type=抽象型 … 実行に判断・センス・目利きが必要。原則・対応・言い換えに留まる。',
+'判定は2段で行う：',
+'1) 剥離テスト … 文体・逸話・固有事例を剥いだ後、一般化できる操作/閾値が残るか。残らなければ抽象型。',
+'2) 再現性テスト … その指示を「センス/IQの無い人」が手順通り実行して同じ結果に至るか。「適切に/うまく/論理的に/ちゃんと/本質を」やるのに判断・センス・目利きが要るなら抽象型。',
+'表れ型の例：「コンビニの270円ラテを買うのをやめる」「字数を数えて3文字削る」「つもり貯金をアプリに記録」「30文字で言え」。',
+'抽象型の例：「相手のKPIに便益を翻訳しろ」「3回断られてから報告」「論理的に書け」「結論から話せ」「炎の人を探せ」「本質は整理」。',
+'',
+'# 較正例（要点のみ）',
+'- 対決ルールを「未記載要素は秘密投票」「指標は計算式不明だが公平」で閉じる→全手筋 強制。有能→資産/幸福を表れに操作化→検証 表れ型。',
+'- 架空指標で「0.5＝決めの値」「0.7掛け」「愛着ボーナス＝下駄」「好みで相対値に変更」→好み多数（手心）。式は計算できるが「タイパを測る」は趣味固定→抽象型。',
+'- 「因数分解＝整理＝生きる力」：定義特徴（積構造・共通項括り出し）を現実の問題分解は満たさない→smuggled=true。',
+'- 「Microsoft調査で信頼が高いほど批判的思考が減る」→同語反復で価値主張を確立しない→forces_step=false。',
+'',
+'# 注意：独創性（良さ）は測らない',
+'この器は「ダメさ（偽の発見・漏れた自由度・未操作化の抽象）」の検出器。独創性＝良さは原理的に測れないため評価しない。',
+'',
+'# 出力（このJSONのみ。前後に説明文を一切付けない）',
+'{',
+'  “moves”:[{“id”:1,”summary”:”短い要約”,”quote”:”該当箇所の引用(30字程度)”,”reach”:”低|中|高”,”control”:”強制|好み|未制御”,”reason”:”分類の根拠”}],',
+'  “structure_claims”:[{“claim”:”主張”,”claimed_structure”:”持ち込んだ構造名”,”defining_features”:[“特徴1”,”特徴2”],”target”:”写像先”,”feature_checks”:[{“feature”:”特徴1”,”satisfied”:true,”reason”:”…”}],”smuggled”:true,”reason”:”…”}],',
+'  “citations”:[{“source”:”出典”,”supports”:”支えようとした主張”,”forces_step”:false,”reason”:”…”}],',
+'  “verifiability”:[{“claim”:”荷重を担う主張”,”procedure”:”読者が記事内材料だけで確かめる手続き”,”type”:”表れ型|抽象型”,”reason”:”…”}],',
+'  “profile”:”一文プロファイル”',
+'}'
+].join('\n');
+
+function qParseJSON(t){ try{return JSON.parse(t);}catch(e){} var m=t.match(/\{[\s\S]*\}/); if(m){try{return JSON.parse(m[0]);}catch(e){}} return null; }
+function analyzeText(text, model){
+  var key=qKeyGet();
+  return fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+    headers:{'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:model||'claude-opus-4-8',max_tokens:8000,system:Q_SYSTEM,messages:[{role:'user',content:'次の記事を分析せよ：\n\n'+text}]})})
+   .then(function(r){ if(!r.ok)return r.text().then(function(t){throw new Error('API '+r.status+': '+t.slice(0,120));}); return r.json(); })
+   .then(function(j){ var raw=(j.content&&j.content[0]&&j.content[0].text)||''; var d=qParseJSON(raw); if(!d)throw new Error('JSON解析失敗'); return d; });
+}
+function qualityScore(r){
+  var moves=r.moves||[]; var n=moves.length||1;
+  var c={強制:0,好み:0,未制御:0}; moves.forEach(function(m){ c[m.control]=(c[m.control]||0)+1; });
+  var pseudo=(r.structure_claims||[]).filter(function(s){return s.smuggled;}).length;
+  var vf=r.verifiability||[]; var hyo=vf.filter(function(v){return v.type==='表れ型';}).length; var abst=vf.length-hyo;
+  // 構造制御スコア
+  var score=100*(c.強制/n) - 40*(c.好み/n) - 75*(c.未制御/n) - 35*pseudo;
+  score=Math.max(0,Math.min(100,Math.round(score)));
+  // 検証可能性スコア（表れ型の割合）
+  var verifyScore = vf.length ? Math.round(100*hyo/vf.length) : null;
+  var mode;
+  if(pseudo) mode='偽の発見';
+  else if(c.好み>0 && (r.structure_claims||[]).length) mode='手心あり';
+  else if(c.強制>0 && (c.好み+c.未制御)===0) mode='制御';
+  else if((c.未制御+c.好み)>=n*0.6) mode='意見';
+  else mode='混在';
+  return {score:score, mode:mode, pseudo:pseudo, verify:verifyScore, hyo:hyo, abst:abst};
+}
+function qBadge(s){ var col=s.mode==='偽の発見'?'#f87171':(s.mode==='制御'?'var(--good)':'#fbbf24'); return '<span style="color:'+col+';font-weight:700">'+s.score+'</span> <span class="mut" style="font-size:11px">'+esc(s.mode)+'</span>'; }
+
+function runPool(items, worker, conc, onprog){
+  return new Promise(function(resolve){
+    var i=0, done=0, active=0;
+    function next(){
+      if(done>=items.length){ resolve(); return; }
+      while(active<conc && i<items.length){
+        (function(idx){ active++;
+          worker(items[idx]).catch(function(){}).then(function(){ active--; done++; if(onprog)onprog(done,items.length); next(); });
+        })(i++);
+      }
+    }
+    next();
+  });
+}
+
+function fetchReader(url){
+  return fetch('https://r.jina.ai/'+url,{headers:{'accept':'text/plain'}}).then(function(r){ if(!r.ok)throw new Error('reader '+r.status); return r.text(); });
+}
+
+/* ====================== 相関係数 ====================== */
+function pearson(xs, ys){
+  var n=xs.length; if(n<3) return null;
+  var mx=xs.reduce(function(s,x){return s+x;},0)/n;
+  var my=ys.reduce(function(s,y){return s+y;},0)/n;
+  var num=0,dx2=0,dy2=0;
+  for(var i=0;i<n;i++){ var dx=xs[i]-mx,dy=ys[i]-my; num+=dx*dy; dx2+=dx*dx; dy2+=dy*dy; }
+  var denom=Math.sqrt(dx2*dy2); return denom?num/denom:null;
+}
+
+function renderCorr(){
+  var box=$('#qCorr'); if(!box) return;
+  var own=ARTS.filter(function(a){return a.struct && a.perf!=null;});
+  if(own.length<3){ box.style.display='none'; return; }
+  var scores=own.map(function(a){return a.struct.score;});
+  var perfs=own.map(function(a){return a.perf;});
+  var r=pearson(scores,perfs);
+  var strength= r==null?'—': Math.abs(r)>=0.5?'中〜強':'弱';
+  box.style.display='';
+  box.innerHTML='<strong style="font-size:14px">相関分析（自記事 n='+own.length+'）</strong>'+
+    '<div style="margin-top:8px;font-size:13px">黄金比スコア × '+PERF_LABEL+' ： r = '+
+    (r!=null?r.toFixed(3):'—')+
+    '<span class="muted" style="margin-left:8px">（'+strength+'の相関）</span></div>'+
+    '<div class="muted" style="font-size:12px;margin-top:4px">|r|≥0.5で中〜強の相関。n='+own.length+'なので参考値として読んでください。</div>'+
+    (own.filter(function(a){return a.struct.mode==='黄金比寄り：構造を制御できている';}).length ?
+      '<div style="margin-top:8px;font-size:13px">黄金比記事の平均'+PERF_LABEL+'：<strong>'+f1(mean(own.filter(function(a){return a.struct.mode==='黄金比寄り：構造を制御できている';}).map(function(a){return a.perf;})))+'</strong>'+
+      '　その他：<strong>'+f1(mean(own.filter(function(a){return a.struct.mode!=='黄金比寄り：構造を制御できている';}).map(function(a){return a.perf;})))+'</strong></div>' : '');
+}
+
+function bindQuality(){
+  $('#qKey').onclick=qKeyPrompt;
+  $('#selAll').onclick=function(){
+    var any=ARTS.some(function(a){return a.text && !SELECTED[aid(a)];});
+    ARTS.forEach(function(a){ if(a.text){ if(any)SELECTED[aid(a)]=true; else delete SELECTED[aid(a)]; } });
+    renderArticles();
+  };
+  $('#runAll').onclick=function(){
+    if(!qKeyGet()){ qKeyPrompt(); if(!qKeyGet())return; }
+    var all=ARTS.filter(function(a){ return a.text; });
+    if(!all.length){ $('#runAllMsg').textContent='本文のある記事がありません（コレクター設定でCOLLECT_TEXTを有効に）'; return; }
+    var model=$('#qModel').value;
+    $('#runAll').disabled=true; $('#runAllMsg').textContent='解析中 0/'+all.length;
+    runPool(all, function(a){
+      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); })
+        .catch(function(e){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; });
+    }, 2, function(d,t){ $('#runAllMsg').textContent='解析中 '+d+'/'+t; }).then(function(){
+      $('#runAll').disabled=false; $('#runAllMsg').textContent='完了（'+all.length+'件）';
+      renderArticles(); renderQuality(); renderCorr();
+    });
+  };
+  $('#runStruct').onclick=function(){
+    if(!qKeyGet()){ qKeyPrompt(); if(!qKeyGet())return; }
+    var sel=ARTS.filter(function(a){ return SELECTED[aid(a)] && a.text; });
+    if(!sel.length){ qmsg('本文のある記事を選んでください（本文未収集の記事はチェック不可）'); return; }
+    var model=$('#qModel').value; $('#runStruct').disabled=true; qmsg('解析中 0/'+sel.length);
+    runPool(sel, function(a){
+      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); })
+        .catch(function(e){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; });
+    }, 2, function(d,t){ qmsg('解析中 '+d+'/'+t); }).then(function(){
+      $('#runStruct').disabled=false; qmsg('完了'); renderArticles(); renderQuality(); renderCorr(); switchTab('quality');
+    });
+  };
+  $('#qAdd').onclick=function(){
+    if(!qKeyGet()){ qKeyPrompt(); if(!qKeyGet())return; }
+    var url=$('#qUrl').value.trim(), txt=$('#qText').value.trim();
+    var label=$('#qLabel').value.trim()||url||'外部記事';
+    var reach=$('#qReach').value!==''?Number($('#qReach').value):null;
+    var model=$('#qModel').value;
+    var getText = txt? Promise.resolve(txt) : (url? fetchReader(url) : Promise.reject(new Error('URLか本文を入れてください')));
+    $('#qAdd').disabled=true; qext('取得・解析中…');
+    getText.then(function(text){ return analyzeText(String(text).slice(0,12000), model); })
+      .then(function(r){ QEXT.push({label:label,url:url,reach:reach,external:true,struct:Object.assign(qualityScore(r),{raw:r})});
+        $('#qAdd').disabled=false; qext('追加しました'); $('#qText').value=''; $('#qUrl').value=''; $('#qLabel').value=''; $('#qReach').value=''; renderQuality(); renderCorr(); })
+      .catch(function(e){ $('#qAdd').disabled=false; qext('失敗: '+(e.message||e)+'（取得不可なら本文を直接貼ってください）'); });
+  };
+}
+
+function renderQuality(){
+  var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, score:a.struct.score, mode:a.struct.mode, pseudo:a.struct.pseudo, verify:a.struct.verify, reach:a.perf, ext:false, struct:a.struct}; });
+  var ext=QEXT.map(function(e){ return {label:e.label, score:e.struct.score, mode:e.struct.mode, pseudo:e.struct.pseudo, verify:e.struct.verify, reach:e.reach, ext:true, struct:e.struct}; });
+  var pts=own.concat(ext);
+  drawQ(pts);
+  var t=$('#qTable'); if(!t) return; t.innerHTML='';
+  if(!pts.length){ t.innerHTML='<tbody><tr><td class="mut" style="padding:12px">まだ解析結果がありません。記事一覧で選んで「構造解析」、または外部記事を追加してください。</td></tr></tbody>'; return; }
+  var thead=el('thead'); thead.innerHTML='<tr><th>記事</th><th>構造制御</th><th>モード</th><th>操作可能性(表れ%)</th><th>反響</th><th>偽の発見</th></tr>'; t.appendChild(thead);
+  // グループ別平均
+  if(own.length && ext.length){
+    var avgOwn=mean(own.map(function(p){return p.score;}));
+    var avgExt=mean(ext.map(function(p){return p.score;}));
+    var summary=el('div',{style:'font-size:13px;padding:10px 12px;color:var(--mut)'},
+      '自記事 平均スコア：<strong style="color:var(--fg)">'+Math.round(avgOwn)+'</strong>　外部記事 平均スコア：<strong style="color:var(--fg)">'+Math.round(avgExt)+'</strong>');
+    t.parentNode.insertBefore(summary,t);
+  }
+  var tb=el('tbody');
+  pts.slice().sort(function(a,b){return b.score-a.score;}).forEach(function(p){
+    var r=el('tr');
+    r.innerHTML='<td>'+(p.ext?'🔗 ':'')+esc(p.label)+'</td><td>'+qBadge({score:p.score,mode:p.mode})+'</td><td>'+esc(p.mode)+'</td><td>'+(p.verify==null?'—':p.verify+'%')+'</td><td>'+(p.reach==null?'—':num(p.reach))+'</td><td>'+(p.pseudo||0)+'</td>';
+    if(p.struct&&p.struct.raw){ r.style.cursor='pointer'; r.title='クリックで詳細を表示'; (function(pp){r.onclick=function(){showDetail(pp.struct,pp.label);};})(p); }
+    tb.appendChild(r);
+  });
+  t.appendChild(tb);
+}
+function drawQ(pts){
+  var host=$('#qChart'); if(!host) return; host.innerHTML='';
+  var cv=document.createElement('canvas'); cv.width=900; cv.height=360;
+  cv.style.cssText='width:100%;height:auto;background:#0d1117;border:1px solid #30363d;border-radius:10px';
+  host.appendChild(cv);
+  var x=cv.getContext('2d'); var W=cv.width,H=cv.height,L=58,R=W-20,T=18,B=H-34;
+  x.clearRect(0,0,W,H);
+  x.fillStyle='rgba(52,211,153,.06)'; x.fillRect((L+R)/2,B-(B-T)/2,(R-(L+R)/2),(B-T)/2); // 右下＝埋もれた黄金比
+  x.strokeStyle='#30363d'; x.beginPath(); x.moveTo(L,T); x.lineTo(L,B); x.lineTo(R,B); x.stroke();
+  x.fillStyle='#8b97a5'; x.font='12px sans-serif';
+  x.fillText('質 低',L-2,B+16); x.fillText('質 高',R-34,B+16); x.fillText('反響 高',4,T+8); x.fillText('反響 低',4,B-2);
+  var maxR=Math.max(1,Math.max.apply(null,pts.map(function(p){return p.reach||0;})));
+  pts.forEach(function(p){
+    var px=L+(R-L)*(Math.max(0,Math.min(100,p.score))/100);
+    var py=B-(B-T)*((p.reach||0)/maxR);
+    var col=p.mode==='偽の発見'?'#f87171':(p.mode==='黄金比寄り：構造を制御できている'?'#34d399':(p.mode==='失敗'?'#6b7280':'#fbbf24'));
+    x.fillStyle=col; x.beginPath(); x.arc(px,py,6,0,7); x.fill();
+    if(p.ext){ x.strokeStyle='#c084fc'; x.lineWidth=2.5; x.beginPath(); x.arc(px,py,10,0,7); x.stroke(); }
+  });
+  // 凡例
+  x.font='11px sans-serif'; x.fillStyle='#8b97a5';
+  var leg=[['#34d399','黄金比'],['#fbbf24','混在/手心'],['#f87171','偽の発見']];
+  var lx=L+4;
+  leg.forEach(function(l){ x.fillStyle=l[0]; x.beginPath(); x.arc(lx+5,T+6,5,0,7); x.fill(); x.fillStyle='#8b97a5'; x.fillText(l[1],lx+14,T+10); lx+=lx+60; });
+  if(pts.some(function(p){return p.ext;})){ x.strokeStyle='#c084fc'; x.lineWidth=2; x.beginPath(); x.arc(lx+5,T+6,6,0,7); x.stroke(); x.fillStyle='#8b97a5'; x.fillText('外部記事',lx+14,T+10); }
+}
+/* ====================== noteサンプリング ====================== */
+function bindSampling(){
+  $('#runSample').onclick=function(){
+    if(!qKeyGet()){ qKeyPrompt(); if(!qKeyGet())return; }
+    var tag=$('#sampleTag').value.trim();
+    if(!tag){ $('#sampleMsg').textContent='タグを入力してください'; return; }
+    var n=Math.min(20,Math.max(1,parseInt($('#sampleN').value)||5));
+    var model=$('#qModel').value;
+    $('#runSample').disabled=true; $('#sampleMsg').textContent='一覧取得中…';
+    fetchReader('https://note.com/hashtag/'+encodeURIComponent(tag)+'?f=trend')
+      .then(function(html){
+        // 記事URLを抽出
+        var re=/https:\/\/note\.com\/[^/\s"'<>]+\/n\/[a-z0-9]+/g;
+        var matches=html.match(re)||[];
+        var urls=matches.filter(function(u,i,a){return a.indexOf(u)===i;}).slice(0,n);
+        if(!urls.length){ $('#sampleMsg').textContent='記事URLが取得できませんでした（noteのHTML構造が変わっている可能性）'; $('#runSample').disabled=false; return; }
+        $('#sampleMsg').textContent='取得済み '+urls.length+'件・解析中 0/'+urls.length;
+        var done=0;
+        runPool(urls, function(url){
+          return fetchReader(url)
+            .then(function(text){ return analyzeText(String(text).slice(0,12000), model).then(function(r){
+              var label=url.split('/n/')[0].split('/').pop()+' / '+url.split('/n/')[1];
+              QEXT.push({label:label,url:url,reach:null,external:true,struct:Object.assign(qualityScore(r),{raw:r})});
+              done++; $('#sampleMsg').textContent='解析中 '+done+'/'+urls.length;
+            }); })
+            .catch(function(){}); // スキップ
+        }, 2, null).then(function(){
+          $('#runSample').disabled=false; $('#sampleMsg').textContent='完了（'+done+'件解析）';
+          renderQuality(); renderCorr();
+        });
+      })
+      .catch(function(e){ $('#runSample').disabled=false; $('#sampleMsg').textContent='失敗: '+e.message; });
+  };
+}
+bindSampling();
+
+bindQuality();
+
+/* ====================== 構造詳細モーダル ====================== */
+var DETAIL_STATE={result:null};
+
+function showDetail(struct,label){
+  DETAIL_STATE.result=struct.raw;
+  $('#qDetailLabel').textContent=label;
+  renderDetailMoves(); renderDetailStructs(); renderDetailCites(); renderDetailVerify();
+  recomputeDetail();
+  $('#qDetailModal').style.display='block';
+  document.body.style.overflow='hidden';
+}
+$('#qDetailClose').onclick=function(){ $('#qDetailModal').style.display='none'; document.body.style.overflow=''; };
+$('#qDetailModal').onclick=function(e){ if(e.target===$('#qDetailModal')){ $('#qDetailModal').style.display='none'; document.body.style.overflow=''; } };
+
+function renderDetailMoves(){
+  var d=DETAIL_STATE.result; if(!d) return;
+  var tb=$('#qDetailMoves').querySelector('tbody'); tb.innerHTML='';
+  (d.moves||[]).forEach(function(m,i){
+    if(!m.id) m.id=i+1;
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+m.id+'</td>'+
+      '<td>'+esc(m.summary||'')+'<div class="quote-detail">'+esc(m.quote||'')+'</div></td>'+
+      '<td>'+esc(m.reach||'')+'</td><td></td>'+
+      '<td class="muted" style="font-size:12px">'+esc(m.reason||'')+'</td>';
+    var sel=document.createElement('select');
+    sel.style.cssText='background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px';
+    ['強制','好み','未制御'].forEach(function(o){ var op=document.createElement('option'); op.value=o; op.textContent=o; if(o===m.control)op.selected=true; sel.appendChild(op); });
+    sel.onchange=function(){ m.control=sel.value; recomputeDetail(); };
+    tr.children[3].appendChild(sel);
+    tb.appendChild(tr);
+  });
+}
+
+function renderDetailStructs(){
+  var d=DETAIL_STATE.result; if(!d) return;
+  var sc=$('#qDetailStructs'); sc.innerHTML='';
+  if(!(d.structure_claims||[]).length){ sc.innerHTML='<div class="muted">構造・本質の主張は検出されませんでした。</div>'; return; }
+  (d.structure_claims||[]).forEach(function(s){
+    var div=document.createElement('div'); div.className=s.smuggled?'smuggle':'';
+    var checks=(s.feature_checks||[]).map(function(f){ return '<span class="pill">'+(f.satisfied?'✅':'❌')+' '+esc(f.feature)+'</span>'; }).join(' ');
+    div.innerHTML='<div><strong>'+(s.smuggled?'⚠️ 偽の発見の疑い':'構造主張')+'</strong>：'+esc(s.claim||'')+'</div>'+
+      '<div class="muted">道具＝<code>'+esc(s.claimed_structure||'')+'</code> → 写像先＝'+esc(s.target||'')+'</div>'+
+      '<div style="margin:6px 0">'+checks+'</div><div class="muted">'+esc(s.reason||'')+'</div>';
+    sc.appendChild(div);
+  });
+}
+
+function renderDetailCites(){
+  var d=DETAIL_STATE.result; if(!d) return;
+  var ct=$('#qDetailCites').querySelector('tbody'); ct.innerHTML='';
+  if(!(d.citations||[]).length){ ct.innerHTML='<tr><td class="muted" colspan="4" style="padding:10px">引用なし</td></tr>'; return; }
+  (d.citations||[]).forEach(function(c){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+esc(c.source||'')+'</td><td>'+esc(c.supports||'')+'</td>'+
+      '<td>'+(c.forces_step?'<span class="t-強制">強制</span>':'<span class="t-未制御">装飾</span>')+'</td>'+
+      '<td class="muted" style="font-size:12px">'+esc(c.reason||'')+'</td>';
+    ct.appendChild(tr);
+  });
+}
+
+function renderDetailVerify(){
+  var d=DETAIL_STATE.result; if(!d) return;
+  var vt=$('#qDetailVerify').querySelector('tbody'); vt.innerHTML='';
+  if(!(d.verifiability||[]).length){ vt.innerHTML='<tr><td class="muted" colspan="3" style="padding:10px">なし</td></tr>'; return; }
+  (d.verifiability||[]).forEach(function(v){
+    var hyo=v.type==='表れ型';
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+esc(v.claim||'')+'</td>'+
+      '<td>'+(hyo?'<span class="t-強制">表れ型</span>':'<span class="t-未制御">抽象型</span>')+'</td>'+
+      '<td class="muted" style="font-size:12px">'+esc(v.procedure||v.reason||'')+(v.procedure&&v.reason?'<br>'+esc(v.reason):'')+'</td>';
+    vt.appendChild(tr);
+  });
+}
+
+function recomputeDetail(){
+  var d=DETAIL_STATE.result; if(!d) return;
+  var moves=d.moves||[]; var n=moves.length||1;
+  var c={強制:0,好み:0,未制御:0};
+  moves.forEach(function(m){ c[m.control]=(c[m.control]||0)+1; });
+  var reachVal=function(r){ return r==='高'?3:(r==='中'?2:1); };
+  var peaks=moves.filter(function(m){ return m.control==='強制' && reachVal(m.reach)>=3; });
+  var pseudo=(d.structure_claims||[]).filter(function(s){ return s.smuggled; });
+  var garnish=(d.citations||[]).filter(function(c2){ return c2.forces_step===false; });
+  var vf=d.verifiability||[];
+  var hyo=vf.filter(function(v){ return v.type==='表れ型'; }).length;
+  var abst=vf.length-hyo;
+  var mode,mclass;
+  if(pseudo.length){ mode='C：偽の発見（構造を僭称）'; mclass='bad'; }
+  else if(c.好み>0 && (d.structure_claims||[]).length){ mode='B：道具はあるが手心（漏れ）'; mclass='warn'; }
+  else if(peaks.length && (c.好み+c.未制御)===0){ mode='黄金比寄り：構造を制御できている'; mclass='ok'; }
+  else if(c.未制御+c.好み>=n*0.6 && !peaks.length){ mode='A：意見・道具なし（開いた好み/未制御）'; mclass='warn'; }
+  else{ mode='混在：山と漏れが同居'; mclass='warn'; }
+  var col=mclass==='ok'?'var(--good)':(mclass==='bad'?'var(--bad)':'var(--warn)');
+  $('#qDetailVerdict').innerHTML='<span style="color:'+col+'">'+esc(mode)+'</span>'+
+    '<span class="muted" style="font-size:13px"> ／ 操作可能性：表れ型 '+hyo+' ・抽象型 '+abst+'</span>';
+  $('#qDetailSignals').innerHTML=
+    '<span class="pill">手筋 '+n+'</span>'+
+    '<span class="pill" style="color:var(--good)">強制 '+(c.強制||0)+'</span>'+
+    '<span class="pill" style="color:var(--warn)">好み '+(c.好み||0)+'</span>'+
+    '<span class="pill" style="color:var(--bad)">未制御 '+(c.未制御||0)+'</span>'+
+    '<span class="pill">山(強制×高) '+peaks.length+'</span>'+
+    '<span class="pill"'+(pseudo.length?' style="color:var(--bad)"':'')+'>偽の発見 '+pseudo.length+'</span>'+
+    '<span class="pill"'+(garnish.length?' style="color:var(--bad)"':'')+'>装飾引用 '+garnish.length+'</span>'+
+    '<span class="pill" style="color:var(--good)">表れ型 '+hyo+'</span>'+
+    '<span class="pill"'+(abst?' style="color:var(--warn)"':'')+'>抽象型 '+abst+'</span>';
+  $('#qDetailProfile').textContent=d.profile||'';
+  drawDetailMap(moves);
+}
+
+function drawDetailMap(moves){
+  var cv=$('#qDetailMap'); if(!cv) return;
+  var x=cv.getContext('2d'); var W=cv.width,H=cv.height;
+  x.clearRect(0,0,W,H);
+  var L=70,R=W-30,T=24,B=H-44;
+  x.fillStyle='rgba(52,211,153,.07)'; x.fillRect((L+R)/2,T,R-(L+R)/2,(B-T)/2);
+  x.strokeStyle='#30363d'; x.lineWidth=1;
+  x.beginPath(); x.moveTo(L,T); x.lineTo(L,B); x.lineTo(R,B); x.stroke();
+  x.fillStyle='#8b97a5'; x.font='12px sans-serif';
+  var ys={'強制':T+(B-T)*0.16,'好み':T+(B-T)*0.5,'未制御':T+(B-T)*0.84};
+  x.fillText('強制',8,ys['強制']+4); x.fillText('好み',8,ys['好み']+4); x.fillText('未制御',6,ys['未制御']+4);
+  var xs={'低':L+(R-L)*0.2,'中':L+(R-L)*0.5,'高':L+(R-L)*0.82};
+  x.fillText('射程 低',xs['低']-18,B+18); x.fillText('中',xs['中']-6,B+18); x.fillText('高（非自明）',xs['高']-24,B+18);
+  var seen={};
+  moves.forEach(function(m){
+    var px=xs[m.reach]||xs['中'], py=ys[m.control]||ys['好み'];
+    var k=Math.round(px)+'_'+Math.round(py); var off=seen[k]||0; seen[k]=off+1;
+    px+=(off%3)*16-16; py+=Math.floor(off/3)*16;
+    var col=m.control==='強制'?'#34d399':(m.control==='好み'?'#fbbf24':'#f87171');
+    x.fillStyle=col; x.beginPath(); x.arc(px,py,9,0,7); x.fill();
+    x.fillStyle='#0e1116'; x.font='bold 12px sans-serif'; x.textAlign='center';
+    x.fillText(String(m.id),px,py+4); x.textAlign='left';
+  });
+}
+</script>
+</body>
+</html>
