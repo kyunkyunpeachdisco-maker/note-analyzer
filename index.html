@@ -171,6 +171,8 @@
     <div class="row" style="gap:8px;flex-wrap:wrap;margin:0 0 8px">
       <input id="artFilter" placeholder="タイトルで絞り込み（スペース区切りでAND）" style="font-size:16px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;flex:1;min-width:200px">
       <input id="artExclude" placeholder="除外キーワード（スペース区切りでOR）" style="font-size:16px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;flex:1;min-width:200px">
+      <input id="artTagFilter" placeholder="タグで絞り込み（スペース区切りでAND）" list="artTagList" style="font-size:16px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;flex:1;min-width:200px">
+      <datalist id="artTagList"></datalist>
     </div>
     <div class="row" style="gap:8px;flex-wrap:wrap;margin:0 0 8px">
       <button class="btn ghost" id="selAll">表示を全選択/解除</button>
@@ -387,6 +389,13 @@ function tryLoad(text){
 
 /* ====================== レンダリング統括 ====================== */
 function renderAll(){
+  // タグdatalistを更新
+  var dl=$('#artTagList');
+  if(dl){
+    var tagSet={};
+    ARTS.forEach(function(a){ (a.tags||[]).forEach(function(t){ tagSet[t]=1; }); });
+    dl.innerHTML=Object.keys(tagSet).sort().map(function(t){ return '<option value="'+esc(t)+'">'; }).join('');
+  }
   renderOverview(); renderArticles(); renderGems();
   renderTags(); renderStructure(); renderTitle(); renderEvergreen(); renderFans();
   renderQuality();
@@ -476,7 +485,8 @@ var sortState={key:'perf',dir:-1};
 
 function artFilterFn(a){
   var title=(a.title||'').toLowerCase();
-  var inc=$('#artFilter'); var exc=$('#artExclude');
+  var tags=(a.tags||[]).map(function(t){return t.toLowerCase();});
+  var inc=$('#artFilter'); var exc=$('#artExclude'); var tagInc=$('#artTagFilter');
   if(inc&&inc.value.trim()){
     var terms=inc.value.trim().toLowerCase().split(/\s+/);
     if(!terms.every(function(t){return title.indexOf(t)>=0;})) return false;
@@ -484,6 +494,10 @@ function artFilterFn(a){
   if(exc&&exc.value.trim()){
     var excTerms=exc.value.trim().toLowerCase().split(/\s+/);
     if(excTerms.some(function(t){return t&&title.indexOf(t)>=0;})) return false;
+  }
+  if(tagInc&&tagInc.value.trim()){
+    var tagTerms=tagInc.value.trim().toLowerCase().split(/\s+/);
+    if(!tagTerms.every(function(t){return tags.some(function(tag){return tag.indexOf(t)>=0;});})) return false;
   }
   return true;
 }
@@ -1318,7 +1332,7 @@ function bindQuality(){
     renderArticles();
   };
   // フィルタ入力でリアルタイム更新
-  ['artFilter','artExclude'].forEach(function(id){
+  ['artFilter','artExclude','artTagFilter'].forEach(function(id){
     var el2=$('#'+id); if(el2) el2.oninput=function(){ renderArticles(); };
   });
   var cs=$('#cardSort'); if(cs) cs.onchange=function(){ renderArticles(); };
