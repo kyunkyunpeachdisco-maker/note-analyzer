@@ -910,6 +910,8 @@ $('#loadGist').onclick=function(){
     var files=meta.files;
     var key=Object.keys(files).find(function(f){return f.endsWith('.json');});
     if(!key)throw new Error('JSONファイルがGistに見つかりません');
+    // GistIDをlocalStorageに保存（次回起動時の自動読み込みに使用）
+    if(gid!==naGistId){ naGistId=gid; localStorage.setItem('na_gist_id',naGistId); }
     return fetch(files[key].raw_url).then(function(r){return r.text();});
   }).then(function(text){
     tryLoad(text);
