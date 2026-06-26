@@ -104,11 +104,15 @@
     <h2 class="sec">データを読み込む</h2>
     <p class="desc">ブックマークレットで出力したJSONを貼り付けるか、ファイルを選択してください。スマホからはGist URLで読み込めます。</p>
     <div class="panel">
-      <strong style="font-size:14px">☁️ GistのURLから読み込む（スマホ対応）</strong>
-      <p class="mut" style="margin:6px 0">PCでブックマークレットを実行してJSONをGistに保存し、そのURLをここに入力してください。</p>
+      <strong style="font-size:14px">☁️ Gist同期</strong>
+      <p class="mut" style="margin:6px 0">PCでブックマークレット実行後「Gistに保存」→スマホで「Gistから読み込み」。初回はGitHub PATを設定してください。</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn ghost" id="gistSettings">⚙️ Gist設定</button>
+        <button class="btn" id="saveGist">↑ Gistに保存</button>
+        <button class="btn ghost" id="loadGist">↓ Gistから読み込み</button>
+      </div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
-        <input id="gistUrl" placeholder="https://gist.github.com/... または raw URL" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
-        <button class="btn" id="loadGist">読み込む</button>
+        <input id="gistUrl" placeholder="GistのURL（↓読み込み時に自動入力）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
       </div>
       <span class="mut" id="gistMsg" style="margin-top:6px;display:block"></span>
     </div>
@@ -284,6 +288,9 @@
 /* ====================== 状態・ユーティリティ ====================== */
 var DATA = null;       // {meta, articles}
 var ARTS = [];         // 派生指標を付与した記事配列
+/* Gist同期 */
+var naGhPat  = localStorage.getItem('na_github_pat')||'';
+var naGistId = localStorage.getItem('na_gist_id')||'';
 var HAS_VIEWS = false;
 var PERF_KEY = 'views';   // 主指標（ビューが無ければスキ）
 var PERF_LABEL = 'ビュー';
@@ -841,32 +848,57 @@ $('#loadBtn').onclick=function(){ tryLoad($('#jsonInput').value); };
 $('#sampleBtn').onclick=function(){ loadData(sampleData()); $('#loadMsg').textContent='サンプル表示中'; $('#loadMsg').style.color='var(--mut)'; };
 $('#fileInput').onchange=function(e){ var f=e.target.files[0]; if(!f)return; var r=new FileReader(); r.onload=function(){ $('#jsonInput').value=r.result; tryLoad(r.result); }; r.readAsText(f); };
 $('#shareBtn').onclick=makeShareImage;
+function naGistHeaders(){ return {'Authorization':'Bearer '+naGhPat,'Accept':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'}; }
+function naGistMsg(s){ $('#gistMsg').textContent=s; }
+
+$('#gistSettings').onclick=function(){
+  var pat=prompt('GitHub Personal Access Token（gistスコープ）', naGhPat);
+  if(pat==null) return;
+  naGhPat=pat.trim(); localStorage.setItem('na_github_pat', naGhPat);
+  naGistMsg('PAT設定済み');
+};
+
+$('#saveGist').onclick=function(){
+  if(!naGhPat){ alert('先にGist設定でGitHub PATを入力してください'); $('#gistSettings').click(); return; }
+  if(!DATA){ alert('先にデータを読み込んでください'); return; }
+  naGistMsg('アップロード中…'); $('#saveGist').disabled=true;
+  var payload=JSON.stringify(DATA, null, 2);
+  var body=JSON.stringify({description:'note-analyzer data',public:false,files:{'note-analyzer.json':{content:payload}}});
+  fetch(naGistId?'https://api.github.com/gists/'+naGistId:'https://api.github.com/gists',
+    {method:naGistId?'PATCH':'POST',headers:naGistHeaders(),body:body})
+  .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,80));});return r.json();})
+  .then(function(j){
+    if(!naGistId){naGistId=j.id; localStorage.setItem('na_gist_id',naGistId);}
+    var url='https://gist.github.com/'+j.owner.login+'/'+j.id;
+    $('#gistUrl').value=url;
+    naGistMsg('保存しました ✅  '+url);
+    $('#saveGist').disabled=false;
+  }).catch(function(e){ naGistMsg('エラー: '+(e.message||e)); $('#saveGist').disabled=false; });
+};
+
 $('#loadGist').onclick=function(){
   var url=($('#gistUrl').value||'').trim();
-  if(!url){ $('#gistMsg').textContent='URLを入力してください'; return; }
-  $('#gistMsg').textContent='読み込み中…'; $('#loadGist').disabled=true;
-  var p;
-  if(/gist\.github\.com\/[^/]+\/[a-f0-9]+/.test(url)){
-    // https://gist.github.com/user/GIST_ID
-    var gistId=url.replace(/\?.*$/,'').split('/').filter(Boolean).pop();
-    p=fetch('https://api.github.com/gists/'+gistId,{headers:{'Accept':'application/vnd.github+json'}})
-      .then(function(r){if(!r.ok)throw new Error('Gist API '+r.status);return r.json();})
-      .then(function(meta){
-        var files=meta.files;
-        var key=Object.keys(files).find(function(f){return f.endsWith('.json');});
-        if(!key)throw new Error('JSONファイルがGistに見つかりません');
-        return fetch(files[key].raw_url).then(function(r){return r.text();});
-      });
-  } else {
-    // raw URL or other direct URL
-    p=fetch(url).then(function(r){if(!r.ok)throw new Error('取得失敗 '+r.status);return r.text();});
+  var gid=naGistId;
+  // URLからgist IDを抽出
+  if(url && /gist\.github\.com\/[^/]+\/[a-f0-9]+/.test(url)){
+    gid=url.replace(/\?.*$/,'').split('/').filter(Boolean).pop();
+  } else if(!gid && !url){
+    naGistMsg('Gist URLを入力するか、先に「Gistに保存」してください'); return;
   }
-  p.then(function(text){
+  if(!gid && url){ naGistMsg('URLからGist IDを解析できませんでした'); return; }
+  var headers=naGhPat?naGistHeaders():{'Accept':'application/vnd.github+json'};
+  naGistMsg('読み込み中…'); $('#loadGist').disabled=true;
+  fetch('https://api.github.com/gists/'+gid,{headers:headers})
+  .then(function(r){if(!r.ok)throw new Error('Gist API '+r.status);return r.json();})
+  .then(function(meta){
+    var files=meta.files;
+    var key=Object.keys(files).find(function(f){return f.endsWith('.json');});
+    if(!key)throw new Error('JSONファイルがGistに見つかりません');
+    return fetch(files[key].raw_url).then(function(r){return r.text();});
+  }).then(function(text){
     tryLoad(text);
-    $('#gistMsg').textContent='読み込みました'; $('#loadGist').disabled=false;
-  }).catch(function(e){
-    $('#gistMsg').textContent='エラー: '+(e.message||e); $('#loadGist').disabled=false;
-  });
+    naGistMsg('読み込みました ✅'); $('#loadGist').disabled=false;
+  }).catch(function(e){ naGistMsg('エラー: '+(e.message||e)); $('#loadGist').disabled=false; });
 };
 
 /* ====================== KaTeX出力（note本文に貼る用） ====================== */
