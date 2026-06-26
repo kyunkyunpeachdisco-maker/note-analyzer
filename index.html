@@ -175,6 +175,14 @@
     <div class="row" style="gap:8px;flex-wrap:wrap;margin:0 0 8px">
       <button class="btn ghost" id="selAll">表示を全選択/解除</button>
       <button class="btn" id="runStruct">🧭 選択を構造解析</button>
+      <select id="cardSort" class="ctrl" style="display:none">
+        <option value="perf">ビュー/スキ</option>
+        <option value="likeRate">スキ率</option>
+        <option value="likes">スキ</option>
+        <option value="charCount">文字数</option>
+        <option value="publishAt">公開日</option>
+      </select>
+      <button class="btn ghost" id="cardSortDir" style="display:none;padding:8px 12px">▼</button>
       <span class="mut" id="structMsg"></span>
     </div>
     <div class="panel" style="padding:0">
@@ -482,8 +490,10 @@ function renderArticles(){
   var isMobile=window.innerWidth<=680;
   var tableWrap=$('#artTable').parentElement.parentElement; // .panel
   var cardsEl=$('#artCards');
-  if(isMobile){ tableWrap.style.display='none'; cardsEl.style.display='block'; }
-  else { tableWrap.style.display=''; cardsEl.style.display='none'; }
+  var cardSortEl=$('#cardSort');
+  var cardSortDirEl=$('#cardSortDir');
+  if(isMobile){ tableWrap.style.display='none'; cardsEl.style.display='block'; if(cardSortEl){cardSortEl.style.display='';} if(cardSortDirEl){cardSortDirEl.style.display='';} }
+  else { tableWrap.style.display=''; cardsEl.style.display='none'; if(cardSortEl){cardSortEl.style.display='none';} if(cardSortDirEl){cardSortDirEl.style.display='none';} }
   var cols=[
     {k:'title',label:'タイトル',fmt:function(a){return '<a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a>';}},
     {k:'views',label:'ビュー',fmt:function(a){return num(a.views);}},
@@ -533,8 +543,15 @@ function renderArticles(){
   t.appendChild(tb);
 
   // カード表示（スマホ用）
+  var cardKey=(cardSortEl&&cardSortEl.value)||'perf';
+  var cardDir=sortState.cardDir||-1;
+  var cardVisible=visible.slice().sort(function(a,b){
+    var x=a[cardKey], y=b[cardKey];
+    if(typeof x==='string') return cardDir*String(x).localeCompare(String(y),'ja');
+    return cardDir*((y==null?-Infinity:y)-(x==null?-Infinity:x));
+  });
   var cardsHtml='';
-  visible.forEach(function(a){
+  cardVisible.forEach(function(a){
     var checked=SELECTED[aid(a)]?'checked':'';
     var disabled=a.text?'':'disabled';
     function stat(lbl,val){ return val!=null?'<span><span class="lbl">'+lbl+'</span> <span class="val">'+val+'</span></span>':''; }
@@ -1280,6 +1297,12 @@ function bindQuality(){
   ['artFilter','artExclude'].forEach(function(id){
     var el2=$('#'+id); if(el2) el2.oninput=function(){ renderArticles(); };
   });
+  var cs=$('#cardSort'); if(cs) cs.onchange=function(){ renderArticles(); };
+  var csd=$('#cardSortDir'); if(csd) csd.onclick=function(){
+    sortState.cardDir=(sortState.cardDir||(-1))*-1;
+    csd.textContent=sortState.cardDir<0?'▼':'▲';
+    renderArticles();
+  };
   $('#runAll').onclick=function(){
     if(!ensureKey())return;
     // フィルタを考慮：表示中かつチェック済みの記事のみ（チェックなければ表示中全件）
