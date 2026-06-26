@@ -88,6 +88,16 @@
   .smuggle{border-left:3px solid var(--bad);padding-left:10px;margin:8px 0}
   .quote-detail{color:var(--mut);font-size:12px;border-left:2px solid var(--line);padding-left:8px;margin-top:4px}
   select.ctrl2{background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px}
+  /* 記事カード（スマホ用） */
+  .art-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start}
+  .art-card-cb{flex-shrink:0;margin-top:3px}
+  .art-card-body{flex:1;min-width:0}
+  .art-card-title{font-size:14px;font-weight:600;line-height:1.4;margin-bottom:6px}
+  .art-card-title a{color:var(--fg);text-decoration:none}
+  .art-card-title a:hover{color:var(--accent)}
+  .art-card-row{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--mut);margin-bottom:4px}
+  .art-card-row span{white-space:nowrap}
+  .art-card-row .val{color:var(--fg);font-weight:600}
 </style>
 </head>
 <body>
@@ -167,6 +177,7 @@
     <div class="panel" style="padding:0">
       <div class="tablewrap"><table id="artTable"></table></div>
     </div>
+    <div id="artCards" style="display:none"></div>
   </section>
 
   <!-- B: 埋もれた佳作 -->
@@ -463,6 +474,11 @@ function artFilterFn(a){
 }
 
 function renderArticles(){
+  var isMobile=window.innerWidth<=680;
+  var tableWrap=$('#artTable').parentElement.parentElement; // .panel
+  var cardsEl=$('#artCards');
+  if(isMobile){ tableWrap.style.display='none'; cardsEl.style.display='block'; }
+  else { tableWrap.style.display=''; cardsEl.style.display='none'; }
   var cols=[
     {k:'title',label:'タイトル',fmt:function(a){return '<a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a>';}},
     {k:'views',label:'ビュー',fmt:function(a){return num(a.views);}},
@@ -510,6 +526,37 @@ function renderArticles(){
     tb.appendChild(tr2);
   }
   t.appendChild(tb);
+
+  // カード表示（スマホ用）
+  var cardsHtml='';
+  visible.forEach(function(a){
+    var checked=SELECTED[aid(a)]?'checked':'';
+    var disabled=a.text?'':'disabled';
+    cardsHtml+='<div class="art-card">'+
+      '<input class="art-card-cb" type="checkbox" data-aid="'+esc(aid(a))+'" '+checked+' '+disabled+'>'+
+      '<div class="art-card-body">'+
+        '<div class="art-card-title"><a href="'+esc(a.url)+'" target="_blank" rel="noopener">'+esc(a.title)+'</a></div>'+
+        '<div class="art-card-row">'+
+          (HAS_VIEWS?'<span>ビュー <span class="val">'+num(a.views)+'</span></span>':'')+
+          '<span>スキ <span class="val">'+num(a.likes)+'</span></span>'+
+          (a.likeRate!=null?'<span>スキ率 <span class="val">'+(a.likeRate*100).toFixed(1)+'%</span></span>':'')+
+        '</div>'+
+        '<div class="art-card-row">'+
+          '<span>文字 <span class="val">'+num(a.charCount)+'</span></span>'+
+          '<span>画像 <span class="val">'+num(a.imageCount)+'</span></span>'+
+          '<span>見出し <span class="val">'+num(a.headingCount)+'</span></span>'+
+          (a.publishAt?'<span>'+esc(a.publishAt.slice(0,10))+'</span>':'')+
+        '</div>'+
+        (a.struct?'<div style="margin-top:4px">'+qBadge(a.struct)+'</div>':'')+
+      '</div>'+
+    '</div>';
+  });
+  if(hidden>0) cardsHtml+='<div style="text-align:center;color:var(--mut);font-size:12px;padding:8px">'+hidden+'件を非表示中（フィルタ適用）</div>';
+  cardsEl.innerHTML=cardsHtml;
+  // カードのチェックボックスイベント
+  cardsEl.querySelectorAll('input[type=checkbox]').forEach(function(cb){
+    cb.onchange=function(){ var k=cb.dataset.aid; if(cb.checked)SELECTED[k]=true; else delete SELECTED[k]; };
+  });
 }
 
 /* ---------- B: 埋もれた佳作 ---------- */
@@ -842,6 +889,7 @@ function sampleData(){
 }
 
 /* ====================== 初期化 ====================== */
+window.addEventListener('resize', function(){ if(ARTS.length) renderArticles(); });
 buildTabs();
 switchTab('data');
 // GistID設定済みなら起動時に自動読み込み
