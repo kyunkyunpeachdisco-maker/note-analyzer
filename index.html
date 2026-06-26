@@ -353,11 +353,6 @@ function tryLoad(text){
   try{
     var obj = JSON.parse(text);
     loadData(obj);
-    // textフィールドを除いてキャッシュ（本文は大きいためlocalStorage 5MB制限対策）
-    try{
-      var slim=Object.assign({},obj,{articles:obj.articles.map(function(a){var c=Object.assign({},a);delete c.text;return c;})});
-      localStorage.setItem('na_data_cache', JSON.stringify(slim));
-    }catch(e2){ /* QuotaExceededError等は無視 */ }
     msg.textContent='読み込みました ✅'; msg.style.color='var(--good)';
   }catch(e){
     msg.textContent='エラー: '+e.message; msg.style.color='var(--bad)';
@@ -848,10 +843,22 @@ function sampleData(){
 
 /* ====================== 初期化 ====================== */
 buildTabs();
+switchTab('data');
+// GistID設定済みなら起動時に自動読み込み
 (function(){
-  var cached=localStorage.getItem('na_data_cache');
-  if(cached){ try{ loadData(JSON.parse(cached)); }catch(e){ switchTab('data'); } }
-  else{ switchTab('data'); }
+  if(!naGistId) return;
+  var headers=naGhPat?naGistHeaders():{'Accept':'application/vnd.github+json'};
+  naGistMsg('起動時自動読み込み中…');
+  fetch('https://api.github.com/gists/'+naGistId,{headers:headers})
+  .then(function(r){if(!r.ok)throw new Error('Gist API '+r.status);return r.json();})
+  .then(function(meta){
+    var files=meta.files;
+    var key=Object.keys(files).find(function(f){return f.endsWith('.json');});
+    if(!key)throw new Error('JSONファイルが見つかりません');
+    return fetch(files[key].raw_url).then(function(r){return r.text();});
+  }).then(function(text){
+    tryLoad(text); naGistMsg('自動読み込み完了 ✅');
+  }).catch(function(e){ naGistMsg('自動読み込み失敗: '+(e.message||e)); });
 })();
 $('#loadBtn').onclick=function(){ tryLoad($('#jsonInput').value); };
 $('#sampleBtn').onclick=function(){ loadData(sampleData()); $('#loadMsg').textContent='サンプル表示中'; $('#loadMsg').style.color='var(--mut)'; };
