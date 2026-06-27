@@ -244,35 +244,39 @@
   <!-- 構造の質（自由度アナライザ統合） -->
   <section class="tab" data-tab="quality">
     <h2 class="sec">🧭 構造の質 × スキ数</h2>
-    <p class="desc">記事本文をLLMで手筋に分解し、①構造制御（強制/好み/未制御・偽の発見・装飾引用）と②操作可能性（表れ型＝センスなしで実行できる指示 / 抽象型＝判断・センスが要る）を検査。判定はvibeでなく抽出からの機械計算。<strong>これは「ダメさ」検出器</strong>（崩れ・僭称・未操作化を捕る）で、<strong>独創性＝良さは測りません</strong>。自分の記事は下の「全件解析」または「記事一覧」で選んで解析、他人の記事はURL/本文から追加。</p>
+    <p class="desc">記事本文をLLMで分析し、<strong>まずジャンルを判定</strong>してから、ジャンル相応の物差しで評価します。<strong>大枠</strong>＝ジャンル＋総合スコア。<strong>内訳</strong>＝構造制御／推論の質／接地／独自構築の4観点（ジャンルで出し分け・無関係な観点は「—」）。<strong>フラグ</strong>＝偽の発見。判定はvibeでなく抽出からの機械計算で、各項目は詳細ビューで<strong>その場で修正でき（的外れな手筋は「除外」）、スコアと散布図・レーダーに即反映</strong>されます。自分の記事は下の「全件解析」または「記事一覧」で選んで解析、他人の記事はURL/本文から追加。</p>
     <details style="margin-bottom:12px">
       <summary>📖 指標の読み方</summary>
       <div class="panel" style="margin-top:8px;font-size:13px;line-height:1.8">
-        <strong>■ 一覧表の列</strong>
+        <strong>■ 一覧表の列（大枠｜内訳｜フラグ）</strong>
         <table style="font-size:13px;margin:8px 0 16px">
-          <tr><th style="text-align:left;white-space:normal">総合</th><td style="text-align:left;white-space:normal">0〜100 の統合スコア。構造制御（60%）と操作可能性（40%）の加重平均。記事の「閉じ具合」と「実行しやすさ」の両面を反映。</td></tr>
-          <tr><th style="text-align:left;white-space:normal">構造制御</th><td style="text-align:left;white-space:normal">0〜100。手筋の制御度（強制/好み/未制御）から算出。全手筋が「強制」なら 100、「好み」や「未制御」が多いほど下がる。偽の発見 1 件で −35。</td></tr>
-          <tr><th style="text-align:left;white-space:normal">操作可能性</th><td style="text-align:left;white-space:normal">0〜100%。記事の主張・指示のうち「表れ型」（センスなしで再現可能）の割合。高いほど読者が手順通りに実行できる。</td></tr>
-          <tr><th style="text-align:left;white-space:normal">独自構築</th><td style="text-align:left;white-space:normal">0〜100。著者が独自に構築したもの（概念定義・実装・設計イテレーション・分野横断接続）の検出数と多様性。独自概念を定義し、実装し、課題を見つけて改善するような記事で高くなる。エッセイ・感想文は0が普通。</td></tr>
-          <tr><th style="text-align:left;white-space:normal">モード</th><td style="text-align:left;white-space:normal"><span class="t-強制">制御</span> 全手筋が強制／<span style="color:#fbbf24">手心あり</span> 構造はあるが好みが混入／<span style="color:#fbbf24">混在</span> 強制と漏れが同居／<span style="color:#fbbf24">意見</span> 構造なし・好み中心／<span style="color:#f87171">偽の発見</span> 構造を主張しているが定義特徴を満たしていない／<span style="color:var(--mut)">失敗</span> 解析エラー</td></tr>
-          <tr><th style="text-align:left;white-space:normal">偽の発見</th><td style="text-align:left;white-space:normal">「本質は〜」「つまり〜と同じ」と構造を主張しているが、持ち込んだ構造の定義特徴を写像先が満たしていない箇所の数。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">ジャンル<span class="mut">（大枠）</span></th><td style="text-align:left;white-space:normal">技術設計／実験検証／論証／案出し／エッセイ体験。どの物差しで評価したかのレンズ。複合記事は最も支配的なジャンルを表示（区間内訳は詳細ビュー）。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">総合<span class="mut">（大枠）</span></th><td style="text-align:left;white-space:normal">0〜100。ジャンルで有効な内訳観点の平均（偽の発見1件で −35）。エッセイ等で数値観点が無い場合は「—」（不当な0点を出さない）。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">構造制御<span class="mut">（内訳）</span></th><td style="text-align:left;white-space:normal">0〜100。<strong>構造的な手筋だけ</strong>（強制/好み/未制御）で算出。報告（体験・引用・ナレーション）は分母から除外。構造的手筋が無い記事は「—」。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">推論の質<span class="mut">（内訳）</span></th><td style="text-align:left;white-space:normal">0〜100。結論が強制されているかとは別に、提案・主張が前提から筋が通り・区別が一貫し・反例を処理しているか。案出しやエッセイの論理の良し悪しはここで測る。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">接地<span class="mut">（内訳）</span></th><td style="text-align:left;white-space:normal">0〜100%。荷重主張のうち「表れ型」（センスなしで再現可能）の割合＋引用負荷。読者が確かめられる度合い。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">独自構築<span class="mut">（内訳）</span></th><td style="text-align:left;white-space:normal">0〜100。著者が独自に作ったもの（概念定義・実装・設計イテレーション・分野横断接続）の検出数と多様性。エッセイで0でも減点ではない。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">偽の発見<span class="mut">（フラグ）</span></th><td style="text-align:left;white-space:normal">構造・本質・等値を主張しているが定義特徴を写像先が満たさない箇所の数。0が正常。軸ではなく赤信号として総合から減点。</td></tr>
         </table>
-        <strong>■ 詳細ビューの各セクション</strong>
+        <strong>■ 詳細ビュー（各項目はその場で修正可・即マッピング反映）</strong>
         <table style="font-size:13px;margin:8px 0 16px">
-          <tr><th style="text-align:left;white-space:normal">手筋テーブル</th><td style="text-align:left;white-space:normal">記事を論理ステップに分解したもの。各手筋に<strong>射程</strong>（そのステップが押さえる構造の非自明さ：低/中/高）と<strong>制御度</strong>（強制＝データや論理で結論が決まる／好み＝著者の趣味で決めている／未制御＝根拠なく開いている）を付与。制御度はプルダウンで変更でき、スコアが即座に再計算される。</td></tr>
-          <tr><th style="text-align:left;white-space:normal">散布図</th><td style="text-align:left;white-space:normal">横軸＝射程、縦軸＝制御度。<span style="color:var(--good)">右上（強制×高射程）＝黄金比</span>の瞬間。<span style="color:var(--bad)">下段（好み・未制御）＝漏れ</span>。番号は手筋テーブルに対応。</td></tr>
-          <tr><th style="text-align:left;white-space:normal">構造主張の検査</th><td style="text-align:left;white-space:normal">「本質は〜」等の主張を検出し、持ち込んだ構造の定義特徴を写像先が満たすか1つずつ検査。❌があれば「偽の発見」。</td></tr>
-          <tr><th style="text-align:left;white-space:normal">引用負荷テスト</th><td style="text-align:left;white-space:normal">各引用が論証のどのステップを「強制」しているかを判定。消しても論理の強さが変わらないなら「装飾」（権威の飾り）。</td></tr>
-          <tr><th style="text-align:left;white-space:normal">操作可能性</th><td style="text-align:left;white-space:normal">荷重を担う主張ごとに、<span class="t-強制">表れ型</span>（手順通りやれば誰でも同じ結果）か<span class="t-未制御">抽象型</span>（判断・センスが必要）かを判定。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">ジャンル選択</th><td style="text-align:left;white-space:normal">LLMのジャンル判定が外れていたらここで変更。総合の作り方（有効観点）が切り替わり即再計算。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">観点レーダー</th><td style="text-align:left;white-space:normal">そのジャンルで有効な内訳（構造制御／推論の質／接地／独自構築）を1枚で俯瞰。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">手筋テーブル</th><td style="text-align:left;white-space:normal">記事を論理ステップに分解。各手筋に<strong>射程</strong>と<strong>制御度</strong>（強制／好み／未制御／<strong>報告</strong>＝体験・引用・ナレーションで中立）を付与。プルダウンで修正、<strong>的外れな手筋は「除外」</strong>でスコアから外せる。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">推論の質</th><td style="text-align:left;white-space:normal">提案・主張ごとに前提からの帰結・区別の一貫・反例処理などをチェックし、判定（高/中/低）を上書き可。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">手筋マップ</th><td style="text-align:left;white-space:normal">横＝射程、縦＝制御度（強制/好み/未制御/報告）。番号は手筋テーブルに対応。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">構造主張／引用／操作可能性／独自構築</th><td style="text-align:left;white-space:normal">それぞれ偽の発見・装飾引用・表れ/抽象・構築物を検査。各項目はトグル／プルダウン／除外で修正でき、総合・散布図・相関に即反映される。</td></tr>
         </table>
-        <strong>■ スコアの目安</strong>
+        <strong>■ スコアの考え方</strong>
         <div style="margin:8px 0">
-          総合スコアは3軸の統合です：<strong>構造制御（論証が閉じているか）</strong>、<strong>操作可能性（読者が実行できるか）</strong>、<strong>独自構築（著者が独自に何かを作っているか）</strong>。独自の概念を定義し、実装し、課題を見つけて改善するような記事は、構造制御だけでなく独自構築でも高スコアになります。エッセイ・感想文は独自構築が0になりますが、それ自体は減点ではありません。
+          総合は<strong>ジャンル相応</strong>に作ります。技術設計／実験は構造制御＋接地＋独自構築、論証は構造制御＋推論の質＋接地、案出しは推論の質＋接地＋独自構築、エッセイは推論の質＋独自構築（構造制御は「—」）。<strong>エッセイや案出しを構造制御の物差しで0点に沈めない</strong>のが要点です。LLM判定が外れたら詳細ビューで直せば、スコアもマッピングも追従します。
         </div>
       </div>
     </details>
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <select id="qModel" class="ctrl"><option value="claude-opus-4-8">Opus 4.8（高精度）</option><option value="claude-sonnet-4-6">Sonnet 4.6（高速・安価）</option><option value="gemini-2.0-flash">Gemini 2.0 Flash（無料枠あり）</option><option value="gemini-1.5-flash">Gemini 1.5 Flash（無料枠あり）</option></select>
+      <select id="qSamples" class="ctrl" title="同じ記事を複数回解析し、中央値の代表＋一致度を出す（精度↑・API回数↑）"><option value="1">1回</option><option value="3" selected>3回(自己一貫性)</option><option value="5">5回</option></select>
+      <label class="mut" style="display:flex;align-items:center;gap:4px;font-size:13px" title="手で確定させた自記事を基準例としてプロンプトに同梱し、判定をあなたの基準に寄せる"><input type="checkbox" id="qCalib" checked> 確定例で較正</label>
       <button class="btn ghost" id="qKey">🔑 Claude APIキー</button>
       <button class="btn" id="runAll">⚡ 全件解析</button>
       <button class="btn ghost" id="cancelAll" style="display:none">⏹ 中断</button>
@@ -322,28 +326,41 @@
       <strong id="qDetailLabel" style="font-size:16px;flex:1;margin-right:12px"></strong>
       <button class="btn ghost" id="qDetailClose">閉じる</button>
     </div>
+    <div id="qDetailGenre" style="margin-bottom:10px"></div>
     <div class="verdict" id="qDetailVerdict"></div>
     <div id="qDetailSignals" style="margin:8px 0"></div>
     <div class="muted" id="qDetailProfile" style="margin-bottom:12px"></div>
-    <canvas id="qDetailMap" width="900" height="380" style="width:100%;height:auto;background:#0d1117;border:1px solid var(--line);border-radius:10px;display:block"></canvas>
-    <div class="muted" style="font-size:12px;margin:6px 0 16px">右上＝黄金比の瞬間（強制×高射程）／下段＝漏れ（好み・未制御）。点番号は手筋表に対応。</div>
-    <h3 style="font-size:14px;margin:0 0 8px">手筋（制御度を上書き可・その場で再計算）</h3>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px">
+      <div style="flex:1;min-width:260px">
+        <div class="muted" style="font-size:12px;margin-bottom:4px">観点レーダー（このジャンルで有効な内訳）</div>
+        <canvas id="qDetailRadar" width="360" height="320" style="width:100%;max-width:360px;height:auto;background:#0d1117;border:1px solid var(--line);border-radius:10px;display:block"></canvas>
+      </div>
+      <div style="flex:1.4;min-width:280px">
+        <div class="muted" style="font-size:12px;margin-bottom:4px">手筋マップ（横＝射程・縦＝制御度／番号は表に対応）</div>
+        <canvas id="qDetailMap" width="900" height="380" style="width:100%;height:auto;background:#0d1117;border:1px solid var(--line);border-radius:10px;display:block"></canvas>
+      </div>
+    </div>
+    <h3 style="font-size:14px;margin:12px 0 8px">手筋（制御度を上書き・的外れは「除外」。その場で再計算・マッピングへ反映）</h3>
     <div class="tablewrap"><table id="qDetailMoves" style="font-size:13px">
-      <thead><tr><th>#</th><th>手筋</th><th>射程</th><th>制御度</th><th>根拠</th></tr></thead>
+      <thead><tr><th>#</th><th>手筋</th><th>射程</th><th>制御度</th><th>根拠</th><th>操作</th></tr></thead>
       <tbody></tbody>
     </table></div>
+    <h3 style="font-size:14px;margin:16px 0 8px">推論の質（提案・主張の筋の良し悪し）</h3>
+    <div id="qDetailReasoning"></div>
     <h3 style="font-size:14px;margin:16px 0 8px">構造主張の検査（偽の発見）</h3>
     <div id="qDetailStructs"></div>
     <h3 style="font-size:14px;margin:16px 0 8px">引用負荷テスト</h3>
     <div class="tablewrap"><table id="qDetailCites" style="font-size:13px">
-      <thead><tr><th>出典</th><th>強制したステップ</th><th>負荷</th><th>判定理由</th></tr></thead>
+      <thead><tr><th>出典</th><th>強制したステップ</th><th>負荷</th><th>判定理由</th><th>操作</th></tr></thead>
       <tbody></tbody>
     </table></div>
     <h3 style="font-size:14px;margin:16px 0 8px">操作可能性</h3>
     <div class="tablewrap"><table id="qDetailVerify" style="font-size:13px">
-      <thead><tr><th>荷重主張</th><th>型</th><th>読者の検証手続き／理由</th></tr></thead>
+      <thead><tr><th>荷重主張</th><th>型</th><th>読者の検証手続き／理由</th><th>操作</th></tr></thead>
       <tbody></tbody>
     </table></div>
+    <h3 style="font-size:14px;margin:16px 0 8px">独自構築（正のシグナル）</h3>
+    <div id="qDetailConstructions"></div>
   </div>
 </div>
 
@@ -587,7 +604,7 @@ function renderArticles(){
     th.onclick=function(){ if(sortState.key===c.k)sortState.dir*=-1; else {sortState.key=c.k; sortState.dir=-1;} renderArticles(); };
     tr.appendChild(th);
   });
-  var qth=el('th',null,'質'); qth.title='構造解析スコア（LLMによる構造制御の評価）';
+  var qth=el('th',null,'質'); qth.title='総合スコア＋ジャンル（LLM構造解析・ジャンル相応評価）';
   tr.appendChild(qth);
   thead.appendChild(tr); t.appendChild(thead);
   var rows=ARTS.slice().sort(function(a,b){
@@ -1338,8 +1355,8 @@ function makeShareImage(){
   else if(tab==='quality') drawImgTable(x,W,H,'🧭 構造の質',function(){
     var own=ARTS.filter(function(a){return a.struct;}).map(function(a){ return {label:a.title,score:a.struct.score,mode:a.struct.mode}; });
     var ext=QEXT.map(function(e){ return {label:e.label,score:e.struct.score,mode:e.struct.mode}; });
-    return own.concat(ext).sort(function(a,b){return b.score-a.score;}).slice(0,8).map(function(p){
-      return [clip(p.label,28), 'スコア '+p.score, p.mode];
+    return own.concat(ext).sort(function(a,b){return (b.score==null?-1:b.score)-(a.score==null?-1:a.score);}).slice(0,8).map(function(p){
+      return [clip(p.label,28), 'スコア '+(p.score==null?'—':p.score), p.mode];
     });
   });
   else drawImgOverview(x,W,H);
@@ -1745,10 +1762,10 @@ function katexQuality(name,asof){
   var ext=QEXT.map(function(e){ return {label:e.label, score:e.struct.score, mode:e.struct.mode, verify:e.struct.verify, reach:e.reach}; });
   var pts=own.concat(ext);
   if(!pts.length) return null;
-  pts.sort(function(a,b){return b.score-a.score;});
-  var t='\\begin{array}{|l|r|l|r|r|}\n\\hline\n\\text{記事} & \\text{構造制御} & \\text{モード} & \\text{表れ\\%} & \\text{'+katText(PERF_LABEL)+'} \\\\ \\hline\n';
+  pts.sort(function(a,b){return (b.score==null?-1:b.score)-(a.score==null?-1:a.score);});
+  var t='\\begin{array}{|l|r|l|r|r|}\n\\hline\n\\text{記事} & \\text{総合} & \\text{ジャンル} & \\text{接地\\%} & \\text{'+katText(PERF_LABEL)+'} \\\\ \\hline\n';
   pts.slice(0,10).forEach(function(p){
-    t+='\\text{'+katText(katClip(p.label,18))+'} & '+p.score+' & \\text{'+katText(p.mode)+'} & '+(p.verify!=null?p.verify+'\\%':'-')+' & '+(p.reach!=null?katNum(p.reach):'-')+' \\\\ \\hline\n';
+    t+='\\text{'+katText(katClip(p.label,18))+'} & '+(p.score==null?'-':p.score)+' & \\text{'+katText(p.mode)+'} & '+(p.verify!=null?p.verify+'\\%':'-')+' & '+(p.reach!=null?katNum(p.reach):'-')+' \\\\ \\hline\n';
   });
   t+='\\end{array}';
   return '$$\n\\textbf{\\text{🧭 構造の質}}\n$$\n\n$$\n'+t+'\n$$';
@@ -1824,74 +1841,73 @@ function qmsg(s){ var e=$('#structMsg'); if(e)e.textContent=s; }
 function qext(s){ var e=$('#qExtMsg'); if(e)e.textContent=s; }
 
 var Q_SYSTEM=[
-'あなたは文章の「構造制御」を分析する抽出器です。vibe採点はしません。記事を手筋に分解し、各手筋を分類し、構造主張と引用を検査して、JSONだけを返します。',
+'あなたは文章を分析する抽出器です。vibe採点はしません。まず記事のジャンルを判定し、ジャンルに応じた物差しで、手筋・推論・構造主張・引用・独自構築を抽出して、JSONだけを返します。',
 '',
-'# 枠組み',
-'黄金比＝対象の構造全体を制御し、恣意的な自由度を残さない（結論が強制され、著者自身が中身に入らない）。',
-'各手筋の「制御度」：',
-'- 強制 … データ/論理/外部の公平機構によって結論がそう決まる（著者の好みでは動かせない。約分・観測・最小仮説・秘密投票など）',
-'- 好み … 著者の趣味・都合・満足でツマミを埋めている（決めの値・0.7掛け・下駄・好みで変更・でもいい）',
-'- 未制御 … 主張が支持されず開いている（無根拠の一般化・案出し・読者への丸投げ・反証不能）',
-'「射程」＝その手筋が押さえる構造の非自明さ（低/中/高）。',
-'重要：表層の厳密さ（数式・引用・整った構成）は強制を意味しない。見かけに釣られるな。',
+'# ステップ0：ジャンル判定（最初に必ず行う）',
+'記事全体を次のいずれかに分類する（primary_genre）。複合記事は sections で区間ごとに分ける。',
+'- 技術設計 … 何かを設計・実装した記事。設計判断・実装・仕様がある。',
+'- 実験検証 … 仮説を立てデータ・比較で検証した記事。',
+'- 論証 … 主張を根拠・論理で支える記事。',
+'- 案出し … 規範・アイデア・提案を出す記事。結論が強制されないのが規範。ただし提案の論理の良し悪し（推論の質）は評価する。',
+'- エッセイ体験 … 個人の体験・回想・対話の記事。',
+'重要：ジャンルで当てる物差しが違う。構造制御（強制/好み/未制御）の物差しは、構造・論証の主張にのみ当てる。エッセイの体験報告・引用・ナレーションには当てない（→制御度は「報告」）。',
+'',
+'# 手筋への分解と制御度',
+'記事を論理ステップ（手筋）に分解し、各手筋に「射程」（押さえる構造の非自明さ：低/中/高）と「制御度」を付与。制御度は4値：',
+'- 強制 … データ/論理/外部の公平機構によって結論がそう決まる（著者の好みでは動かせない）。',
+'- 好み … 理由なく著者の趣味・都合でツマミを埋めている（理由・課題・対策の説明がない決め打ち）。',
+'- 未制御 … 構造・論証の主張なのに支持されず開いている（無根拠の一般化・反証不能）。',
+'- 報告 … 体験・引用・ナレーション・事実の提示。著者の主観でも穴でもなく中立。エッセイ/体験の語りや、根拠として提示された具体的やり取り・引用はここ。',
+'重要：表層の厳密さ（数式・引用・整った構成）は強制を意味しない。逆に、自嘲や砕けたトーンは「好み」を意味しない。トーンではなく実質で判断せよ。',
+'',
+'# 推論の質（reasoning）',
+'荷重を担う主張・提案について、「結論が強制されているか」とは別に、推論として筋が通っているかを評価する。案出し・論証・エッセイで特に重要（案出しでも論理の良し悪しはある）。',
+'各主張/提案について次の観点をチェックし、verdict（高/中/低）を出す：',
+'- 前提からの帰結 … 提案/結論が、述べられた問題設定・前提から実際に導かれているか。',
+'- 区別の一貫性 … 持ち出した区別・分類が一貫し、恣意的でないか。',
+'- 反例処理 … 明らかな反例・反論・例外を想定し処理しているか。',
+'- 無矛盾 … 記事内で自己矛盾していないか。',
+'- 定義の一貫 … 鍵概念を定義し、最後まで同じ意味で使っているか。',
 '',
 '# 偽の発見（pseudo-structure）検査',
-'「本質は〜」「つまり〜と同じ」など構造・本質・等値を**真剣に**主張する箇所を見つけ、',
-'1) 主張された構造の定義特徴を挙げる（例：因数分解＝「積構造」＋「共通項の括り出し」）、',
-'2) 写像先の対象がその特徴を満たすか各々検査、',
-'3) 欠けていれば smuggled=true（構造を僭称＝偽の発見）。',
-'',
-'**重要：以下は偽の発見にしない**',
-'- 比喩・アナロジーとして使っている（「〜みたいなもの」「〜的な」）',
-'- 既存概念の名前を借りつつ、独自定義を明示的に与えて新指標を作っている（造語・パロディ名の指標でも、計算式や定義が厳密なら構造は成立している）',
-'- エッセイ・感想の中で感覚を伝えるための修辞的な構造援用',
-'- 著者が謙遜・自嘲（「ジョーク指標」「遊び」等）していても、実際の定義・計算が厳密なら偽の発見ではない。著者のトーンではなく、定義の実質で判断せよ',
-'偽の発見は「本気で構造的等値を主張しているが定義特徴を満たさない」場合のみ。疑わしければ smuggled=false。',
+'「本質は〜」「つまり〜と同じ」など構造・本質・等値を真剣に主張する箇所を見つけ、1) 主張された構造の定義特徴を挙げ、2) 写像先がそれを満たすか各々検査、3) 欠けていれば smuggled=true。',
+'偽の発見にしないもの：比喩・アナロジー（「〜みたいな」）／既存名を借りつつ独自定義を明示した新指標（造語・パロディ名でも計算式・定義が厳密なら成立）／謙遜・自嘲（「ジョーク指標」等）でも定義・計算が厳密な場合。疑わしければ smuggled=false。',
 '',
 '# 引用負荷テスト',
-'各引用について、論証のどのステップを強制するかを問い、出典が本当にそれを確立しているか判定。消しても論理の強さが変わらない／同語反復なら forces_step=false（権威の装飾）。',
+'各引用について、論証のどのステップを強制するかを問う。消しても論理の強さが変わらない／同語反復なら forces_step=false（権威の装飾）。',
 '',
 '# 操作可能性（厳密読み）',
-'荷重を担う主張・指示（記事の結論を支える主張や読者への行動指示）ごとに、センスや判断力なしで実行できるかを判定。',
-'- type=表れ型 … 「センス/IQの無い人」が手順通り実行して同じ結果に至れる。明確な操作・閾値・手続きがある。',
-'- type=抽象型 … 実行に判断・センス・目利きが必要。原則・対応・言い換えに留まる。',
-'判定は2段で行う：',
-'1) 剥離テスト … 文体・逸話・固有事例を剥いだ後、一般化できる操作/閾値が残るか。残らなければ抽象型。',
-'2) 再現性テスト … その指示を「センス/IQの無い人」が手順通り実行して同じ結果に至るか。「適切に/うまく/論理的に/ちゃんと/本質を」やるのに判断・センス・目利きが要るなら抽象型。',
-'表れ型の例：「コンビニの270円ラテを買うのをやめる」「字数を数えて3文字削る」「つもり貯金をアプリに記録」「30文字で言え」。',
-'抽象型の例：「相手のKPIに便益を翻訳しろ」「3回断られてから報告」「論理的に書け」「結論から話せ」「炎の人を探せ」「本質は整理」。',
-'',
-'# 較正例（要点のみ）',
-'- 対決ルールを「未記載要素は秘密投票」「指標は計算式不明だが公平」で閉じる→全手筋 強制。有能→資産/幸福を表れに操作化→検証 表れ型。',
-'- オリジナル指標の設計記事で「決めの値」「下駄」「好みで変更」等の表現がある場合の判定基準：',
-'  → 著者の自嘲トーン（ジョーク指標・独断と偏見等）で判断するな。実際の設計プロセスで判断せよ。',
-'  → 「0.5は決めの値」でも、なぜ0.5かの意味づけが書かれていれば好みではなく設計判断（強制）。',
-'  → 「0.7掛け」でも、課題を発見→分析→対策として補正を入れる工学的プロセスを踏んでいれば強制。',
-'  → 「愛着ボーナス」でも、具体的な課題（ユーザーの不快感）への対策として設計されていれば強制。',
-'  → 「好みで相対値に変更」でも、変更前後の挙動比較と理由説明があれば設計判断（強制）。',
-'  → 要するに、パラメータの値自体は任意でも、その選択理由・課題・対策のプロセスが記事内で説明されていれば、それは「好み」ではなく「設計」。好みとは理由なく値を置いている場合のみ。',
-'- WARのような既存指標の名前を借りた造語指標（MVAR等）：独自に計算式を定義し、変数と補正の意味を説明しているなら、偽の発見ではない。名前の借用と構造の僭称は別物。',
-'- 「因数分解＝整理＝生きる力」：定義特徴（積構造・共通項括り出し）を現実の問題分解は満たさない→smuggled=true。',
-'- 「Microsoft調査で信頼が高いほど批判的思考が減る」→同語反復で価値主張を確立しない→forces_step=false。',
+'荷重を担う指示・主張ごとに、センスや判断力なしで実行できるかを判定。',
+'- 表れ型 … 「センス/IQの無い人」が手順通り実行して同じ結果に至れる。明確な操作・閾値・手続きがある。',
+'- 抽象型 … 実行に判断・センス・目利きが必要。原則・対応・言い換えに留まる。',
+'案出し記事でも、併載された具体的な実践例（実際にやって見せた箇所）は表れ型として拾うこと。本編の提案が抽象的でも、実践部分は別に評価する。',
 '',
 '# 独自構築の検出（正のシグナル）',
-'記事内に以下のような「著者が独自に構築したもの」があれば検出せよ。これらは構造の穴ではなく、構造の強さの証拠。',
-'- original_concept: 著者が独自に定義した概念・指標・フレームワーク（名前があり、定義が明示されているもの）',
-'- implementation: 概念を実装・実証したもの（アプリ、実験、データ、計算結果など）',
-'- iteration: 課題を発見→分析→対策のサイクルを回した箇所（設計のイテレーション）',
-'- cross_domain: 異なる分野の構造を正当に接続したもの（偽の発見ではなく、定義特徴を満たす接続）',
+'著者が独自に構築したものを検出する（構造の穴ではなく強さの証拠）。',
+'- original_concept：独自に定義した概念・指標・フレームワーク（名前と定義がある）。',
+'- implementation：概念を実装・実証したもの（アプリ・実験・データ・計算結果）。',
+'- iteration：課題発見→分析→対策のサイクルを回した箇所。',
+'- cross_domain：異分野の構造を正当に接続したもの（定義特徴を満たす接続）。',
+'エッセイ・感想にこれらが無いのは普通で、減点ではない。',
 '',
-'これらが多い記事は、構造制御が高いだけでなく「独自に構造を作っている」記事であり、高く評価されるべき。',
-'エッセイ・感想文にはこれらがないのが普通であり、それ自体は減点ではない。',
+'# 較正例',
+'- オリジナル指標の設計記事で「0.5は決めの値」「0.7掛け」「愛着ボーナス」等：自嘲トーンで判断せず、値の選択理由・課題・対策が記事内で説明されていれば「好み」ではなく設計判断（強制）。理由なく置いただけが「好み」。',
+'- WAR等の既存名を借りた造語指標（MVAR等）：独自に計算式を定義していれば偽の発見ではない。',
+'- 「持続可能な議論の案出し」型：本編の提案は推論の質（区別の一貫・反例処理）で評価し、併載の具体的批判実践は表れ型・強制で拾う。「開いてるから0点」にしない。',
+'- エッセイで体験を根拠に述べる洞察（具体的やり取りが根拠）：未制御ではなく報告。',
+'- 「因数分解＝整理＝生きる力」：定義特徴を写像先が満たさない→smuggled=true。',
 '',
-'# 出力（このJSONのみ。前後に説明文を一切付けない）',
+'# 出力（このJSONのみ。前後に説明文を一切付けない。半角ダブルクオートのみ使用）',
 '{',
-'  “moves”:[{“id”:1,”summary”:”短い要約”,”quote”:”該当箇所の引用(30字程度)”,”reach”:”低|中|高”,”control”:”強制|好み|未制御”,”reason”:”分類の根拠”}],',
-'  “structure_claims”:[{“claim”:”主張”,”claimed_structure”:”持ち込んだ構造名”,”defining_features”:[“特徴1”,”特徴2”],”target”:”写像先”,”feature_checks”:[{“feature”:”特徴1”,”satisfied”:true,”reason”:”…”}],”smuggled”:true,”reason”:”…”}],',
-'  “citations”:[{“source”:”出典”,”supports”:”支えようとした主張”,”forces_step”:false,”reason”:”…”}],',
-'  “verifiability”:[{“claim”:”荷重を担う主張”,”procedure”:”読者が記事内材料だけで確かめる手続き”,”type”:”表れ型|抽象型”,”reason”:”…”}],',
-'  “constructions”:[{“type”:”original_concept|implementation|iteration|cross_domain”,”summary”:”何を構築したか”,”evidence”:”記事内の根拠(30字程度)”}],',
-'  “profile”:”一文プロファイル”',
+'  "primary_genre":"技術設計|実験検証|論証|案出し|エッセイ体験",',
+'  "sections":[{"summary":"区間の内容","genre":"技術設計|実験検証|論証|案出し|エッセイ体験"}],',
+'  "moves":[{"id":1,"summary":"短い要約","quote":"該当箇所の引用(30字程度)","reach":"低|中|高","control":"強制|好み|未制御|報告","reason":"分類の根拠"}],',
+'  "reasoning":[{"target":"評価した主張/提案","checks":[{"point":"前提からの帰結|区別の一貫性|反例処理|無矛盾|定義の一貫","ok":true,"reason":"…"}],"verdict":"高|中|低","reason":"…"}],',
+'  "structure_claims":[{"claim":"主張","claimed_structure":"持ち込んだ構造名","defining_features":["特徴1","特徴2"],"target":"写像先","feature_checks":[{"feature":"特徴1","satisfied":true,"reason":"…"}],"smuggled":true,"reason":"…"}],',
+'  "citations":[{"source":"出典","supports":"支えようとした主張","forces_step":false,"reason":"…"}],',
+'  "verifiability":[{"claim":"荷重を担う主張","procedure":"読者が記事内材料だけで確かめる手続き","type":"表れ型|抽象型","reason":"…"}],',
+'  "constructions":[{"type":"original_concept|implementation|iteration|cross_domain","summary":"何を構築したか","evidence":"記事内の根拠(30字程度)"}],',
+'  "profile":"一文プロファイル"',
 '}'
 ].join('\n');
 
@@ -1929,57 +1945,148 @@ function prepareText(text){
   return combined.slice(0,24000); // 安全上限
 }
 
-function analyzeText(text, model){
+function analyzeText(text, model, calib){
   var prepared=prepareText(text);
+  var userMsg=(calib||'')+'次の記事を分析せよ：\n\n'+prepared;
   if(isGeminiModel(model)){
     var gkey=gemKeyGet();
     return fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+gkey,{
       method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({systemInstruction:{parts:[{text:Q_SYSTEM}]},contents:[{role:'user',parts:[{text:'次の記事を分析せよ：\n\n'+prepared}]}],generationConfig:{maxOutputTokens:8192,responseMimeType:'application/json'}})
+      body:JSON.stringify({systemInstruction:{parts:[{text:Q_SYSTEM}]},contents:[{role:'user',parts:[{text:userMsg}]}],generationConfig:{maxOutputTokens:8192,responseMimeType:'application/json'}})
     }).then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error('Gemini API '+r.status+': '+t.slice(0,120));});return r.json();})
      .then(function(j){var raw=(j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts&&j.candidates[0].content.parts[0]&&j.candidates[0].content.parts[0].text)||'';var d=qParseJSON(raw);if(!d)throw new Error('JSON解析失敗');return d;});
   }
   var key=qKeyGet();
   return fetch('https://api.anthropic.com/v1/messages',{method:'POST',
     headers:{'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:model||'claude-opus-4-8',max_tokens:12000,system:Q_SYSTEM,messages:[{role:'user',content:'次の記事を分析せよ：\n\n'+prepared}]})})
+    body:JSON.stringify({model:model||'claude-opus-4-8',max_tokens:12000,system:Q_SYSTEM,messages:[{role:'user',content:userMsg}]})})
    .then(function(r){ if(!r.ok)return r.text().then(function(t){throw new Error('API '+r.status+': '+t.slice(0,120));}); return r.json(); })
    .then(function(j){ var raw=(j.content&&j.content[0]&&j.content[0].text)||''; var d=qParseJSON(raw); if(!d)throw new Error('JSON解析失敗'); return d; });
 }
-function qualityScore(r){
-  var moves=r.moves||[]; var n=moves.length||1;
-  var c={強制:0,好み:0,未制御:0}; moves.forEach(function(m){ c[m.control]=(c[m.control]||0)+1; });
-  var pseudo=(r.structure_claims||[]).filter(function(s){return s.smuggled;}).length;
-  var vf=r.verifiability||[]; var hyo=vf.filter(function(v){return v.type==='表れ型';}).length; var abst=vf.length-hyo;
-  // 独自構築の検出
-  var cons=r.constructions||[];
-  var conTypes={};
-  cons.forEach(function(co){ conTypes[co.type]=(conTypes[co.type]||0)+1; });
-  var conCount=cons.length;
-  // 独自構築スコア（0-100）：種類の多様性 × 数
-  var uniqueTypes=Object.keys(conTypes).length; // 0-4種類
-  var buildScore=conCount>0 ? Math.min(100, Math.round(uniqueTypes*25 + Math.min(conCount-uniqueTypes, 4)*5)) : 0;
-  // 構造制御スコア（0-100）
-  var ctrlScore=100*(c.強制/n) - 40*(c.好み/n) - 75*(c.未制御/n) - 35*pseudo;
-  ctrlScore=Math.max(0,Math.min(100,Math.round(ctrlScore)));
-  // 操作可能性スコア（0-100）：表れ型の割合
-  var verifyScore = vf.length ? Math.round(100*hyo/vf.length) : null;
-  // 総合スコア：構造制御40% + 操作可能性30% + 独自構築30%
-  var score;
-  var parts=[ctrlScore*0.4];
-  if(verifyScore!=null) parts.push(verifyScore*0.3); else parts[0]=ctrlScore*0.6; // 操作可能性なければ制御を60%に
-  if(buildScore>0) parts.push(buildScore*0.3); else if(verifyScore!=null) { parts[0]=ctrlScore*0.5; parts[1]=verifyScore*0.5; } // 構築なければ2軸均等
-  score=Math.round(parts.reduce(function(s,x){return s+x;},0));
-  var mode;
-  if(pseudo) mode='偽の発見';
-  else if(buildScore>=50 && ctrlScore>=40) mode='独自構築';
-  else if(c.好み>0 && (r.structure_claims||[]).length) mode='手心あり';
-  else if(c.強制>0 && (c.好み+c.未制御)===0) mode='制御';
-  else if((c.未制御+c.好み)>=n*0.6) mode='意見';
-  else mode='混在';
-  return {score:score, ctrlScore:ctrlScore, buildScore:buildScore, mode:mode, pseudo:pseudo, verify:verifyScore, hyo:hyo, abst:abst, conCount:conCount};
+
+// ② ユーザー較正：確定済み（手で修正した）自記事を few-shot 例として基準に与える
+function buildCalibration(excludeKey){
+  if($('#qCalib') && !$('#qCalib').checked) return '';
+  var ex=(ARTS||[]).filter(function(a){ return a.struct && a.struct.raw && a.struct._calibrated && a.text && aid(a)!==excludeKey; }).slice(0,2);
+  if(!ex.length) return '';
+  var blocks=ex.map(function(a){
+    var r=a.struct.raw;
+    var trimmed={
+      primary_genre:r.primary_genre,
+      moves:(r.moves||[]).filter(function(m){return !m._excluded;}).slice(0,6).map(function(m){return {summary:m.summary,control:m.control};}),
+      reasoning:(r.reasoning||[]).filter(function(x){return !x._excluded;}).slice(0,3).map(function(x){return {target:x.target,verdict:x.verdict};}),
+      pseudo:(r.structure_claims||[]).filter(function(s){return s.smuggled&&!s._excluded;}).length
+    };
+    return '【この読者が確定させた評価例】\n記事抜粋：'+prepareText(a.text).slice(0,1100)+'\n→ 確定評価(JSON)：'+JSON.stringify(trimmed);
+  });
+  return '# ユーザー較正（同じ読者が手で確定させた評価例。ジャンル判定・制御度・推論判定の基準をこれに合わせよ）\n'+blocks.join('\n\n')+'\n\n---\n\n';
 }
-function qBadge(s){ var col=s.mode==='偽の発見'?'#f87171':(s.mode==='制御'?'var(--good)':'#fbbf24'); return '<span style="color:'+col+';font-weight:700">'+s.score+'</span> <span class="mut" style="font-size:11px">'+esc(s.mode)+'</span>'; }
+
+function qSamplesGet(){ var v=parseInt(($('#qSamples')&&$('#qSamples').value)||'1',10); return Math.max(1,Math.min(5,v||1)); }
+
+// ① 自己一貫性：N回サンプリングし、総合スコアの中央値に最も近い run を代表（medoid）に、
+//   ジャンル一致率とスコアの広がりを ensemble メタとして付与する
+function analyzeAndScore(text, model, excludeKey){
+  var calib=buildCalibration(excludeKey);
+  var n=qSamplesGet();
+  if(n<=1) return analyzeText(text,model,calib).then(function(r){ return Object.assign(qualityScore(r),{raw:r}); });
+  var runs=[];
+  var chain=Promise.resolve();
+  for(var i=0;i<n;i++){ chain=chain.then(function(){ return analyzeText(text,model,calib).then(function(r){ runs.push(r); }).catch(function(){}); }); }
+  return chain.then(function(){
+    if(!runs.length) throw new Error('全サンプル失敗');
+    var scored=runs.map(function(r){ return {raw:r, q:qualityScore(r)}; });
+    var nums=scored.map(function(s){return s.q.score;}).filter(function(v){return v!=null;});
+    var canonical=scored[0];
+    if(nums.length){
+      var sorted=nums.slice().sort(function(a,b){return a-b;}); var med=sorted[Math.floor((sorted.length-1)/2)];
+      var best=Infinity; scored.forEach(function(s){ if(s.q.score!=null){ var d=Math.abs(s.q.score-med); if(d<best){best=d;canonical=s;} } });
+    }
+    var genres={}; scored.forEach(function(s){ var g=s.q.genre||'?'; genres[g]=(genres[g]||0)+1; });
+    var topG=Object.keys(genres).sort(function(a,b){return genres[b]-genres[a];})[0];
+    var st=Object.assign(canonical.q,{raw:canonical.raw});
+    st.ensemble={ n:scored.length, genreAgree:Math.round(100*genres[topG]/scored.length), topGenre:topG,
+      spread:(nums.length?Math.max.apply(null,nums)-Math.min.apply(null,nums):null), scores:scored.map(function(s){return s.q.score;}) };
+    return st;
+  });
+}
+var Q_GENRES=['技術設計','実験検証','論証','案出し','エッセイ体験'];
+// 内訳観点（大枠＝ジャンル＋総合、内訳＝この4観点、フラグ＝偽の発見）
+var Q_AXES=[
+  {key:'ctrlScore',  label:'構造制御'},
+  {key:'reasonScore',label:'推論の質'},
+  {key:'groundScore',label:'接地'},
+  {key:'buildScore', label:'独自構築'}
+];
+// ジャンル別に「総合」を構成する内訳観点
+function genreAxes(g){
+  if(g==='技術設計'||g==='実験検証') return ['ctrlScore','groundScore','buildScore'];
+  if(g==='論証') return ['ctrlScore','reasonScore','groundScore'];
+  if(g==='案出し') return ['reasonScore','groundScore','buildScore'];
+  if(g==='エッセイ体験') return ['reasonScore','buildScore'];
+  return ['ctrlScore','reasonScore','groundScore','buildScore'];
+}
+// モデル出力の表記揺れを正規化（4値・報告を含む）
+function normControl(v){
+  if(v==null) return null; var s=String(v);
+  if(s.indexOf('強制')>=0) return '強制';
+  if(s.indexOf('未制御')>=0) return '未制御';
+  if(s.indexOf('報告')>=0) return '報告';
+  if(s.indexOf('好み')>=0) return '好み';
+  return null;
+}
+function verdictVal(v){ return v==='高'?100:(v==='中'?55:(v==='低'?15:null)); }
+
+function qualityScore(r){
+  var genre=r.primary_genre||'';
+  var moves=(r.moves||[]).filter(function(m){ return !m._excluded; });
+  var c={強制:0,好み:0,未制御:0,報告:0};
+  moves.forEach(function(m){ var k=normControl(m.control); if(k) c[k]++; });
+  var structuralN=c.強制+c.好み+c.未制御; // 報告は構造制御の分母から除外
+  // 内訳① 構造制御（構造的手筋だけで算出。無ければnull＝—）
+  var ctrlScore=null;
+  if(structuralN>0){
+    ctrlScore=100*(c.強制/structuralN) - 40*(c.好み/structuralN) - 75*(c.未制御/structuralN);
+    ctrlScore=Math.max(0,Math.min(100,Math.round(ctrlScore)));
+  }
+  // 内訳② 推論の質（verdictの平均）
+  var rs=(r.reasoning||[]).filter(function(x){ return !x._excluded; });
+  var rvals=rs.map(function(x){ return verdictVal(x.verdict); }).filter(function(v){ return v!=null; });
+  var reasonScore=rvals.length? Math.round(rvals.reduce(function(s,v){return s+v;},0)/rvals.length) : null;
+  // 内訳③ 接地・再現性（表れ型の割合）
+  var vf=(r.verifiability||[]).filter(function(x){ return !x._excluded; });
+  var hyo=vf.filter(function(v){ return v.type==='表れ型'; }).length; var abst=vf.length-hyo;
+  var groundScore=vf.length? Math.round(100*hyo/vf.length) : null;
+  // 内訳④ 独自構築
+  var cons=(r.constructions||[]).filter(function(x){ return !x._excluded; });
+  var conTypes={}; cons.forEach(function(co){ conTypes[co.type]=1; });
+  var uniqueTypes=Object.keys(conTypes).length;
+  var buildScore=cons.length? Math.min(100, Math.round(uniqueTypes*25 + Math.min(cons.length-uniqueTypes,4)*5)) : null;
+  // フラグ：偽の発見
+  var pseudo=(r.structure_claims||[]).filter(function(s){ return s.smuggled && !s._excluded; }).length;
+  // ジャンル別ヘッドライン（有効観点の平均・nullは除外・偽の発見でペナルティ）
+  var self={ctrlScore:ctrlScore, reasonScore:reasonScore, groundScore:groundScore, buildScore:buildScore};
+  var active=genreAxes(genre);
+  var used=active.map(function(k){ return self[k]; }).filter(function(v){ return v!=null; });
+  var score=used.length? Math.round(used.reduce(function(s,v){return s+v;},0)/used.length) : null;
+  if(score!=null) score=Math.max(0,Math.min(100, score - 35*pseudo));
+  return {
+    genre:genre, score:score,
+    ctrlScore:ctrlScore, reasonScore:reasonScore, groundScore:groundScore, buildScore:buildScore,
+    active:active, mode:(pseudo?'偽の発見':(genre||'—')),
+    pseudo:pseudo, verify:groundScore, hyo:hyo, abst:abst, conCount:cons.length, counts:c
+  };
+}
+// 質バッジ：総合スコア（null=—）＋ジャンル＋偽の発見フラグ。記事一覧と質一覧の両方で使用
+function qBadge(s){
+  if(!s) return '—';
+  if(s.mode==='失敗') return '<span class="mut">失敗</span>';
+  var sc=(s.score==null)?'—':s.score;
+  var col = s.pseudo? '#f87171' : (s.score==null? 'var(--mut)' : (s.score>=70?'var(--good)':(s.score>=40?'#fbbf24':'#f87171')));
+  var g=s.genre?(' <span class="mut" style="font-size:11px">'+esc(s.genre)+'</span>'):'';
+  var flag=s.pseudo?(' <span style="color:#f87171;font-size:11px">偽'+s.pseudo+'</span>'):'';
+  return '<span style="color:'+col+';font-weight:700">'+sc+'</span>'+g+flag;
+}
 
 var _poolCancel=false;
 function cancelPool(){ _poolCancel=true; }
@@ -2018,20 +2125,25 @@ function renderCorr(){
   var own=ARTS.filter(function(a){return a.struct && a.perf!=null;});
   if(own.length<3){ box.style.display='none'; return; }
   box.style.display='';
-  var h='<strong style="font-size:14px">構造の質と'+PERF_LABEL+'の相関分析（自記事 n='+own.length+'）</strong>';
-  // スコア×perf相関
-  var scores=own.map(function(a){return a.struct.score;});
-  var perfs=own.map(function(a){return a.perf;});
-  var r=pearson(scores,perfs);
-  // verify×perf相関
-  var vOwn=own.filter(function(a){return a.struct.verify!=null;});
-  var rV=vOwn.length>=3?pearson(vOwn.map(function(a){return a.struct.verify;}),vOwn.map(function(a){return a.perf;})):null;
+  var h='<strong style="font-size:14px">各指標と'+PERF_LABEL+'の相関分析（自記事 n='+own.length+'）</strong>';
   function corrLabel(r){return r==null?'—':(Math.abs(r)>0.3?'<span class="pill '+(r>0?'good':'bad')+'">'+(r>0?'正':'負')+'の相関</span>':(Math.abs(r)>0.1?'<span class="pill warn">弱い相関</span>':'<span class="pill">無相関</span>'));}
-  h+='<div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>指標</th><th>相関係数 r</th><th>n</th><th>強さ</th></tr></thead><tbody>';
-  h+='<tr><td>構造制御スコア × '+PERF_LABEL+'</td><td>'+(r!=null?r.toFixed(3):'—')+'</td><td>'+own.length+'</td><td>'+corrLabel(r)+'</td></tr>';
-  h+='<tr><td>操作可能性(表れ%) × '+PERF_LABEL+'</td><td>'+(rV!=null?rV.toFixed(3):'—')+'</td><td>'+vOwn.length+'</td><td>'+corrLabel(rV)+'</td></tr>';
+  // 総合＋4内訳それぞれ × perf（nullは各指標ごとに除外）
+  var metrics=[
+    {label:'総合スコア', key:'score'},
+    {label:'構造制御', key:'ctrlScore'},
+    {label:'推論の質', key:'reasonScore'},
+    {label:'接地(表れ%)', key:'groundScore'},
+    {label:'独自構築', key:'buildScore'}
+  ];
+  h+='<div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>指標 × '+PERF_LABEL+'</th><th>相関係数 r</th><th>n</th><th>強さ</th></tr></thead><tbody>';
+  metrics.forEach(function(mt){
+    var rows=own.filter(function(a){return a.struct[mt.key]!=null;});
+    var r=rows.length>=3?pearson(rows.map(function(a){return a.struct[mt.key];}),rows.map(function(a){return a.perf;})):null;
+    h+='<tr><td>'+mt.label+'</td><td>'+(r!=null?r.toFixed(3):'—')+'</td><td>'+rows.length+'</td><td>'+corrLabel(r)+'</td></tr>';
+  });
   h+='</tbody></table></div>';
-  // モード別の平均・中央値パフォーマンス
+  h+='<div class="muted" style="font-size:12px;margin-top:4px">n が小さいうちは参考値（目安：n≥8で傾向、n≥20で判断材料）。どの指標が'+PERF_LABEL+'に効くかの当たりをつける用途。</div>';
+  // ジャンル別の平均・中央値パフォーマンス（mode＝ジャンル）
   var modeMap={};
   own.forEach(function(a){
     var m=a.struct.mode||'不明';
@@ -2040,8 +2152,8 @@ function renderCorr(){
   });
   var modeKeys=Object.keys(modeMap).sort(function(a,b){return (mean(modeMap[b].perfs)||0)-(mean(modeMap[a].perfs)||0);});
   if(modeKeys.length>1){
-    h+='<h4 style="font-size:13px;margin:14px 0 6px">モード別'+PERF_LABEL+'比較</h4>';
-    h+='<div class="tablewrap"><table><thead><tr><th>モード</th><th>記事数</th><th>平均'+PERF_LABEL+'</th><th>中央値'+PERF_LABEL+'</th></tr></thead><tbody>';
+    h+='<h4 style="font-size:13px;margin:14px 0 6px">ジャンル別'+PERF_LABEL+'比較</h4>';
+    h+='<div class="tablewrap"><table><thead><tr><th>ジャンル</th><th>記事数</th><th>平均'+PERF_LABEL+'</th><th>中央値'+PERF_LABEL+'</th></tr></thead><tbody>';
     modeKeys.forEach(function(m){
       var d=modeMap[m];
       h+='<tr><td>'+esc(m)+'</td><td>'+d.count+'</td><td>'+f1(mean(d.perfs))+'</td><td>'+f1(median(d.perfs))+'</td></tr>';
@@ -2094,7 +2206,7 @@ function bindQuality(){
     var model=$('#qModel').value;
     $('#runAll').disabled=true; $('#cancelAll').style.display=''; $('#runAllMsg').textContent='解析中 0/'+all.length;
     runPool(all, function(a){
-      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); autoSaveToGist(true); renderArticles(); })
+      return analyzeAndScore(a.text, model, aid(a)).then(function(st){ a.struct=st; autoSaveToGist(true); renderArticles(); })
         .catch(function(e){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; });
     }, 2, function(d,t){ $('#runAllMsg').textContent='解析中 '+d+'/'+t; naGistMsg('解析中 '+d+'/'+all.length); }).then(function(){
       $('#runAll').disabled=false; $('#cancelAll').style.display='none';
@@ -2109,7 +2221,7 @@ function bindQuality(){
     if(!sel.length){ qmsg('本文のある記事を選んでください（本文未収集の記事はチェック不可）'); return; }
     var model=$('#qModel').value; $('#runStruct').disabled=true; qmsg('解析中 0/'+sel.length); naGistMsg('解析中 0/'+sel.length);
     runPool(sel, function(a){
-      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); autoSaveToGist(true); renderArticles(); })
+      return analyzeAndScore(a.text, model, aid(a)).then(function(st){ a.struct=st; autoSaveToGist(true); renderArticles(); })
         .catch(function(e){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; });
     }, 2, function(d,t){ qmsg('解析中 '+d+'/'+t); naGistMsg('解析中 '+d+'/'+sel.length); }).then(function(){
       $('#runStruct').disabled=false; qmsg('完了'); renderArticles(); renderQuality(); renderCorr(); switchTab('quality');
@@ -2124,63 +2236,102 @@ function bindQuality(){
     var model=$('#qModel').value;
     var getText = txt? Promise.resolve(txt) : (url? fetchReader(url) : Promise.reject(new Error('URLか本文を入れてください')));
     $('#qAdd').disabled=true; qext('取得・解析中…');
-    getText.then(function(text){ return analyzeText(String(text), model); })
-      .then(function(r){ QEXT.push({label:label,url:url,reach:reach,external:true,struct:Object.assign(qualityScore(r),{raw:r})});
+    getText.then(function(text){ return analyzeAndScore(String(text), model); })
+      .then(function(st){ QEXT.push({label:label,url:url,reach:reach,external:true,struct:st});
         $('#qAdd').disabled=false; qext('追加しました'); $('#qText').value=''; $('#qUrl').value=''; $('#qLabel').value=''; $('#qReach').value=''; renderQuality(); renderCorr(); })
       .catch(function(e){ $('#qAdd').disabled=false; qext('失敗: '+(e.message||e)+'（取得不可なら本文を直接貼ってください）'); });
   };
 }
 
+var GENRE_COLORS={'技術設計':'#60a5fa','実験検証':'#34d399','論証':'#a78bfa','案出し':'#fbbf24','エッセイ体験':'#f472b6'};
+var QPLOT={x:'ctrlScore', y:'reach'};
+function qPlotAxes(){ return [
+  {key:'score',label:'総合'},{key:'ctrlScore',label:'構造制御'},{key:'reasonScore',label:'推論の質'},
+  {key:'groundScore',label:'接地'},{key:'buildScore',label:'独自構築'},
+  {key:'reach',label:(typeof PERF_LABEL!=='undefined'?PERF_LABEL:'スキ数')} ]; }
+function qAxisLabel(k){ var m=qPlotAxes().filter(function(a){return a.key===k;})[0]; return m?m.label:k; }
+
 function renderQuality(){
-  var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, score:a.struct.score, ctrlScore:a.struct.ctrlScore, buildScore:a.struct.buildScore, conCount:a.struct.conCount, mode:a.struct.mode, pseudo:a.struct.pseudo, verify:a.struct.verify, reach:a.perf, ext:false, struct:a.struct}; });
-  var ext=QEXT.map(function(e){ return {label:e.label, score:e.struct.score, ctrlScore:e.struct.ctrlScore, buildScore:e.struct.buildScore, conCount:e.struct.conCount, mode:e.struct.mode, pseudo:e.struct.pseudo, verify:e.struct.verify, reach:e.reach, ext:true, struct:e.struct}; });
+  var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, reach:a.perf, ext:false, struct:a.struct}; });
+  var ext=QEXT.map(function(e){ return {label:e.label, reach:e.reach, ext:true, struct:e.struct}; });
   var pts=own.concat(ext);
   drawQ(pts);
   var t=$('#qTable'); if(!t) return; t.innerHTML='';
+  // 既存の平均サマリを除去（再描画時の重複防止）
+  var prev=t.parentNode.querySelector('.q-avg-summary'); if(prev)prev.remove();
   if(!pts.length){ t.innerHTML='<tbody><tr><td class="mut" style="padding:12px">まだ解析結果がありません。記事一覧で選んで「構造解析」、または外部記事を追加してください。</td></tr></tbody>'; return; }
-  var thead=el('thead'); thead.innerHTML='<tr><th>記事</th><th>総合</th><th>構造制御</th><th>操作可能性</th><th>独自構築</th><th>モード</th><th>'+PERF_LABEL+'</th><th>偽の発見</th></tr>'; t.appendChild(thead);
-  // グループ別平均
+  var thead=el('thead');
+  thead.innerHTML='<tr>'+
+    '<th rowspan="2" style="text-align:left">記事</th>'+
+    '<th colspan="2" style="border-bottom:1px solid var(--line)">大枠</th>'+
+    '<th colspan="4" style="border-bottom:1px solid var(--line)">内訳</th>'+
+    '<th rowspan="2">'+PERF_LABEL+'</th>'+
+    '<th rowspan="2">偽の発見</th></tr>'+
+    '<tr><th>ジャンル</th><th>総合</th><th>構造制御</th><th>推論の質</th><th>接地</th><th>独自構築</th></tr>';
+  t.appendChild(thead);
+  // グループ別平均（自/外、nullは除外）
   if(own.length && ext.length){
-    var avgOwn=mean(own.map(function(p){return p.score;}));
-    var avgExt=mean(ext.map(function(p){return p.score;}));
-    var summary=el('div',{style:'font-size:13px;padding:10px 12px;color:var(--mut)'},
-      '自記事 平均スコア：<strong style="color:var(--fg)">'+Math.round(avgOwn)+'</strong>　外部記事 平均スコア：<strong style="color:var(--fg)">'+Math.round(avgExt)+'</strong>');
+    var oS=own.map(function(p){return p.struct.score;}).filter(function(v){return v!=null;});
+    var eS=ext.map(function(p){return p.struct.score;}).filter(function(v){return v!=null;});
+    var summary=el('div',{class:'q-avg-summary',style:'font-size:13px;padding:10px 12px;color:var(--mut)'},
+      '自記事 平均総合：<strong style="color:var(--fg)">'+(oS.length?Math.round(mean(oS)):'—')+'</strong>　外部記事 平均総合：<strong style="color:var(--fg)">'+(eS.length?Math.round(mean(eS)):'—')+'</strong>');
     t.parentNode.insertBefore(summary,t);
   }
+  var fmt=function(v,suf){ return v==null?'—':(v+(suf||'')); };
   var tb=el('tbody');
-  pts.slice().sort(function(a,b){return b.score-a.score;}).forEach(function(p){
-    var r=el('tr');
-    r.innerHTML='<td>'+(p.ext?'🔗 ':'')+esc(p.label)+'</td><td>'+qBadge({score:p.score,mode:p.mode})+'</td><td>'+(p.ctrlScore!=null?p.ctrlScore:'—')+'</td><td>'+(p.verify==null?'—':p.verify+'%')+'</td><td>'+(p.buildScore!=null&&p.buildScore>0?p.buildScore+'<small style="color:var(--mut);margin-left:2px">('+p.conCount+'件)</small>':'—')+'</td><td>'+esc(p.mode)+'</td><td>'+(p.reach==null?'—':num(p.reach))+'</td><td>'+(p.pseudo||0)+'</td>';
-    if(p.struct&&p.struct.raw){ r.style.cursor='pointer'; r.title='クリックで詳細を表示'; (function(pp){r.onclick=function(){showDetail(pp.struct,pp.label);};})(p); }
+  pts.slice().sort(function(a,b){ var x=a.struct.score, y=b.struct.score; if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1; return y-x; }).forEach(function(p){
+    var s=p.struct; var r=el('tr');
+    r.innerHTML='<td style="text-align:left">'+(p.ext?'🔗 ':'')+esc(p.label)+'</td>'+
+      '<td>'+(s.genre?esc(s.genre):(s.mode==='失敗'?'<span class="mut">失敗</span>':'—'))+'</td>'+
+      '<td>'+qBadge({score:s.score,pseudo:s.pseudo,mode:s.mode})+'</td>'+
+      '<td>'+fmt(s.ctrlScore)+'</td>'+
+      '<td>'+fmt(s.reasonScore)+'</td>'+
+      '<td>'+fmt(s.groundScore,'%')+'</td>'+
+      '<td>'+(s.buildScore!=null?s.buildScore+'<small style="color:var(--mut);margin-left:2px">('+s.conCount+')</small>':'—')+'</td>'+
+      '<td>'+(p.reach==null?'—':num(p.reach))+'</td>'+
+      '<td'+(s.pseudo?' style="color:#f87171"':'')+'>'+(s.pseudo||0)+'</td>';
+    if(s.raw){ r.style.cursor='pointer'; r.title='クリックで詳細・項目修正'; (function(pp){r.onclick=function(){showDetail(pp.struct,pp.label);};})(p); }
     tb.appendChild(r);
   });
   t.appendChild(tb);
 }
 function drawQ(pts){
   var host=$('#qChart'); if(!host) return; host.innerHTML='';
+  // 軸セレクタ（X/Y を選べる）
+  var bar=document.createElement('div'); bar.className='row'; bar.style.cssText='gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px';
+  function mkSel(cur,onch){ var sel=document.createElement('select'); sel.className='ctrl';
+    qPlotAxes().forEach(function(a){ var o=document.createElement('option'); o.value=a.key; o.textContent=a.label; if(a.key===cur)o.selected=true; sel.appendChild(o); });
+    sel.onchange=function(){ onch(sel.value); drawQ(pts); }; return sel; }
+  var xlab=document.createElement('span'); xlab.className='mut'; xlab.textContent='X軸';
+  var ylab=document.createElement('span'); ylab.className='mut'; ylab.textContent='Y軸';
+  bar.appendChild(xlab); bar.appendChild(mkSel(QPLOT.x,function(v){QPLOT.x=v;}));
+  bar.appendChild(ylab); bar.appendChild(mkSel(QPLOT.y,function(v){QPLOT.y=v;}));
+  host.appendChild(bar);
   var cv=document.createElement('canvas'); cv.width=900; cv.height=360;
   cv.style.cssText='width:100%;height:auto;background:#0d1117;border:1px solid #30363d;border-radius:10px';
   host.appendChild(cv);
   var x=cv.getContext('2d'); var W=cv.width,H=cv.height,L=58,R=W-20,T=18,B=H-34;
   x.clearRect(0,0,W,H);
-  x.fillStyle='rgba(52,211,153,.06)'; x.fillRect((L+R)/2,B-(B-T)/2,(R-(L+R)/2),(B-T)/2); // 右下＝埋もれた黄金比
   x.strokeStyle='#30363d'; x.beginPath(); x.moveTo(L,T); x.lineTo(L,B); x.lineTo(R,B); x.stroke();
   x.fillStyle='#8b97a5'; x.font='12px sans-serif';
-  x.fillText('質 低',L-2,B+16); x.fillText('質 高',R-34,B+16); x.fillText('スキ数 高',4,T+8); x.fillText('スキ数 低',4,B-2);
+  var xa=qAxisLabel(QPLOT.x), ya=qAxisLabel(QPLOT.y);
+  x.fillText(xa+' 低',L-2,B+16); x.fillText(xa+' 高',R-46,B+16); x.fillText(ya+' 高',4,T+8); x.fillText(ya+' 低',4,B-2);
   var maxR=Math.max(1,Math.max.apply(null,pts.map(function(p){return p.reach||0;})));
+  function norm(p,key){ var v=(key==='reach')?p.reach:p.struct[key]; if(v==null)return null; return key==='reach'?v/maxR:Math.max(0,Math.min(100,v))/100; }
+  var dropped=0;
   pts.forEach(function(p){
-    var px=L+(R-L)*(Math.max(0,Math.min(100,p.score))/100);
-    var py=B-(B-T)*((p.reach||0)/maxR);
-    var col=p.mode==='偽の発見'?'#f87171':(p.mode==='黄金比寄り：構造を制御できている'?'#34d399':(p.mode==='失敗'?'#6b7280':'#fbbf24'));
+    var nx=norm(p,QPLOT.x), ny=norm(p,QPLOT.y);
+    if(nx==null||ny==null){ dropped++; return; }
+    var px=L+(R-L)*nx, py=B-(B-T)*ny;
+    var col=GENRE_COLORS[p.struct.genre]||'#8b97a5';
     x.fillStyle=col; x.beginPath(); x.arc(px,py,6,0,7); x.fill();
-    if(p.ext){ x.strokeStyle='#c084fc'; x.lineWidth=2.5; x.beginPath(); x.arc(px,py,10,0,7); x.stroke(); }
+    if(p.struct.pseudo){ x.strokeStyle='#f87171'; x.lineWidth=2; x.beginPath(); x.arc(px,py,9,0,7); x.stroke(); }
+    if(p.ext){ x.strokeStyle='#c084fc'; x.lineWidth=2.5; x.beginPath(); x.arc(px,py,11,0,7); x.stroke(); }
   });
-  // 凡例
-  x.font='11px sans-serif'; x.fillStyle='#8b97a5';
-  var leg=[['#34d399','黄金比'],['#fbbf24','混在/手心'],['#f87171','偽の発見']];
-  var lx=L+4;
-  leg.forEach(function(l){ x.fillStyle=l[0]; x.beginPath(); x.arc(lx+5,T+6,5,0,7); x.fill(); x.fillStyle='#8b97a5'; x.fillText(l[1],lx+14,T+10); lx+=lx+60; });
-  if(pts.some(function(p){return p.ext;})){ x.strokeStyle='#c084fc'; x.lineWidth=2; x.beginPath(); x.arc(lx+5,T+6,6,0,7); x.stroke(); x.fillStyle='#8b97a5'; x.fillText('外部記事',lx+14,T+10); }
+  // 凡例：ジャンル別
+  x.font='11px sans-serif'; var lx=L+4;
+  Q_GENRES.forEach(function(g){ x.fillStyle=GENRE_COLORS[g]; x.beginPath(); x.arc(lx+5,T+6,5,0,7); x.fill(); x.fillStyle='#8b97a5'; x.fillText(g,lx+14,T+10); lx+=x.measureText(g).width+34; });
+  if(dropped){ x.fillStyle='#8b97a5'; x.fillText('（軸の値が無い'+dropped+'件は非表示）',L+4,T+26); }
 }
 /* ====================== noteサンプリング ====================== */
 function bindSampling(){
@@ -2230,8 +2381,8 @@ function bindSampling(){
               // reader本文の先頭#行からタイトル取得
               var titleLine=(text.split('\n').find(function(l){return /^#+\s/.test(l.trim());})||'').trim();
               var label=titleLine.replace(/^#+\s*/,'')||titleMap[url]||url.split('/n/').pop();
-              return analyzeText(String(text), model).then(function(r){
-                QEXT.push({label:label,url:url,reach:null,external:true,struct:Object.assign(qualityScore(r),{raw:r})});
+              return analyzeAndScore(String(text), model).then(function(st){
+                QEXT.push({label:label,url:url,reach:null,external:true,struct:st});
                 done++; $('#sampleMsg').textContent='解析中 '+done+'/'+urls.length;
                 autoSaveToGist(true);
               });
@@ -2250,18 +2401,51 @@ bindSampling();
 bindQuality();
 
 /* ====================== 構造詳細モーダル ====================== */
-var DETAIL_STATE={result:null};
+var DETAIL_STATE={result:null,struct:null};
+var SEL_STYLE='background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px';
 
 function showDetail(struct,label){
   DETAIL_STATE.result=struct.raw;
+  DETAIL_STATE.struct=struct;
   $('#qDetailLabel').textContent=label;
-  renderDetailMoves(); renderDetailStructs(); renderDetailCites(); renderDetailVerify();
-  recomputeDetail();
+  redrawDetail(false);
   $('#qDetailModal').style.display='block';
   document.body.style.overflow='hidden';
 }
+// 全セクション再描画＋再計算（除外トグル時に使用）。isEdit=trueなら確定例としてマーク
+function redrawDetail(isEdit){
+  renderDetailGenre(); renderDetailMoves(); renderDetailReasoning();
+  renderDetailStructs(); renderDetailCites(); renderDetailVerify(); renderDetailConstructions();
+  recomputeDetail(isEdit);
+}
 $('#qDetailClose').onclick=function(){ $('#qDetailModal').style.display='none'; document.body.style.overflow=''; };
 $('#qDetailModal').onclick=function(e){ if(e.target===$('#qDetailModal')){ $('#qDetailModal').style.display='none'; document.body.style.overflow=''; } };
+
+// 「除外／復活」トグルボタン（的外れな項目をスコアから外す）
+function exBtn(obj){
+  var b=document.createElement('button'); b.className='btn ghost'; b.style.cssText='padding:2px 10px;font-size:12px';
+  b.textContent=obj._excluded?'復活':'除外';
+  b.onclick=function(){ obj._excluded=!obj._excluded; redrawDetail(true); };
+  return b;
+}
+function mkSelect(opts,cur,onch){
+  var sel=document.createElement('select'); sel.style.cssText=SEL_STYLE;
+  opts.forEach(function(o){ var op=document.createElement('option'); op.value=o; op.textContent=o; if(o===cur)op.selected=true; sel.appendChild(op); });
+  sel.onchange=function(){ onch(sel.value); }; return sel;
+}
+
+function renderDetailGenre(){
+  var d=DETAIL_STATE.result; if(!d) return;
+  var host=$('#qDetailGenre'); if(!host) return; host.innerHTML='';
+  var lab=document.createElement('span'); lab.className='mut'; lab.style.cssText='font-size:13px;margin-right:6px'; lab.textContent='ジャンル';
+  host.appendChild(lab);
+  host.appendChild(mkSelect(Q_GENRES, d.primary_genre, function(v){ d.primary_genre=v; recomputeDetail(true); }));
+  if((d.sections||[]).length){
+    var s=document.createElement('div'); s.className='muted'; s.style.cssText='font-size:12px;margin-top:6px';
+    s.innerHTML='区間：'+d.sections.map(function(x){ return esc(x.genre||'?')+'（'+esc(x.summary||'')+'）'; }).join(' ／ ');
+    host.appendChild(s);
+  }
+}
 
 function renderDetailMoves(){
   var d=DETAIL_STATE.result; if(!d) return;
@@ -2269,24 +2453,39 @@ function renderDetailMoves(){
   (d.moves||[]).forEach(function(m,i){
     if(!m.id) m.id=i+1;
     var tr=document.createElement('tr');
+    if(m._excluded) tr.style.opacity='.4';
     tr.innerHTML='<td>'+m.id+'</td>'+
       '<td>'+esc(m.summary||'')+'<div class="quote-detail">'+esc(m.quote||'')+'</div></td>'+
       '<td></td><td></td>'+
-      '<td class="muted" style="font-size:12px">'+esc(m.reason||'')+'</td>';
-    var selStyle='background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px';
-    // 射程プルダウン
-    var reachSel=document.createElement('select');
-    reachSel.style.cssText=selStyle;
-    ['低','中','高'].forEach(function(o){ var op=document.createElement('option'); op.value=o; op.textContent=o; if(o===m.reach)op.selected=true; reachSel.appendChild(op); });
-    reachSel.onchange=function(){ m.reach=reachSel.value; recomputeDetail(); };
-    tr.children[2].appendChild(reachSel);
-    // 制御度プルダウン
-    var ctrlSel=document.createElement('select');
-    ctrlSel.style.cssText=selStyle;
-    ['強制','好み','未制御'].forEach(function(o){ var op=document.createElement('option'); op.value=o; op.textContent=o; if(o===m.control)op.selected=true; ctrlSel.appendChild(op); });
-    ctrlSel.onchange=function(){ m.control=ctrlSel.value; recomputeDetail(); };
-    tr.children[3].appendChild(ctrlSel);
+      '<td class="muted" style="font-size:12px">'+esc(m.reason||'')+'</td>'+
+      '<td></td>';
+    tr.children[2].appendChild(mkSelect(['低','中','高'], m.reach, function(v){ m.reach=v; recomputeDetail(true); }));
+    tr.children[3].appendChild(mkSelect(['強制','好み','未制御','報告'], m.control, function(v){ m.control=v; recomputeDetail(true); }));
+    tr.children[5].appendChild(exBtn(m));
     tb.appendChild(tr);
+  });
+}
+
+function renderDetailReasoning(){
+  var d=DETAIL_STATE.result; if(!d) return;
+  var host=$('#qDetailReasoning'); if(!host) return; host.innerHTML='';
+  if(!(d.reasoning||[]).length){ host.innerHTML='<div class="muted">推論の質の評価対象（荷重を担う主張・提案）は検出されませんでした。</div>'; return; }
+  (d.reasoning||[]).forEach(function(rz){
+    var div=document.createElement('div'); div.className='panel'; div.style.cssText='padding:10px;margin-bottom:8px'; if(rz._excluded) div.style.opacity='.4';
+    var checks=(rz.checks||[]).map(function(ck){ return '<span class="pill">'+(ck.ok?'✅':'❌')+' '+esc(ck.point)+'</span>'; }).join(' ');
+    var head=document.createElement('div'); head.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+    var title=document.createElement('div'); title.style.flex='1'; title.innerHTML='<strong>提案/主張</strong>：'+esc(rz.target||'');
+    head.appendChild(title);
+    var vlab=document.createElement('span'); vlab.className='mut'; vlab.style.fontSize='12px'; vlab.textContent='推論';
+    head.appendChild(vlab);
+    head.appendChild(mkSelect(['高','中','低'], rz.verdict, function(v){ rz.verdict=v; recomputeDetail(true); }));
+    head.appendChild(exBtn(rz));
+    div.appendChild(head);
+    var body=document.createElement('div'); body.innerHTML='<div style="margin:6px 0">'+checks+'</div>'+
+      ((rz.checks||[]).map(function(ck){ return ck.reason?'<div class="muted" style="font-size:12px">・'+esc(ck.point)+'：'+esc(ck.reason)+'</div>':''; }).join(''))+
+      (rz.reason?'<div class="muted" style="font-size:12px;margin-top:4px">'+esc(rz.reason)+'</div>':'');
+    div.appendChild(body);
+    host.appendChild(div);
   });
 }
 
@@ -2295,11 +2494,18 @@ function renderDetailStructs(){
   var sc=$('#qDetailStructs'); sc.innerHTML='';
   if(!(d.structure_claims||[]).length){ sc.innerHTML='<div class="muted">構造・本質の主張は検出されませんでした。</div>'; return; }
   (d.structure_claims||[]).forEach(function(s){
-    var div=document.createElement('div'); div.className=s.smuggled?'smuggle':'';
+    var div=document.createElement('div'); div.className=(s.smuggled&&!s._excluded)?'smuggle':''; if(s._excluded) div.style.opacity='.4';
     var checks=(s.feature_checks||[]).map(function(f){ return '<span class="pill">'+(f.satisfied?'✅':'❌')+' '+esc(f.feature)+'</span>'; }).join(' ');
     div.innerHTML='<div><strong>'+(s.smuggled?'⚠️ 偽の発見の疑い':'構造主張')+'</strong>：'+esc(s.claim||'')+'</div>'+
       '<div class="muted">道具＝<code>'+esc(s.claimed_structure||'')+'</code> → 写像先＝'+esc(s.target||'')+'</div>'+
       '<div style="margin:6px 0">'+checks+'</div><div class="muted">'+esc(s.reason||'')+'</div>';
+    var row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:10px;margin-top:6px';
+    var lbl=document.createElement('label'); lbl.style.cssText='font-size:12px;display:flex;align-items:center;gap:4px';
+    var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!s.smuggled;
+    cb.onchange=function(){ s.smuggled=cb.checked; redrawDetail(true); };
+    lbl.appendChild(cb); lbl.appendChild(document.createTextNode('偽の発見（smuggled）'));
+    row.appendChild(lbl); row.appendChild(exBtn(s));
+    div.appendChild(row);
     sc.appendChild(div);
   });
 }
@@ -2307,12 +2513,15 @@ function renderDetailStructs(){
 function renderDetailCites(){
   var d=DETAIL_STATE.result; if(!d) return;
   var ct=$('#qDetailCites').querySelector('tbody'); ct.innerHTML='';
-  if(!(d.citations||[]).length){ ct.innerHTML='<tr><td class="muted" colspan="4" style="padding:10px">引用なし</td></tr>'; return; }
+  if(!(d.citations||[]).length){ ct.innerHTML='<tr><td class="muted" colspan="5" style="padding:10px">引用なし</td></tr>'; return; }
   (d.citations||[]).forEach(function(c){
-    var tr=document.createElement('tr');
+    var tr=document.createElement('tr'); if(c._excluded) tr.style.opacity='.4';
     tr.innerHTML='<td>'+esc(c.source||'')+'</td><td>'+esc(c.supports||'')+'</td>'+
-      '<td>'+(c.forces_step?'<span class="t-強制">強制</span>':'<span class="t-未制御">装飾</span>')+'</td>'+
-      '<td class="muted" style="font-size:12px">'+esc(c.reason||'')+'</td>';
+      '<td></td>'+
+      '<td class="muted" style="font-size:12px">'+esc(c.reason||'')+'</td>'+
+      '<td></td>';
+    tr.children[2].appendChild(mkSelect(['強制','装飾'], c.forces_step?'強制':'装飾', function(v){ c.forces_step=(v==='強制'); recomputeDetail(true); }));
+    tr.children[4].appendChild(exBtn(c));
     ct.appendChild(tr);
   });
 }
@@ -2320,54 +2529,85 @@ function renderDetailCites(){
 function renderDetailVerify(){
   var d=DETAIL_STATE.result; if(!d) return;
   var vt=$('#qDetailVerify').querySelector('tbody'); vt.innerHTML='';
-  if(!(d.verifiability||[]).length){ vt.innerHTML='<tr><td class="muted" colspan="3" style="padding:10px">なし</td></tr>'; return; }
+  if(!(d.verifiability||[]).length){ vt.innerHTML='<tr><td class="muted" colspan="4" style="padding:10px">なし</td></tr>'; return; }
   (d.verifiability||[]).forEach(function(v){
-    var tr=document.createElement('tr');
+    var tr=document.createElement('tr'); if(v._excluded) tr.style.opacity='.4';
     tr.innerHTML='<td>'+esc(v.claim||'')+'</td>'+
       '<td></td>'+
-      '<td class="muted" style="font-size:12px">'+esc(v.procedure||v.reason||'')+(v.procedure&&v.reason?'<br>'+esc(v.reason):'')+'</td>';
-    var sel=document.createElement('select');
-    sel.style.cssText='background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px';
-    ['表れ型','抽象型'].forEach(function(o){ var op=document.createElement('option'); op.value=o; op.textContent=o; if(o===v.type)op.selected=true; sel.appendChild(op); });
-    sel.onchange=function(){ v.type=sel.value; recomputeDetail(); };
-    tr.children[1].appendChild(sel);
+      '<td class="muted" style="font-size:12px">'+esc(v.procedure||v.reason||'')+(v.procedure&&v.reason?'<br>'+esc(v.reason):'')+'</td>'+
+      '<td></td>';
+    tr.children[1].appendChild(mkSelect(['表れ型','抽象型'], v.type, function(val){ v.type=val; recomputeDetail(true); }));
+    tr.children[3].appendChild(exBtn(v));
     vt.appendChild(tr);
   });
 }
 
-function recomputeDetail(){
+function renderDetailConstructions(){
   var d=DETAIL_STATE.result; if(!d) return;
-  var moves=d.moves||[]; var n=moves.length||1;
-  var c={強制:0,好み:0,未制御:0};
-  moves.forEach(function(m){ c[m.control]=(c[m.control]||0)+1; });
-  var reachVal=function(r){ return r==='高'?3:(r==='中'?2:1); };
-  var peaks=moves.filter(function(m){ return m.control==='強制' && reachVal(m.reach)>=3; });
-  var pseudo=(d.structure_claims||[]).filter(function(s){ return s.smuggled; });
-  var garnish=(d.citations||[]).filter(function(c2){ return c2.forces_step===false; });
-  var vf=d.verifiability||[];
-  var hyo=vf.filter(function(v){ return v.type==='表れ型'; }).length;
-  var abst=vf.length-hyo;
-  var mode,mclass;
-  if(pseudo.length){ mode='C：偽の発見（構造を僭称）'; mclass='bad'; }
-  else if(c.好み>0 && (d.structure_claims||[]).length){ mode='B：道具はあるが手心（漏れ）'; mclass='warn'; }
-  else if(peaks.length && (c.好み+c.未制御)===0){ mode='黄金比寄り：構造を制御できている'; mclass='ok'; }
-  else if(c.未制御+c.好み>=n*0.6 && !peaks.length){ mode='A：意見・道具なし（開いた好み/未制御）'; mclass='warn'; }
-  else{ mode='混在：山と漏れが同居'; mclass='warn'; }
-  var col=mclass==='ok'?'var(--good)':(mclass==='bad'?'var(--bad)':'var(--warn)');
-  $('#qDetailVerdict').innerHTML='<span style="color:'+col+'">'+esc(mode)+'</span>'+
-    '<span class="muted" style="font-size:13px"> ／ 操作可能性：表れ型 '+hyo+' ・抽象型 '+abst+'</span>';
+  var host=$('#qDetailConstructions'); if(!host) return; host.innerHTML='';
+  if(!(d.constructions||[]).length){ host.innerHTML='<div class="muted">独自構築（概念定義・実装・イテレーション・分野横断）は検出されませんでした。</div>'; return; }
+  var TYPE_LABEL={original_concept:'独自概念',implementation:'実装・実証',iteration:'設計イテレーション',cross_domain:'分野横断接続'};
+  (d.constructions||[]).forEach(function(co){
+    var div=document.createElement('div'); div.className='panel'; div.style.cssText='padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;gap:10px'; if(co._excluded) div.style.opacity='.4';
+    var body=document.createElement('div'); body.style.flex='1';
+    body.innerHTML='<span class="pill" style="color:var(--good)">'+esc(TYPE_LABEL[co.type]||co.type||'')+'</span> '+esc(co.summary||'')+
+      (co.evidence?'<div class="muted" style="font-size:12px">根拠：'+esc(co.evidence)+'</div>':'');
+    div.appendChild(body); div.appendChild(exBtn(co));
+    host.appendChild(div);
+  });
+}
+
+// 編集を qualityScore に通し、記事のstructへ書き戻して一覧・散布図・Gistへ反映
+// isEdit=true（ユーザーが手で修正）なら、この記事を「確定例」として較正に使えるようマーク
+function recomputeDetail(isEdit){
+  var d=DETAIL_STATE.result; if(!d) return;
+  var q=qualityScore(d);
+  var ens=DETAIL_STATE.struct&&DETAIL_STATE.struct.ensemble; // 旧アンサンブルメタを保持
+  if(DETAIL_STATE.struct){ Object.assign(DETAIL_STATE.struct,q); if(ens)DETAIL_STATE.struct.ensemble=ens; if(isEdit)DETAIL_STATE.struct._calibrated=true; }
+  var c=q.counts||{強制:0,好み:0,未制御:0,報告:0};
+  var col = q.pseudo? 'var(--bad)' : (q.score==null?'var(--mut)':(q.score>=70?'var(--good)':(q.score>=40?'var(--warn)':'var(--bad)')));
+  var ensHtml = ens? '<span class="muted" style="font-size:12px;margin-left:8px">一致度 ジャンル'+ens.genreAgree+'%'+(ens.spread!=null?' ・スコア幅±'+Math.round(ens.spread/2):'')+'（'+ens.n+'回）</span>' : '';
+  var calHtml = (DETAIL_STATE.struct&&DETAIL_STATE.struct._calibrated)? '<span class="pill" style="margin-left:6px">✎ 較正に使用</span>' : '';
+  $('#qDetailVerdict').innerHTML='<span style="font-weight:700;font-size:18px;color:'+col+'">総合 '+(q.score==null?'—':q.score)+'</span>'+
+    '<span class="muted" style="font-size:13px;margin-left:8px">'+esc(q.genre||'ジャンル未判定')+'</span>'+
+    (q.pseudo?'<span class="pill" style="color:var(--bad);margin-left:8px">偽の発見 '+q.pseudo+'</span>':'')+ensHtml+calHtml;
+  function ax(lbl,v,suf){ return '<span class="pill">'+lbl+'：'+(v==null?'—':v+(suf||''))+'</span>'; }
   $('#qDetailSignals').innerHTML=
-    '<span class="pill">手筋 '+n+'</span>'+
+    ax('構造制御',q.ctrlScore)+ax('推論の質',q.reasonScore)+ax('接地',q.groundScore,'%')+ax('独自構築',q.buildScore)+
     '<span class="pill" style="color:var(--good)">強制 '+(c.強制||0)+'</span>'+
     '<span class="pill" style="color:var(--warn)">好み '+(c.好み||0)+'</span>'+
     '<span class="pill" style="color:var(--bad)">未制御 '+(c.未制御||0)+'</span>'+
-    '<span class="pill">山(強制×高) '+peaks.length+'</span>'+
-    '<span class="pill"'+(pseudo.length?' style="color:var(--bad)"':'')+'>偽の発見 '+pseudo.length+'</span>'+
-    '<span class="pill"'+(garnish.length?' style="color:var(--bad)"':'')+'>装飾引用 '+garnish.length+'</span>'+
-    '<span class="pill" style="color:var(--good)">表れ型 '+hyo+'</span>'+
-    '<span class="pill"'+(abst?' style="color:var(--warn)"':'')+'>抽象型 '+abst+'</span>';
+    '<span class="pill">報告 '+(c.報告||0)+'</span>'+
+    '<span class="pill" style="color:var(--good)">表れ型 '+(q.hyo||0)+'</span>'+
+    '<span class="pill"'+(q.abst?' style="color:var(--warn)"':'')+'>抽象型 '+(q.abst||0)+'</span>';
   $('#qDetailProfile').textContent=d.profile||'';
-  drawDetailMap(moves);
+  drawRadar(q);
+  drawDetailMap((d.moves||[]).filter(function(m){return !m._excluded;}));
+  // マッピング・一覧・相関へ即反映＋保存
+  if(typeof renderQuality==='function') renderQuality();
+  if(typeof renderCorr==='function') renderCorr();
+  if(typeof autoSaveToGist==='function') autoSaveToGist(true);
+}
+
+function drawRadar(q){
+  var cv=$('#qDetailRadar'); if(!cv) return;
+  var x=cv.getContext('2d'); var W=cv.width,H=cv.height; x.clearRect(0,0,W,H);
+  var cx=W/2, cy=H/2+4, Rr=Math.min(W,H)/2-44;
+  var axes=(q.active||[]).map(function(k){ var m=Q_AXES.filter(function(a){return a.key===k;})[0]; return {label:(m?m.label:k), val:q[k]}; });
+  var N=axes.length;
+  if(N<2){ x.fillStyle='#8b97a5'; x.font='12px sans-serif'; x.textAlign='center'; x.fillText('このジャンルは数値観点が少ないため',cx,cy-6); x.fillText('レーダー非表示（ジャンル＋プロファイルで評価）',cx,cy+14); x.textAlign='left'; return; }
+  x.strokeStyle='#30363d'; x.lineWidth=1;
+  [0.25,0.5,0.75,1].forEach(function(g){ x.beginPath();
+    for(var i=0;i<=N;i++){ var a=-Math.PI/2+i*2*Math.PI/N; var px=cx+Rr*g*Math.cos(a), py=cy+Rr*g*Math.sin(a); if(i===0)x.moveTo(px,py); else x.lineTo(px,py); } x.stroke(); });
+  x.fillStyle='#8b97a5'; x.font='11px sans-serif'; x.textAlign='center';
+  axes.forEach(function(axx,i){ var a=-Math.PI/2+i*2*Math.PI/N; var ex=cx+Rr*Math.cos(a), ey=cy+Rr*Math.sin(a);
+    x.strokeStyle='#30363d'; x.beginPath(); x.moveTo(cx,cy); x.lineTo(ex,ey); x.stroke();
+    var lx=cx+(Rr+18)*Math.cos(a), ly=cy+(Rr+18)*Math.sin(a);
+    x.fillText(axx.label+(axx.val==null?' —':' '+axx.val), lx, ly+4); });
+  x.beginPath();
+  axes.forEach(function(axx,i){ var a=-Math.PI/2+i*2*Math.PI/N; var v=(axx.val==null?0:axx.val)/100; var px=cx+Rr*v*Math.cos(a), py=cy+Rr*v*Math.sin(a); if(i===0)x.moveTo(px,py); else x.lineTo(px,py); });
+  x.closePath(); x.fillStyle='rgba(96,165,250,.25)'; x.fill(); x.strokeStyle='#60a5fa'; x.lineWidth=2; x.stroke();
+  x.textAlign='left';
 }
 
 function drawDetailMap(moves){
@@ -2379,16 +2619,17 @@ function drawDetailMap(moves){
   x.strokeStyle='#30363d'; x.lineWidth=1;
   x.beginPath(); x.moveTo(L,T); x.lineTo(L,B); x.lineTo(R,B); x.stroke();
   x.fillStyle='#8b97a5'; x.font='12px sans-serif';
-  var ys={'強制':T+(B-T)*0.16,'好み':T+(B-T)*0.5,'未制御':T+(B-T)*0.84};
-  x.fillText('強制',8,ys['強制']+4); x.fillText('好み',8,ys['好み']+4); x.fillText('未制御',6,ys['未制御']+4);
+  var ys={'強制':T+(B-T)*0.13,'好み':T+(B-T)*0.4,'未制御':T+(B-T)*0.67,'報告':T+(B-T)*0.92};
+  x.fillText('強制',8,ys['強制']+4); x.fillText('好み',8,ys['好み']+4); x.fillText('未制御',6,ys['未制御']+4); x.fillText('報告',8,ys['報告']+4);
   var xs={'低':L+(R-L)*0.2,'中':L+(R-L)*0.5,'高':L+(R-L)*0.82};
   x.fillText('射程 低',xs['低']-18,B+18); x.fillText('中',xs['中']-6,B+18); x.fillText('高（非自明）',xs['高']-24,B+18);
   var seen={};
   moves.forEach(function(m){
-    var px=xs[m.reach]||xs['中'], py=ys[m.control]||ys['好み'];
+    var k0=normControl(m.control)||'好み';
+    var px=xs[m.reach]||xs['中'], py=ys[k0]||ys['好み'];
     var k=Math.round(px)+'_'+Math.round(py); var off=seen[k]||0; seen[k]=off+1;
     px+=(off%3)*16-16; py+=Math.floor(off/3)*16;
-    var col=m.control==='強制'?'#34d399':(m.control==='好み'?'#fbbf24':'#f87171');
+    var col=k0==='強制'?'#34d399':(k0==='好み'?'#fbbf24':(k0==='未制御'?'#f87171':'#8b97a5'));
     x.fillStyle=col; x.beginPath(); x.arc(px,py,9,0,7); x.fill();
     x.fillStyle='#0e1116'; x.font='bold 12px sans-serif'; x.textAlign='center';
     x.fillText(String(m.id),px,py+4); x.textAlign='left';
