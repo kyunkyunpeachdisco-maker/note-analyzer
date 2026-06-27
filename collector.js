@@ -143,9 +143,8 @@
       var url = '/api/v1/stats/pv?filter=all&page=' + page + '&sort=pv';
       return getJSON(url).then(function (j) {
         var data = j.data || {};
-        var list = data.note_stats || data.noteStats || [];
-        if (page === 1 && list.length) console.log('[note-analyzer] stats sample:', JSON.stringify(list[0]).slice(0, 300), 'keys:', Object.keys(list[0]));
-        if (page === 1 && !list.length) console.log('[note-analyzer] stats data keys:', Object.keys(data), 'raw:', JSON.stringify(data).slice(0, 500));
+        var list = data.note_stats || data.noteStats || (Array.isArray(data) ? data : []);
+        if (page === 1) console.log('[note-analyzer] stats page1: list.length='+list.length, 'data keys:', Object.keys(data), 'last_page:', data.last_page, data.lastPage, data.total_pages, data.totalPages);
         for (var i = 0; i < list.length; i++) {
           var s = list[i];
           byId[String(s.id)] = {
@@ -154,7 +153,7 @@
             comments: (s.comment_count != null ? s.comment_count : s.commentCount)
           };
         }
-        var lastPage = data.last_page || data.lastPage || page;
+        var lastPage = data.last_page || data.lastPage || data.total_pages || data.totalPages || page;
         ui.msg('統計取得中… page ' + page + '/' + lastPage + '（' + Object.keys(byId).length + '件）');
         if (page < lastPage && page < MAX_PAGES) { page++; return sleep(FETCH_INTERVAL_MS).then(next); }
         return byId;
