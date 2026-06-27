@@ -257,6 +257,93 @@
     return next();
   }
 
+  // ====== コア読者プロフィール取得 ======
+  function fetchReaderProfile(urlname) {
+    return getJSON('/api/v2/creators/' + urlname).then(function (j) {
+      var u = j.data || {};
+      return {
+        urlname: urlname,
+        nickname: u.nickname || u.name || urlname,
+        followerCount: u.followerCount != null ? u.followerCount : (u.follower_count != null ? u.follower_count : null),
+        followingCount: u.followingCount != null ? u.followingCount : (u.following_count != null ? u.following_count : null),
+        noteCount: u.noteCount != null ? u.noteCount : (u.note_count != null ? u.note_count : null)
+      };
+    }).catch(function () { return { urlname: urlname, error: true }; });
+  }
+
+  function fetchReaderArticles(urlname) {
+    // 最新50件程度を取得してスキ数統計を計算
+    var items = [];
+    var page = 1;
+    function next() {
+      return getJSON('/api/v2/creators/' + urlname + '/contents?kind=note&page=' + page).then(function (j) {
+        var data = j.data || {};
+        var list = data.contents || [];
+        for (var i = 0; i < list.length; i++) {
+          var c = list[i];
+          items.push({
+            likes: c.likeCount != null ? c.likeCount : (c.like_count != null ? c.like_count : 0),
+            publishAt: c.publishAt || c.publish_at || null
+          });
+        }
+        var isLast = data.isLastPage === true || list.length === 0;
+        if (!isLast && page < 5 && items.length < 50) { page++; return sleep(FETCH_INTERVAL_MS).then(next); }
+        return items;
+      }).catch(function () { return items; });
+    }
+    return next();
+  }
+
+  function fetchCoreReaderProfiles(articles) {
+    // likers集計 → 2回以上の人を抽出
+    var counter = {};
+    for (var i = 0; i < articles.length; i++) {
+      var likers = articles[i].likers;
+      if (!likers) continue;
+      for (var j = 0; j < likers.length; j++) {
+        counter[likers[j]] = (counter[likers[j]] || 0) + 1;
+      }
+    }
+    var coreUsers = Object.keys(counter)
+      .filter(function (u) { return counter[u] >= 2; })
+      .sort(function (a, b) { return counter[b] - counter[a]; })
+      .slice(0, 30); // 上位30人まで
+
+    if (!coreUsers.length) return Promise.resolve([]);
+
+    var results = [];
+    var idx = 0;
+    function step() {
+      if (idx >= coreUsers.length) return Promise.resolve(results);
+      var u = coreUsers[idx];
+      ui.msg('コア読者プロフィール取得中… ' + (idx + 1) + '/' + coreUsers.length + '\n@' + u);
+      return fetchReaderProfile(u).then(function (profile) {
+        return fetchReaderArticles(u).then(function (arts) {
+          var likeCounts = arts.map(function (a) { return a.likes; });
+          var dates = arts.map(function (a) { return a.publishAt; }).filter(Boolean).sort();
+          var daySpan = dates.length > 1
+            ? (new Date(dates[dates.length - 1]) - new Date(dates[0])) / 86400000
+            : null;
+          profile.likedYourCount = counter[u];
+          profile.articleCount = arts.length;
+          profile.maxLikes = likeCounts.length ? Math.max.apply(null, likeCounts) : null;
+          profile.avgLikes = likeCounts.length ? Math.round(likeCounts.reduce(function (s, x) { return s + x; }, 0) / likeCounts.length) : null;
+          profile.medLikes = likeCounts.length ? (function (a) { a.sort(function (x, y) { return x - y; }); var m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; })(likeCounts.slice()) : null;
+          // トップ10
+          var top10 = likeCounts.slice().sort(function (a, b) { return b - a; }).slice(0, 10);
+          profile.top10AvgLikes = top10.length ? Math.round(top10.reduce(function (s, x) { return s + x; }, 0) / top10.length) : null;
+          profile.top10MedLikes = top10.length ? (function (a) { a.sort(function (x, y) { return x - y; }); var m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; })(top10.slice()) : null;
+          // 執筆ペース（日/記事）
+          profile.writingPace = daySpan && arts.length > 1 ? Math.round(daySpan / (arts.length - 1) * 10) / 10 : null;
+          results.push(profile);
+          idx++;
+          return sleep(FETCH_INTERVAL_MS).then(step);
+        });
+      });
+    }
+    return step();
+  }
+
   // ====== メイン ======
   Promise.all([fetchStats(), fetchContents()])
     .then(function (res) {

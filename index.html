@@ -87,6 +87,8 @@
   .t-未制御{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(239,68,68,.15);color:var(--bad)}
   .smuggle{border-left:3px solid var(--bad);padding-left:10px;margin:8px 0}
   .quote-detail{color:var(--mut);font-size:12px;border-left:2px solid var(--line);padding-left:8px;margin-top:4px}
+  #qDetailMoves td:nth-child(2){text-align:left;white-space:normal;min-width:200px}
+  #qDetailMoves td:nth-child(5){text-align:left;white-space:normal;max-width:260px}
   select.ctrl2{background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px}
   /* 記事カード（スマホ用） */
   #artCards{padding:0 0 8px}
@@ -244,6 +246,30 @@
   <section class="tab" data-tab="quality">
     <h2 class="sec">🧭 構造の質 × 反響</h2>
     <p class="desc">記事本文をLLMで手筋に分解し、①構造制御（強制/好み/未制御・偽の発見・装飾引用）と②操作可能性（表れ型＝センスなしで実行できる指示 / 抽象型＝判断・センスが要る）を検査。判定はvibeでなく抽出からの機械計算。<strong>これは「ダメさ」検出器</strong>（崩れ・僭称・未操作化を捕る）で、<strong>独創性＝良さは測りません</strong>。自分の記事は下の「全件解析」または「記事一覧」で選んで解析、他人の記事はURL/本文から追加。</p>
+    <details style="margin-bottom:12px">
+      <summary>📖 指標の読み方</summary>
+      <div class="panel" style="margin-top:8px;font-size:13px;line-height:1.8">
+        <strong>■ 一覧表の列</strong>
+        <table style="font-size:13px;margin:8px 0 16px">
+          <tr><th style="text-align:left;white-space:normal">構造制御</th><td style="text-align:left;white-space:normal">0〜100 のスコア。全手筋が「強制」なら 100、「好み」や「未制御」が多いほど下がる。偽の発見 1 件で −35。エッセイ・感想系は低くなるのが普通。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">モード</th><td style="text-align:left;white-space:normal"><span class="t-強制">制御</span> 全手筋が強制／<span style="color:#fbbf24">手心あり</span> 構造はあるが好みが混入／<span style="color:#fbbf24">混在</span> 強制と漏れが同居／<span style="color:#fbbf24">意見</span> 構造なし・好み中心／<span style="color:#f87171">偽の発見</span> 構造を主張しているが定義特徴を満たしていない／<span style="color:var(--mut)">失敗</span> 解析エラー</td></tr>
+          <tr><th style="text-align:left;white-space:normal">操作可能性(表れ%)</th><td style="text-align:left;white-space:normal">記事の主張・指示のうち、センスや判断なしで再現できるもの（表れ型）の割合。高いほど読者が具体的に実行できる。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">偽の発見</th><td style="text-align:left;white-space:normal">「本質は〜」「つまり〜と同じ」と構造を主張しているが、持ち込んだ構造の定義特徴を写像先が満たしていない箇所の数。</td></tr>
+        </table>
+        <strong>■ 詳細ビューの各セクション</strong>
+        <table style="font-size:13px;margin:8px 0 16px">
+          <tr><th style="text-align:left;white-space:normal">手筋テーブル</th><td style="text-align:left;white-space:normal">記事を論理ステップに分解したもの。各手筋に<strong>射程</strong>（そのステップが押さえる構造の非自明さ：低/中/高）と<strong>制御度</strong>（強制＝データや論理で結論が決まる／好み＝著者の趣味で決めている／未制御＝根拠なく開いている）を付与。制御度はプルダウンで変更でき、スコアが即座に再計算される。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">散布図</th><td style="text-align:left;white-space:normal">横軸＝射程、縦軸＝制御度。<span style="color:var(--good)">右上（強制×高射程）＝黄金比</span>の瞬間。<span style="color:var(--bad)">下段（好み・未制御）＝漏れ</span>。番号は手筋テーブルに対応。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">構造主張の検査</th><td style="text-align:left;white-space:normal">「本質は〜」等の主張を検出し、持ち込んだ構造の定義特徴を写像先が満たすか1つずつ検査。❌があれば「偽の発見」。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">引用負荷テスト</th><td style="text-align:left;white-space:normal">各引用が論証のどのステップを「強制」しているかを判定。消しても論理の強さが変わらないなら「装飾」（権威の飾り）。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">操作可能性</th><td style="text-align:left;white-space:normal">荷重を担う主張ごとに、<span class="t-強制">表れ型</span>（手順通りやれば誰でも同じ結果）か<span class="t-未制御">抽象型</span>（判断・センスが必要）かを判定。</td></tr>
+        </table>
+        <strong>■ スコアの目安</strong>
+        <div style="margin:8px 0">
+          この指標は「良い記事」を見つける道具ではなく、<strong>構造の穴（漏れ・僭称・未操作化）を検出する道具</strong>です。エッセイや感想文は構造制御を意図していないため低スコアになりますが、それは記事の価値が低いという意味ではありません。スコアが高い＝論証が閉じている、低い＝自由度が開いている（意見・好み・感想が入っている）という読み方をしてください。
+        </div>
+      </div>
+    </details>
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <select id="qModel" class="ctrl"><option value="claude-opus-4-8">Opus 4.8（高精度）</option><option value="claude-sonnet-4-6">Sonnet 4.6（高速・安価）</option><option value="gemini-2.0-flash">Gemini 2.0 Flash（無料枠あり）</option><option value="gemini-1.5-flash">Gemini 1.5 Flash（無料枠あり）</option></select>
       <button class="btn ghost" id="qKey">🔑 Claude APIキー</button>
