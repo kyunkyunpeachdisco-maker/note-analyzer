@@ -12,7 +12,7 @@
  */
 (function () {
   'use strict';
-  var NA_VERSION = '0.5.17 (2026-06-27)';
+  var NA_VERSION = '0.5.19 (2026-06-27)';
   console.log('[note-analyzer] collector v' + NA_VERSION);
 
   // ====== 設定（自分のアカウント識別子）======
@@ -155,9 +155,9 @@
             comments: (s.comment_count != null ? s.comment_count : s.commentCount)
           };
         }
-        var lastPage = data.last_page || data.lastPage || data.total_pages || data.totalPages || 999;
+        var isLast = data.last_page === true || data.isLastPage === true || list.length === 0;
         ui.msg('統計取得中… page ' + page + '（' + Object.keys(byId).length + '件）');
-        if (list.length > 0 && page < lastPage && page < MAX_PAGES) { page++; return sleep(FETCH_INTERVAL_MS).then(next); }
+        if (!isLast && page < MAX_PAGES) { page++; return sleep(FETCH_INTERVAL_MS).then(next); }
         return byId;
       });
     }
