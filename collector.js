@@ -282,10 +282,24 @@
         for (var i = 0; i < list.length; i++) {
           var c = list[i];
           var tags = extractTags(c);
+          var titleStr = c.name || c.title || '';
+          var charCount = c.bodyLetterCount || c.body_letter_count || null;
+          // body文字数がAPIにない場合、bodyフィールドから推定
+          if (charCount == null && c.body) charCount = c.body.replace(/<[^>]*>/g, '').length;
           items.push({
             likes: c.likeCount != null ? c.likeCount : (c.like_count != null ? c.like_count : 0),
             publishAt: c.publishAt || c.publish_at || null,
-            tags: tags
+            tags: tags,
+            titleLength: titleStr.length,
+            charCount: charCount,
+            titleFeatures: {
+              hasNumber: /[0-9０-９]/.test(titleStr),
+              hasQuestion: /[?？]/.test(titleStr),
+              hasKakko: /[「」『』]/.test(titleStr),
+              hasSumikakko: /[【】]/.test(titleStr),
+              hasSep: /[:：|｜・]/.test(titleStr),
+              isLong: titleStr.length >= 20
+            }
           });
         }
         var isLast = data.isLastPage === true || list.length === 0;
@@ -337,6 +351,22 @@
           profile.top10MedLikes = top10.length ? (function (a) { a.sort(function (x, y) { return x - y; }); var m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; })(top10.slice()) : null;
           // 執筆ペース（日/記事）
           profile.writingPace = daySpan && arts.length > 1 ? Math.round(daySpan / (arts.length - 1) * 10) / 10 : null;
+          // 構成統計
+          var charCounts = arts.map(function (a) { return a.charCount; }).filter(function (x) { return x != null; });
+          profile.medCharCount = charCounts.length ? (function (a) { a.sort(function (x, y) { return x - y; }); var m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : Math.round((a[m - 1] + a[m]) / 2); })(charCounts.slice()) : null;
+          // タイトル特徴集計
+          var tf = { hasNumber: 0, hasQuestion: 0, hasKakko: 0, hasSumikakko: 0, hasSep: 0, isLong: 0, total: 0 };
+          arts.forEach(function (a) {
+            if (!a.titleFeatures) return;
+            tf.total++;
+            if (a.titleFeatures.hasNumber) tf.hasNumber++;
+            if (a.titleFeatures.hasQuestion) tf.hasQuestion++;
+            if (a.titleFeatures.hasKakko) tf.hasKakko++;
+            if (a.titleFeatures.hasSumikakko) tf.hasSumikakko++;
+            if (a.titleFeatures.hasSep) tf.hasSep++;
+            if (a.titleFeatures.isLong) tf.isLong++;
+          });
+          profile.titleStats = tf;
           // タグ集計（使用回数＋平均スキ）
           var tagData = {};
           for (var ti = 0; ti < arts.length; ti++) {
@@ -351,7 +381,9 @@
             .map(function (t) {
               var d = tagData[t];
               var avg = d.likes.length ? Math.round(d.likes.reduce(function (s, x) { return s + x; }, 0) / d.likes.length) : null;
-              return { name: t, count: d.count, avgLikes: avg };
+              var sorted = d.likes.slice().sort(function (x, y) { return x - y; });
+              var med = sorted.length ? (sorted.length % 2 ? sorted[Math.floor(sorted.length / 2)] : Math.round((sorted[Math.floor(sorted.length / 2) - 1] + sorted[Math.floor(sorted.length / 2)]) / 2)) : null;
+              return { name: t, count: d.count, avgLikes: avg, medLikes: med };
             })
             .sort(function (a, b) { return b.count - a.count; })
             .slice(0, 15);
