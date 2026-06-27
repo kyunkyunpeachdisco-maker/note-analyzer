@@ -87,6 +87,14 @@
   .t-未制御{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(239,68,68,.15);color:var(--bad)}
   .smuggle{border-left:3px solid var(--bad);padding-left:10px;margin:8px 0}
   .quote-detail{color:var(--mut);font-size:12px;border-left:2px solid var(--line);padding-left:8px;margin-top:4px}
+  /* 詳細モーダルのカード（モバイルで横スクロールせず読める） */
+  .dlist{display:flex;flex-direction:column;gap:8px}
+  .dcard{border:1px solid var(--line);border-radius:10px;padding:10px;background:#0d1117}
+  .dcard-h{font-weight:600;font-size:13px;display:flex;gap:6px;align-items:baseline;line-height:1.5}
+  .dnum{display:inline-flex;min-width:20px;height:20px;align-items:center;justify-content:center;border-radius:50%;background:#30363d;color:#fff;font-size:11px;flex:0 0 auto}
+  .dctrls{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:8px}
+  .dfield{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--mut)}
+  .dctrls .btn{align-self:flex-end}
   #qDetailMoves td:nth-child(2){text-align:left;white-space:normal;min-width:200px}
   #qDetailMoves td:nth-child(5){text-align:left;white-space:normal;max-width:260px}
   select.ctrl2{background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px}
@@ -114,6 +122,11 @@
       <button class="btn ghost" id="katexBtn" style="padding:6px 10px;font-size:12px">📐 KaTeX</button>
       <button class="btn ghost" id="shareBtn" style="padding:6px 10px;font-size:12px">🖼 画像保存</button>
     </div>
+  </div>
+  <div class="row" style="gap:6px;align-items:center;margin:6px 0 0;font-size:12px">
+    <span class="mut">成績指標</span>
+    <select id="perfMetric" class="ctrl" style="font-size:12px;padding:4px 8px"></select>
+    <span class="mut" style="font-size:11px">（相関・比較・ランキングに使う指標。スキは質的反応向き）</span>
   </div>
   <nav class="tabs" id="tabs"></nav>
 </header>
@@ -315,6 +328,19 @@
       <button class="btn ghost" id="runSample">🔍 検索・解析</button>
       <span class="mut" id="sampleMsg" style="margin-left:8px"></span>
     </div>
+    <div class="panel">
+      <strong style="font-size:14px">コア読者の構造・文体比較（自分 vs 読者層）</strong>
+      <p class="mut" style="margin:6px 0">コア読者が自分で書いた人気記事を取得し、<strong>文体指標（無料・決定的）</strong>と任意で<strong>LLM構造指標</strong>を、あなたの記事と比較します（公開記事のみ・r.jina.ai経由。読者記事URLはv0.6.0以降のcollectorで収集されます）。</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <select id="rdReaders" class="ctrl"><option value="5">上位5人</option><option value="10" selected>上位10人</option><option value="999">全コア読者</option></select>
+        <select id="rdPerReader" class="ctrl"><option value="1">各1記事</option><option value="2">各2記事</option><option value="3" selected>各3記事</option><option value="5">各5記事</option></select>
+        <label class="mut" style="display:flex;align-items:center;gap:4px;font-size:13px" title="文体指標は常に無料。ONにすると読者記事にもLLM構造解析を実行（API課金）"><input type="checkbox" id="rdLLM"> LLM構造解析も</label>
+        <button class="btn" id="rdRun">読者を解析</button>
+        <button class="btn ghost" id="rdCancel" style="display:none">⏹ 中断</button>
+        <span class="mut" id="rdMsg"></span>
+      </div>
+      <div id="rdCompare"></div>
+    </div>
     <div class="panel" style="padding:0"><div class="tablewrap"><table id="qTable"></table></div></div>
   </section>
 </main>
@@ -322,8 +348,9 @@
 <!-- 構造詳細モーダル -->
 <div id="qDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:50;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px">
   <div style="max-width:900px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <strong id="qDetailLabel" style="font-size:16px;flex:1;margin-right:12px"></strong>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <strong id="qDetailLabel" style="font-size:16px;flex:1;min-width:140px"></strong>
+      <button class="btn ghost" id="qDetailCopy" style="padding:6px 10px;font-size:12px" title="記事＋この評価＋ロジックをまとめてコピー。Claude Code等に貼って『評価が妥当か・ロジックを見直して』と頼める">📋 Claude Code用</button>
       <button class="btn ghost" id="qDetailClose">閉じる</button>
     </div>
     <div id="qDetailGenre" style="margin-bottom:10px"></div>
@@ -341,24 +368,15 @@
       </div>
     </div>
     <h3 style="font-size:14px;margin:12px 0 8px">手筋（制御度を上書き・的外れは「除外」。その場で再計算・マッピングへ反映）</h3>
-    <div class="tablewrap"><table id="qDetailMoves" style="font-size:13px">
-      <thead><tr><th>#</th><th>手筋</th><th>射程</th><th>制御度</th><th>根拠</th><th>操作</th></tr></thead>
-      <tbody></tbody>
-    </table></div>
+    <div id="qDetailMoves" class="dlist"></div>
     <h3 style="font-size:14px;margin:16px 0 8px">推論の質（提案・主張の筋の良し悪し）</h3>
     <div id="qDetailReasoning"></div>
     <h3 style="font-size:14px;margin:16px 0 8px">構造主張の検査（偽の発見）</h3>
     <div id="qDetailStructs"></div>
     <h3 style="font-size:14px;margin:16px 0 8px">引用負荷テスト</h3>
-    <div class="tablewrap"><table id="qDetailCites" style="font-size:13px">
-      <thead><tr><th>出典</th><th>強制したステップ</th><th>負荷</th><th>判定理由</th><th>操作</th></tr></thead>
-      <tbody></tbody>
-    </table></div>
+    <div id="qDetailCites" class="dlist"></div>
     <h3 style="font-size:14px;margin:16px 0 8px">操作可能性</h3>
-    <div class="tablewrap"><table id="qDetailVerify" style="font-size:13px">
-      <thead><tr><th>荷重主張</th><th>型</th><th>読者の検証手続き／理由</th><th>操作</th></tr></thead>
-      <tbody></tbody>
-    </table></div>
+    <div id="qDetailVerify" class="dlist"></div>
     <h3 style="font-size:14px;margin:16px 0 8px">独自構築（正のシグナル）</h3>
     <div id="qDetailConstructions"></div>
   </div>
@@ -433,11 +451,29 @@ function loadData(obj){
   });
   // Gistから外部記事を復元
   if(obj._qext && Array.isArray(obj._qext)) QEXT=obj._qext;
+  refreshPerfSelector();
   renderAll();
   var asof = obj.meta && obj.meta.exportedAt ? fmtDateTime(obj.meta.exportedAt) : null;
   $('#metaInfo').textContent = obj.meta ? (obj.meta.count+'記事 / '+(HAS_VIEWS?'ビューあり':'ビューなし')+(asof?' / '+asof+'時点':'')) : '';
   switchTab('overview');
   autoSaveToGist(true);
+}
+// 成績指標（ビュー/スキ/スキ率）の切り替え。a.perf を組み替えて全再描画
+function setPerfMetric(key){
+  if(key==='views' && !HAS_VIEWS) key='likes';
+  PERF_KEY=key;
+  PERF_LABEL = key==='views'?'ビュー':(key==='likeRate'?'スキ率':'スキ');
+  (ARTS||[]).forEach(function(a){
+    a.perf = (key==='likeRate') ? a.likeRate : a[key];
+    a.perfPerDay = (a.ageDays && a.perf!=null ? a.perf/a.ageDays : null);
+  });
+  renderAll();
+}
+function refreshPerfSelector(){
+  var sel=$('#perfMetric'); if(!sel) return;
+  var opts=[]; if(HAS_VIEWS) opts.push(['views','ビュー']); opts.push(['likes','スキ']); opts.push(['likeRate','スキ率']);
+  sel.innerHTML=opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===PERF_KEY?' selected':'')+'>'+o[1]+'</option>'; }).join('');
+  sel.onchange=function(){ setPerfMetric(sel.value); };
 }
 
 function tryLoad(text){
@@ -464,6 +500,8 @@ function renderAll(){
   renderOverview(); renderArticles(); renderGems();
   renderTags(); renderStructure(); renderTitle(); renderEvergreen(); renderFans();
   renderQuality();
+  if(typeof renderCorr==='function') renderCorr();
+  if(typeof renderReaderCompare==='function') renderReaderCompare();
 }
 
 /* ---------- 概要 ---------- */
@@ -1984,6 +2022,46 @@ function buildCalibration(excludeKey){
 
 function qSamplesGet(){ var v=parseInt(($('#qSamples')&&$('#qSamples').value)||'1',10); return Math.max(1,Math.min(5,v||1)); }
 
+/* ====================== 文体・構造の数値指標（LLM不要・決定的） ====================== */
+// 表示する指標の定義（key・ラベル・単位・低い方が読みやすい等の向き）
+var STYLO_FIELDS=[
+  {key:'chars',         label:'文字数',        unit:''},
+  {key:'sentLen',       label:'一文字数',      unit:'字'},
+  {key:'paraLen',       label:'段落字数',      unit:'字'},
+  {key:'paraCount',     label:'段落数',        unit:''},
+  {key:'headingDensity',label:'見出し密度',    unit:'/千字'},
+  {key:'sectionLen',    label:'節あたり字数',  unit:'字'},
+  {key:'bulletRatio',   label:'箇条書き',      unit:'%'},
+  {key:'commaPerSent',  label:'文あたり読点',  unit:''},
+  {key:'kanjiRatio',    label:'漢字比率',      unit:'%'}
+];
+function styloMetrics(text){
+  if(!text) return null;
+  var t=String(text);
+  var chars=t.replace(/\s/g,'').length;
+  if(!chars) return null;
+  var paras=t.split(/\n\s*\n/).map(function(p){return p.trim();}).filter(Boolean);
+  var lines=t.split(/\n/).map(function(l){return l.trim();}).filter(Boolean);
+  var headings=lines.filter(function(l){return /^#{1,6}\s/.test(l) || /^[【\[][^】\]]{0,40}[】\]]$/.test(l);});
+  var sentences=t.replace(/\n/g,'').split(/(?<=[。！？])/).map(function(s){return s.trim();}).filter(function(s){return s.length>0;});
+  var bullets=lines.filter(function(l){return /^[-・*]\s/.test(l) || /^[0-9０-９]+[.)、]/.test(l);});
+  var commas=(t.match(/、/g)||[]).length;
+  var kanji=(t.match(/[一-龯]/g)||[]).length;
+  var hira=(t.match(/[぀-ゟ]/g)||[]).length;
+  var sentCount=sentences.length||1, paraCount=paras.length||1;
+  return {
+    chars:chars,
+    sentLen:Math.round(chars/sentCount),
+    paraLen:Math.round(chars/paraCount),
+    paraCount:paraCount,
+    headingDensity:Math.round(headings.length/(chars/1000)*10)/10,
+    sectionLen:headings.length?Math.round(chars/(headings.length+1)):chars,
+    bulletRatio:Math.round(bullets.length/lines.length*100),
+    commaPerSent:Math.round(commas/sentCount*10)/10,
+    kanjiRatio:Math.round(kanji/Math.max(1,kanji+hira)*100)
+  };
+}
+
 // ① 自己一貫性：N回サンプリングし、総合スコアの中央値に最も近い run を代表（medoid）に、
 //   ジャンル一致率とスコアの広がりを ensemble メタとして付与する
 function analyzeAndScore(text, model, excludeKey){
@@ -2122,27 +2200,39 @@ function pearson(xs, ys){
 
 function renderCorr(){
   var box=$('#qCorr'); if(!box) return;
-  var own=ARTS.filter(function(a){return a.struct && a.perf!=null;});
+  var own=ARTS.filter(function(a){return a.struct;});
   if(own.length<3){ box.style.display='none'; return; }
   box.style.display='';
-  var h='<strong style="font-size:14px">各指標と'+PERF_LABEL+'の相関分析（自記事 n='+own.length+'）</strong>';
-  function corrLabel(r){return r==null?'—':(Math.abs(r)>0.3?'<span class="pill '+(r>0?'good':'bad')+'">'+(r>0?'正':'負')+'の相関</span>':(Math.abs(r)>0.1?'<span class="pill warn">弱い相関</span>':'<span class="pill">無相関</span>'));}
-  // 総合＋4内訳それぞれ × perf（nullは各指標ごとに除外）
-  var metrics=[
-    {label:'総合スコア', key:'score'},
-    {label:'構造制御', key:'ctrlScore'},
-    {label:'推論の質', key:'reasonScore'},
-    {label:'接地(表れ%)', key:'groundScore'},
-    {label:'独自構築', key:'buildScore'}
-  ];
-  h+='<div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>指標 × '+PERF_LABEL+'</th><th>相関係数 r</th><th>n</th><th>強さ</th></tr></thead><tbody>';
-  metrics.forEach(function(mt){
-    var rows=own.filter(function(a){return a.struct[mt.key]!=null;});
-    var r=rows.length>=3?pearson(rows.map(function(a){return a.struct[mt.key];}),rows.map(function(a){return a.perf;})):null;
-    h+='<tr><td>'+mt.label+'</td><td>'+(r!=null?r.toFixed(3):'—')+'</td><td>'+rows.length+'</td><td>'+corrLabel(r)+'</td></tr>';
-  });
+  // 成績指標はビューとスキを同時に出す（無ければ片方）
+  var perfCols=[]; if(HAS_VIEWS) perfCols.push({key:'views',label:'ビュー'}); perfCols.push({key:'likes',label:'スキ'});
+  function perfVal(a,k){ return k==='likeRate'?a.likeRate:a[k]; }
+  function rCell(r){ if(r==null) return '<span class="mut">—</span>'; var c=Math.abs(r)>0.3?(r>0?'var(--good)':'var(--bad)'):(Math.abs(r)>0.1?'var(--warn)':'var(--mut)'); return '<span style="color:'+c+';font-weight:600">'+r.toFixed(3)+'</span>'; }
+  function corrRow(label, getVal, pool){
+    var cells=perfCols.map(function(pc){
+      var rows=pool.filter(function(a){ return getVal(a)!=null && perfVal(a,pc.key)!=null; });
+      var r=rows.length>=3?pearson(rows.map(getVal),rows.map(function(a){return perfVal(a,pc.key);})):null;
+      return '<td>'+rCell(r)+'</td>';
+    }).join('');
+    var nn=pool.filter(function(a){return getVal(a)!=null;}).length;
+    return '<tr><td>'+label+'</td>'+cells+'<td>'+nn+'</td></tr>';
+  }
+  var perfHead=perfCols.map(function(pc){return '<th>r×'+pc.label+'</th>';}).join('');
+  var h='<strong style="font-size:14px">各指標と成績の相関分析（自記事 n='+own.length+'）</strong>';
+  // 構造指標 × ビュー/スキ
+  var metrics=[['総合スコア','score'],['構造制御','ctrlScore'],['推論の質','reasonScore'],['接地(表れ%)','groundScore'],['独自構築','buildScore']];
+  h+='<div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>構造指標</th>'+perfHead+'<th>n</th></tr></thead><tbody>';
+  metrics.forEach(function(mt){ h+=corrRow(mt[0], function(a){return a.struct[mt[1]];}, own); });
   h+='</tbody></table></div>';
-  h+='<div class="muted" style="font-size:12px;margin-top:4px">n が小さいうちは参考値（目安：n≥8で傾向、n≥20で判断材料）。どの指標が'+PERF_LABEL+'に効くかの当たりをつける用途。</div>';
+  h+='<div class="muted" style="font-size:12px;margin-top:4px">r&gt;0＝その指標が高い記事ほど成績が高い。|r|≥0.3で中〜強・≥0.1で弱。nが小さいうちは参考値（目安 n≥8で傾向, n≥20で判断材料）。<b>ビューは外部流入に, スキは質的反応に効きやすい</b>。</div>';
+  // 文体指標 × ビュー/スキ（無料・決定的）
+  var styAll=ARTS.filter(function(a){ return a.text; });
+  if(styAll.length>=3){
+    styAll.forEach(function(a){ if(!a._stylo) a._stylo=styloMetrics(a.text); });
+    h+='<h4 style="font-size:13px;margin:14px 0 6px">文体指標 × 成績（無料・決定的）</h4>';
+    h+='<div class="tablewrap"><table><thead><tr><th>文体指標</th>'+perfHead+'<th>n</th></tr></thead><tbody>';
+    STYLO_FIELDS.forEach(function(f){ h+=corrRow(f.label+(f.unit?'('+f.unit+')':''), function(a){return a._stylo?a._stylo[f.key]:null;}, styAll); });
+    h+='</tbody></table></div>';
+  }
   // ジャンル別の平均・中央値パフォーマンス（mode＝ジャンル）
   var modeMap={};
   own.forEach(function(a){
@@ -2252,8 +2342,8 @@ function qPlotAxes(){ return [
 function qAxisLabel(k){ var m=qPlotAxes().filter(function(a){return a.key===k;})[0]; return m?m.label:k; }
 
 function renderQuality(){
-  var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, reach:a.perf, ext:false, struct:a.struct}; });
-  var ext=QEXT.map(function(e){ return {label:e.label, reach:e.reach, ext:true, struct:e.struct}; });
+  var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, reach:a.perf, ext:false, struct:a.struct, text:a.text}; });
+  var ext=QEXT.map(function(e){ return {label:e.label, reach:e.reach, ext:true, struct:e.struct, text:e.text||null}; });
   var pts=own.concat(ext);
   drawQ(pts);
   var t=$('#qTable'); if(!t) return; t.innerHTML='';
@@ -2290,7 +2380,7 @@ function renderQuality(){
       '<td>'+(s.buildScore!=null?s.buildScore+'<small style="color:var(--mut);margin-left:2px">('+s.conCount+')</small>':'—')+'</td>'+
       '<td>'+(p.reach==null?'—':num(p.reach))+'</td>'+
       '<td'+(s.pseudo?' style="color:#f87171"':'')+'>'+(s.pseudo||0)+'</td>';
-    if(s.raw){ r.style.cursor='pointer'; r.title='クリックで詳細・項目修正'; (function(pp){r.onclick=function(){showDetail(pp.struct,pp.label);};})(p); }
+    if(s.raw){ r.style.cursor='pointer'; r.title='クリックで詳細・項目修正'; (function(pp){r.onclick=function(){showDetail(pp.struct,pp.label,pp.text);};})(p); }
     tb.appendChild(r);
   });
   t.appendChild(tb);
@@ -2400,17 +2490,116 @@ bindSampling();
 
 bindQuality();
 
+/* ====================== コア読者の構造・文体比較（自分 vs 読者層） ====================== */
+var QREADER=[]; // [{label, reader, url, likes, stylo, struct?}]
+function bindReaderCompare(){
+  var btn=$('#rdRun'); if(!btn) return;
+  var cancel=$('#rdCancel'); if(cancel) cancel.onclick=function(){ cancelPool(); $('#rdMsg').textContent='中断中…'; };
+  btn.onclick=function(){
+    var profiles=(typeof DATA!=='undefined'&&DATA.meta&&DATA.meta.coreReaderProfiles)||[];
+    if(!profiles.length){ $('#rdMsg').textContent='コア読者プロフィールがありません（collectorで収集してください）'; return; }
+    var withArts=profiles.filter(function(p){ return p.topArticles && p.topArticles.length; });
+    if(!withArts.length){ $('#rdMsg').textContent='読者記事URLがありません。collector v0.6.0以降で再収集してください'; return; }
+    var nReaders=parseInt($('#rdReaders').value,10)||10;
+    var perReader=parseInt($('#rdPerReader').value,10)||3;
+    var useLLM=$('#rdLLM').checked;
+    if(useLLM && !ensureKey()) return;
+    var seen={}, targets=[];
+    withArts.slice(0,nReaders).forEach(function(p){
+      (p.topArticles||[]).slice(0,perReader).forEach(function(a){
+        if(a.url && !seen[a.url]){ seen[a.url]=1; targets.push({url:a.url, title:a.title||a.url, likes:a.likes, reader:p.nickname||p.urlname}); }
+      });
+    });
+    if(!targets.length){ $('#rdMsg').textContent='対象記事がありません'; return; }
+    QREADER=[]; var model=$('#qModel').value;
+    btn.disabled=true; if(cancel)cancel.style.display=''; $('#rdMsg').textContent='取得・解析中 0/'+targets.length;
+    var done=0;
+    runPool(targets, function(tg){
+      return fetchReader(tg.url).then(function(text){
+        var rec={label:tg.title, reader:tg.reader, url:tg.url, likes:tg.likes, stylo:styloMetrics(String(text))};
+        var p=Promise.resolve();
+        if(useLLM){ p=analyzeAndScore(String(text), model).then(function(st){ rec.struct=st; }).catch(function(){}); }
+        return p.then(function(){ QREADER.push(rec); done++; $('#rdMsg').textContent='解析中 '+done+'/'+targets.length; });
+      }).catch(function(){ done++; }); // 取得失敗はスキップ
+    }, 2, null).then(function(){
+      btn.disabled=false; if(cancel)cancel.style.display='none';
+      $('#rdMsg').textContent=_poolCancel?('中断（'+QREADER.length+'件取得）'):('完了（'+QREADER.length+'件）');
+      renderReaderCompare();
+    });
+  };
+}
+function renderReaderCompare(){
+  var box=$('#rdCompare'); if(!box) return;
+  if(!QREADER.length){ box.innerHTML=''; return; }
+  var ownStylo=(ARTS||[]).filter(function(a){return a.text;}).map(function(a){return styloMetrics(a.text);}).filter(Boolean);
+  var rdStylo=QREADER.map(function(r){return r.stylo;}).filter(Boolean);
+  var h='<div style="margin-top:10px"><strong style="font-size:13px">文体指標 中央値：あなた（n='+ownStylo.length+'） vs コア読者層（n='+rdStylo.length+'）</strong>';
+  h+='<div class="tablewrap" style="margin-top:6px"><table><thead><tr><th>指標</th><th>あなた</th><th>読者層</th><th>差</th></tr></thead><tbody>';
+  STYLO_FIELDS.forEach(function(f){
+    var o=median(ownStylo.map(function(s){return s[f.key];}).filter(function(v){return v!=null;}));
+    var r=median(rdStylo.map(function(s){return s[f.key];}).filter(function(v){return v!=null;}));
+    var diff=(o!=null&&r!=null)?(o-r):null;
+    h+='<tr><td>'+f.label+'</td><td>'+(o!=null?f1(o)+f.unit:'—')+'</td><td>'+(r!=null?f1(r)+f.unit:'—')+'</td><td>'+(diff!=null?((diff>0?'+':'')+f1(diff)):'—')+'</td></tr>';
+  });
+  h+='</tbody></table></div></div>';
+  var rdStruct=QREADER.filter(function(r){return r.struct;});
+  var ownStruct=(ARTS||[]).filter(function(a){return a.struct;});
+  if(rdStruct.length){
+    h+='<div style="margin-top:14px"><strong style="font-size:13px">LLM構造指標 中央値：あなた（n='+ownStruct.length+'） vs 読者層（n='+rdStruct.length+'）</strong>';
+    h+='<div class="tablewrap" style="margin-top:6px"><table><thead><tr><th>指標</th><th>あなた</th><th>読者層</th></tr></thead><tbody>';
+    [['総合','score'],['構造制御','ctrlScore'],['推論の質','reasonScore'],['接地','groundScore'],['独自構築','buildScore']].forEach(function(m){
+      var o=median(ownStruct.map(function(a){return a.struct[m[1]];}).filter(function(v){return v!=null;}));
+      var r=median(rdStruct.map(function(a){return a.struct[m[1]];}).filter(function(v){return v!=null;}));
+      h+='<tr><td>'+m[0]+'</td><td>'+(o!=null?f1(o):'—')+'</td><td>'+(r!=null?f1(r):'—')+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+    function dist(list){ var d={}; list.forEach(function(s){ var g=s.genre||'?'; d[g]=(d[g]||0)+1; }); return d; }
+    var od=dist(ownStruct.map(function(a){return a.struct;})), rdd=dist(rdStruct.map(function(a){return a.struct;}));
+    var gs={}; Object.keys(od).concat(Object.keys(rdd)).forEach(function(g){gs[g]=1;});
+    h+='<div class="muted" style="font-size:12px;margin-top:6px">ジャンル分布（あなた / 読者層）：'+Object.keys(gs).map(function(g){return esc(g)+' '+(od[g]||0)+'/'+(rdd[g]||0);}).join('・')+'</div></div>';
+  }
+  box.innerHTML=h;
+}
+bindReaderCompare();
+
 /* ====================== 構造詳細モーダル ====================== */
-var DETAIL_STATE={result:null,struct:null};
+var DETAIL_STATE={result:null,struct:null,text:null,label:''};
 var SEL_STYLE='background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px';
 
-function showDetail(struct,label){
+function showDetail(struct,label,text){
   DETAIL_STATE.result=struct.raw;
   DETAIL_STATE.struct=struct;
+  DETAIL_STATE.text=text||null;
+  DETAIL_STATE.label=label||'';
   $('#qDetailLabel').textContent=label;
   redrawDetail(false);
   $('#qDetailModal').style.display='block';
   document.body.style.overflow='hidden';
+}
+// 評価が妥当か外部（Claude Code等）で検証してもらうための貼り付け用データを生成
+function buildEvalExport(){
+  var d=DETAIL_STATE.result||{}, q=qualityScore(d);
+  var scores={ジャンル:q.genre, 総合:q.score, 構造制御:q.ctrlScore, 推論の質:q.reasonScore, 接地:q.groundScore, 独自構築:q.buildScore, 偽の発見:q.pseudo, 手筋内訳:q.counts};
+  var logic=[
+    '# このツールの評価ロジック（前提）',
+    '- ジャンル判定: 技術設計/実験検証/論証/案出し/エッセイ体験。ジャンルで物差しを変える。',
+    '- 手筋の制御度: 強制(データ/論理/公平機構で結論が決まる)/好み(理由なき決め打ち)/未制御(無根拠に開く)/報告(体験・引用・ナレーション＝中立で減点しない)。',
+    '- 構造制御スコア = 報告を除く構造的手筋で 100×強制率 − 40×好み率 − 75×未制御率(0〜100)。',
+    '- 推論の質 = 各提案/主張の「前提からの帰結・区別の一貫・反例処理・無矛盾・定義の一貫」を 高/中/低 で評価し平均。',
+    '- 接地 = 荷重主張のうち表れ型(センスなしで再現可能)の割合。',
+    '- 独自構築 = original_concept/implementation/iteration/cross_domain の数と多様性。',
+    '- 総合 = そのジャンルで有効な観点(構造制御/推論の質/接地/独自構築)の平均 − 35×偽の発見。エッセイ体験は構造制御を出さない。'
+  ].join('\n');
+  var parts=[
+    '# note記事 構造評価の妥当性レビュー依頼',
+    'noteアナライザーが下記の記事に付けた構造評価です。評価が妥当か、ロジックに照らして見直してください。誤分類があれば「どの手筋/主張をどう直すべきか」「ジャンル判定は適切か」「スコア式に問題はないか」を具体的に指摘してください。',
+    '',
+    '記事タイトル: '+(DETAIL_STATE.label||'(無題)')
+  ];
+  if(DETAIL_STATE.text){ parts.push('', '## 記事本文', String(DETAIL_STATE.text).slice(0,14000)); }
+  else { parts.push('', '（本文未保存。下のJSON内の手筋summary/quoteから推測してください）'); }
+  parts.push('', '## ツールが出した評価(JSON)', '```json', JSON.stringify({スコア:scores, 詳細:d}, null, 2), '```', '', logic);
+  return parts.join('\n');
 }
 // 全セクション再描画＋再計算（除外トグル時に使用）。isEdit=trueなら確定例としてマーク
 function redrawDetail(isEdit){
@@ -2420,6 +2609,13 @@ function redrawDetail(isEdit){
 }
 $('#qDetailClose').onclick=function(){ $('#qDetailModal').style.display='none'; document.body.style.overflow=''; };
 $('#qDetailModal').onclick=function(e){ if(e.target===$('#qDetailModal')){ $('#qDetailModal').style.display='none'; document.body.style.overflow=''; } };
+$('#qDetailCopy').onclick=function(){
+  var txt=buildEvalExport(), btn=$('#qDetailCopy'), old=btn.textContent;
+  function done(){ btn.textContent='✓ コピー'; setTimeout(function(){ btn.textContent=old; },1500); }
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done,function(){ fallbackCopy(txt); done(); }); }
+  else { fallbackCopy(txt); done(); }
+};
+function fallbackCopy(txt){ var ta=document.createElement('textarea'); ta.value=txt; ta.style.cssText='position:fixed;left:-9999px'; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); }
 
 // 「除外／復活」トグルボタン（的外れな項目をスコアから外す）
 function exBtn(obj){
@@ -2433,6 +2629,8 @@ function mkSelect(opts,cur,onch){
   opts.forEach(function(o){ var op=document.createElement('option'); op.value=o; op.textContent=o; if(o===cur)op.selected=true; sel.appendChild(op); });
   sel.onchange=function(){ onch(sel.value); }; return sel;
 }
+// ラベル付きコントロール（カードUIのモバイル可読性向上）
+function fieldWrap(label, node){ var w=document.createElement('label'); w.className='dfield'; var s=document.createElement('span'); s.textContent=label; w.appendChild(s); w.appendChild(node); return w; }
 
 function renderDetailGenre(){
   var d=DETAIL_STATE.result; if(!d) return;
@@ -2449,20 +2647,21 @@ function renderDetailGenre(){
 
 function renderDetailMoves(){
   var d=DETAIL_STATE.result; if(!d) return;
-  var tb=$('#qDetailMoves').querySelector('tbody'); tb.innerHTML='';
-  (d.moves||[]).forEach(function(m,i){
+  var host=$('#qDetailMoves'); host.innerHTML='';
+  var moves=d.moves||[];
+  if(!moves.length){ host.innerHTML='<div class="muted">手筋は検出されませんでした。</div>'; return; }
+  moves.forEach(function(m,i){
     if(!m.id) m.id=i+1;
-    var tr=document.createElement('tr');
-    if(m._excluded) tr.style.opacity='.4';
-    tr.innerHTML='<td>'+m.id+'</td>'+
-      '<td>'+esc(m.summary||'')+'<div class="quote-detail">'+esc(m.quote||'')+'</div></td>'+
-      '<td></td><td></td>'+
-      '<td class="muted" style="font-size:12px">'+esc(m.reason||'')+'</td>'+
-      '<td></td>';
-    tr.children[2].appendChild(mkSelect(['低','中','高'], m.reach, function(v){ m.reach=v; recomputeDetail(true); }));
-    tr.children[3].appendChild(mkSelect(['強制','好み','未制御','報告'], m.control, function(v){ m.control=v; recomputeDetail(true); }));
-    tr.children[5].appendChild(exBtn(m));
-    tb.appendChild(tr);
+    var card=document.createElement('div'); card.className='dcard'; if(m._excluded) card.style.opacity='.45';
+    card.innerHTML='<div class="dcard-h"><span class="dnum">'+m.id+'</span><span>'+esc(m.summary||'')+'</span></div>'+
+      (m.quote?'<div class="quote-detail">'+esc(m.quote||'')+'</div>':'')+
+      (m.reason?'<div class="muted" style="font-size:12px;margin-top:4px">'+esc(m.reason||'')+'</div>':'');
+    var ctrls=document.createElement('div'); ctrls.className='dctrls';
+    ctrls.appendChild(fieldWrap('射程', mkSelect(['低','中','高'], m.reach, function(v){ m.reach=v; recomputeDetail(true); })));
+    ctrls.appendChild(fieldWrap('制御度', mkSelect(['強制','好み','未制御','報告'], m.control, function(v){ m.control=v; recomputeDetail(true); })));
+    ctrls.appendChild(exBtn(m));
+    card.appendChild(ctrls);
+    host.appendChild(card);
   });
 }
 
@@ -2512,33 +2711,36 @@ function renderDetailStructs(){
 
 function renderDetailCites(){
   var d=DETAIL_STATE.result; if(!d) return;
-  var ct=$('#qDetailCites').querySelector('tbody'); ct.innerHTML='';
-  if(!(d.citations||[]).length){ ct.innerHTML='<tr><td class="muted" colspan="5" style="padding:10px">引用なし</td></tr>'; return; }
-  (d.citations||[]).forEach(function(c){
-    var tr=document.createElement('tr'); if(c._excluded) tr.style.opacity='.4';
-    tr.innerHTML='<td>'+esc(c.source||'')+'</td><td>'+esc(c.supports||'')+'</td>'+
-      '<td></td>'+
-      '<td class="muted" style="font-size:12px">'+esc(c.reason||'')+'</td>'+
-      '<td></td>';
-    tr.children[2].appendChild(mkSelect(['強制','装飾'], c.forces_step?'強制':'装飾', function(v){ c.forces_step=(v==='強制'); recomputeDetail(true); }));
-    tr.children[4].appendChild(exBtn(c));
-    ct.appendChild(tr);
+  var host=$('#qDetailCites'); host.innerHTML='';
+  var cs=d.citations||[];
+  if(!cs.length){ host.innerHTML='<div class="muted">引用なし</div>'; return; }
+  cs.forEach(function(c){
+    var card=document.createElement('div'); card.className='dcard'; if(c._excluded) card.style.opacity='.45';
+    card.innerHTML='<div class="dcard-h"><span>'+esc(c.source||'(出典不明)')+'</span></div>'+
+      (c.supports?'<div style="font-size:13px;margin-top:2px">支え：'+esc(c.supports)+'</div>':'')+
+      (c.reason?'<div class="muted" style="font-size:12px;margin-top:4px">'+esc(c.reason||'')+'</div>':'');
+    var ctrls=document.createElement('div'); ctrls.className='dctrls';
+    ctrls.appendChild(fieldWrap('負荷', mkSelect(['強制','装飾'], c.forces_step?'強制':'装飾', function(v){ c.forces_step=(v==='強制'); recomputeDetail(true); })));
+    ctrls.appendChild(exBtn(c));
+    card.appendChild(ctrls);
+    host.appendChild(card);
   });
 }
 
 function renderDetailVerify(){
   var d=DETAIL_STATE.result; if(!d) return;
-  var vt=$('#qDetailVerify').querySelector('tbody'); vt.innerHTML='';
-  if(!(d.verifiability||[]).length){ vt.innerHTML='<tr><td class="muted" colspan="4" style="padding:10px">なし</td></tr>'; return; }
-  (d.verifiability||[]).forEach(function(v){
-    var tr=document.createElement('tr'); if(v._excluded) tr.style.opacity='.4';
-    tr.innerHTML='<td>'+esc(v.claim||'')+'</td>'+
-      '<td></td>'+
-      '<td class="muted" style="font-size:12px">'+esc(v.procedure||v.reason||'')+(v.procedure&&v.reason?'<br>'+esc(v.reason):'')+'</td>'+
-      '<td></td>';
-    tr.children[1].appendChild(mkSelect(['表れ型','抽象型'], v.type, function(val){ v.type=val; recomputeDetail(true); }));
-    tr.children[3].appendChild(exBtn(v));
-    vt.appendChild(tr);
+  var host=$('#qDetailVerify'); host.innerHTML='';
+  var vs=d.verifiability||[];
+  if(!vs.length){ host.innerHTML='<div class="muted">なし</div>'; return; }
+  vs.forEach(function(v){
+    var card=document.createElement('div'); card.className='dcard'; if(v._excluded) card.style.opacity='.45';
+    card.innerHTML='<div class="dcard-h"><span>'+esc(v.claim||'')+'</span></div>'+
+      ((v.procedure||v.reason)?'<div class="muted" style="font-size:12px;margin-top:4px">'+esc(v.procedure||'')+(v.procedure&&v.reason?'<br>':'')+esc(v.reason||'')+'</div>':'');
+    var ctrls=document.createElement('div'); ctrls.className='dctrls';
+    ctrls.appendChild(fieldWrap('型', mkSelect(['表れ型','抽象型'], v.type, function(val){ v.type=val; recomputeDetail(true); })));
+    ctrls.appendChild(exBtn(v));
+    card.appendChild(ctrls);
+    host.appendChild(card);
   });
 }
 

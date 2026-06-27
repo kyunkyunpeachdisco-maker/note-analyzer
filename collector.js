@@ -12,7 +12,7 @@
  */
 (function () {
   'use strict';
-  var NA_VERSION = '0.5.19 (2026-06-27)';
+  var NA_VERSION = '0.6.0 (2026-06-27)';
   console.log('[note-analyzer] collector v' + NA_VERSION);
 
   // ====== 設定（自分のアカウント識別子）======
@@ -290,6 +290,10 @@
             likes: c.likeCount != null ? c.likeCount : (c.like_count != null ? c.like_count : 0),
             publishAt: c.publishAt || c.publish_at || null,
             tags: tags,
+            // 構造分析用：記事URL・タイトルを保持（本文はサイズが大きいので保存せず分析時に取得）
+            key: c.key || null,
+            title: titleStr,
+            url: c.noteUrl || (c.key ? 'https://note.com/' + urlname + '/n/' + c.key : null),
             titleLength: titleStr.length,
             charCount: charCount,
             titleFeatures: {
@@ -367,6 +371,12 @@
             if (a.titleFeatures.isLong) tf.isLong++;
           });
           profile.titleStats = tf;
+          // 構造分析用：スキ上位5記事のURL・タイトル・スキ数を保存（自分vs読者層の構造比較に使用）
+          profile.topArticles = arts.slice()
+            .filter(function (a) { return a.url; })
+            .sort(function (a, b) { return b.likes - a.likes; })
+            .slice(0, 5)
+            .map(function (a) { return { url: a.url, title: a.title, likes: a.likes }; });
           // タグ集計（使用回数＋平均スキ）
           var tagData = {};
           for (var ti = 0; ti < arts.length; ti++) {
