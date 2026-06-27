@@ -1835,10 +1835,17 @@ var Q_SYSTEM=[
 '重要：表層の厳密さ（数式・引用・整った構成）は強制を意味しない。見かけに釣られるな。',
 '',
 '# 偽の発見（pseudo-structure）検査',
-'「本質は〜」「つまり〜と同じ」など構造・本質・等値を主張する箇所を見つけ、',
+'「本質は〜」「つまり〜と同じ」など構造・本質・等値を**真剣に**主張する箇所を見つけ、',
 '1) 主張された構造の定義特徴を挙げる（例：因数分解＝「積構造」＋「共通項の括り出し」）、',
 '2) 写像先の対象がその特徴を満たすか各々検査、',
 '3) 欠けていれば smuggled=true（構造を僭称＝偽の発見）。',
+'',
+'**重要：以下は偽の発見にしない**',
+'- 比喩・アナロジーとして使っている（「〜みたいなもの」「〜的な」）',
+'- 既存概念の名前を借りつつ、独自定義を明示的に与えて新指標を作っている（造語・パロディ名の指標でも、計算式や定義が厳密なら構造は成立している）',
+'- エッセイ・感想の中で感覚を伝えるための修辞的な構造援用',
+'- 著者が謙遜・自嘲（「ジョーク指標」「遊び」等）していても、実際の定義・計算が厳密なら偽の発見ではない。著者のトーンではなく、定義の実質で判断せよ',
+'偽の発見は「本気で構造的等値を主張しているが定義特徴を満たさない」場合のみ。疑わしければ smuggled=false。',
 '',
 '# 引用負荷テスト',
 '各引用について、論証のどのステップを強制するかを問い、出典が本当にそれを確立しているか判定。消しても論理の強さが変わらない／同語反復なら forces_step=false（権威の装飾）。',
@@ -1855,7 +1862,7 @@ var Q_SYSTEM=[
 '',
 '# 較正例（要点のみ）',
 '- 対決ルールを「未記載要素は秘密投票」「指標は計算式不明だが公平」で閉じる→全手筋 強制。有能→資産/幸福を表れに操作化→検証 表れ型。',
-'- 架空指標で「0.5＝決めの値」「0.7掛け」「愛着ボーナス＝下駄」「好みで相対値に変更」→好み多数（手心）。式は計算できるが「タイパを測る」は趣味固定→抽象型。',
+'- 架空指標で「0.5＝決めの値」「0.7掛け」「愛着ボーナス＝下駄」「好みで相対値に変更」→好み多数（手心）。ただし指標名がパロディでも計算式・定義・変数選択が厳密に閉じていれば強制（著者の自嘲トーンで判断するな）。',
 '- 「因数分解＝整理＝生きる力」：定義特徴（積構造・共通項括り出し）を現実の問題分解は満たさない→smuggled=true。',
 '- 「Microsoft調査で信頼が高いほど批判的思考が減る」→同語反復で価値主張を確立しない→forces_step=false。',
 '',
@@ -2237,13 +2244,21 @@ function renderDetailMoves(){
     var tr=document.createElement('tr');
     tr.innerHTML='<td>'+m.id+'</td>'+
       '<td>'+esc(m.summary||'')+'<div class="quote-detail">'+esc(m.quote||'')+'</div></td>'+
-      '<td>'+esc(m.reach||'')+'</td><td></td>'+
+      '<td></td><td></td>'+
       '<td class="muted" style="font-size:12px">'+esc(m.reason||'')+'</td>';
-    var sel=document.createElement('select');
-    sel.style.cssText='background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px';
-    ['強制','好み','未制御'].forEach(function(o){ var op=document.createElement('option'); op.value=o; op.textContent=o; if(o===m.control)op.selected=true; sel.appendChild(op); });
-    sel.onchange=function(){ m.control=sel.value; recomputeDetail(); };
-    tr.children[3].appendChild(sel);
+    var selStyle='background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px';
+    // 射程プルダウン
+    var reachSel=document.createElement('select');
+    reachSel.style.cssText=selStyle;
+    ['低','中','高'].forEach(function(o){ var op=document.createElement('option'); op.value=o; op.textContent=o; if(o===m.reach)op.selected=true; reachSel.appendChild(op); });
+    reachSel.onchange=function(){ m.reach=reachSel.value; recomputeDetail(); };
+    tr.children[2].appendChild(reachSel);
+    // 制御度プルダウン
+    var ctrlSel=document.createElement('select');
+    ctrlSel.style.cssText=selStyle;
+    ['強制','好み','未制御'].forEach(function(o){ var op=document.createElement('option'); op.value=o; op.textContent=o; if(o===m.control)op.selected=true; ctrlSel.appendChild(op); });
+    ctrlSel.onchange=function(){ m.control=ctrlSel.value; recomputeDetail(); };
+    tr.children[3].appendChild(ctrlSel);
     tb.appendChild(tr);
   });
 }
@@ -2280,11 +2295,15 @@ function renderDetailVerify(){
   var vt=$('#qDetailVerify').querySelector('tbody'); vt.innerHTML='';
   if(!(d.verifiability||[]).length){ vt.innerHTML='<tr><td class="muted" colspan="3" style="padding:10px">なし</td></tr>'; return; }
   (d.verifiability||[]).forEach(function(v){
-    var hyo=v.type==='表れ型';
     var tr=document.createElement('tr');
     tr.innerHTML='<td>'+esc(v.claim||'')+'</td>'+
-      '<td>'+(hyo?'<span class="t-強制">表れ型</span>':'<span class="t-未制御">抽象型</span>')+'</td>'+
+      '<td></td>'+
       '<td class="muted" style="font-size:12px">'+esc(v.procedure||v.reason||'')+(v.procedure&&v.reason?'<br>'+esc(v.reason):'')+'</td>';
+    var sel=document.createElement('select');
+    sel.style.cssText='background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px';
+    ['表れ型','抽象型'].forEach(function(o){ var op=document.createElement('option'); op.value=o; op.textContent=o; if(o===v.type)op.selected=true; sel.appendChild(op); });
+    sel.onchange=function(){ v.type=sel.value; recomputeDetail(); };
+    tr.children[1].appendChild(sel);
     vt.appendChild(tr);
   });
 }
