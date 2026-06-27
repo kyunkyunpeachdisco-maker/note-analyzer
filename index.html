@@ -357,7 +357,13 @@ function fmtDateTime(iso){var d=new Date(iso); if(isNaN(d.getTime()))return iso;
 /* ====================== データ読込 ====================== */
 function loadData(obj){
   if(!obj || !obj.articles || !obj.articles.length){ throw new Error('articles が空です'); }
-  // articles内のstructを保持（Gistから復元）
+  // 既存の構造解析結果をURL/keyで保持し、新JSONにマージ
+  var prevStruct={};
+  if(ARTS && ARTS.length) ARTS.forEach(function(a){ if(a.struct) prevStruct[aid(a)]=a.struct; });
+  if(DATA && DATA.articles) DATA.articles.forEach(function(a){ if(a.struct) prevStruct[aid(a)]=a.struct; });
+  obj.articles.forEach(function(a){ if(!a.struct && prevStruct[aid(a)]) a.struct=prevStruct[aid(a)]; });
+  // 外部記事も引き継ぎ
+  if(!obj._qext && QEXT && QEXT.length) obj._qext=QEXT;
   DATA = obj;
   HAS_VIEWS = !!(obj.meta && obj.meta.hasViews) && obj.articles.some(function(a){return a.views!=null;});
   PERF_KEY = HAS_VIEWS ? 'views' : 'likes';
