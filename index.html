@@ -250,9 +250,10 @@
       <div class="panel" style="margin-top:8px;font-size:13px;line-height:1.8">
         <strong>■ 一覧表の列</strong>
         <table style="font-size:13px;margin:8px 0 16px">
-          <tr><th style="text-align:left;white-space:normal">構造制御</th><td style="text-align:left;white-space:normal">0〜100 のスコア。全手筋が「強制」なら 100、「好み」や「未制御」が多いほど下がる。偽の発見 1 件で −35。エッセイ・感想系は低くなるのが普通。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">総合</th><td style="text-align:left;white-space:normal">0〜100 の統合スコア。構造制御（60%）と操作可能性（40%）の加重平均。記事の「閉じ具合」と「実行しやすさ」の両面を反映。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">構造制御</th><td style="text-align:left;white-space:normal">0〜100。手筋の制御度（強制/好み/未制御）から算出。全手筋が「強制」なら 100、「好み」や「未制御」が多いほど下がる。偽の発見 1 件で −35。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">操作可能性</th><td style="text-align:left;white-space:normal">0〜100%。記事の主張・指示のうち「表れ型」（センスなしで再現可能）の割合。高いほど読者が手順通りに実行できる。</td></tr>
           <tr><th style="text-align:left;white-space:normal">モード</th><td style="text-align:left;white-space:normal"><span class="t-強制">制御</span> 全手筋が強制／<span style="color:#fbbf24">手心あり</span> 構造はあるが好みが混入／<span style="color:#fbbf24">混在</span> 強制と漏れが同居／<span style="color:#fbbf24">意見</span> 構造なし・好み中心／<span style="color:#f87171">偽の発見</span> 構造を主張しているが定義特徴を満たしていない／<span style="color:var(--mut)">失敗</span> 解析エラー</td></tr>
-          <tr><th style="text-align:left;white-space:normal">操作可能性(表れ%)</th><td style="text-align:left;white-space:normal">記事の主張・指示のうち、センスや判断なしで再現できるもの（表れ型）の割合。高いほど読者が具体的に実行できる。</td></tr>
           <tr><th style="text-align:left;white-space:normal">偽の発見</th><td style="text-align:left;white-space:normal">「本質は〜」「つまり〜と同じ」と構造を主張しているが、持ち込んだ構造の定義特徴を写像先が満たしていない箇所の数。</td></tr>
         </table>
         <strong>■ 詳細ビューの各セクション</strong>
@@ -265,7 +266,7 @@
         </table>
         <strong>■ スコアの目安</strong>
         <div style="margin:8px 0">
-          この指標は「良い記事」を見つける道具ではなく、<strong>構造の穴（漏れ・僭称・未操作化）を検出する道具</strong>です。エッセイや感想文は構造制御を意図していないため低スコアになりますが、それは記事の価値が低いという意味ではありません。スコアが高い＝論証が閉じている、低い＝自由度が開いている（意見・好み・感想が入っている）という読み方をしてください。
+          総合スコアは<strong>構造制御（論証が閉じているか）</strong>と<strong>操作可能性（読者が実行できるか）</strong>の2軸を統合したものです。この指標は「良い記事」を見つける道具ではなく、<strong>構造の穴（漏れ・僭称・未操作化）を検出する道具</strong>です。エッセイや感想文は構造制御を意図していないため低スコアになりますが、それは記事の価値が低いという意味ではありません。構造制御が高く操作可能性が低い＝論証は閉じているが読者が実行しにくい、その逆＝手順は具体的だが根拠が弱い、という読み方をしてください。
         </div>
       </div>
     </details>
@@ -1927,18 +1928,22 @@ function qualityScore(r){
   var c={強制:0,好み:0,未制御:0}; moves.forEach(function(m){ c[m.control]=(c[m.control]||0)+1; });
   var pseudo=(r.structure_claims||[]).filter(function(s){return s.smuggled;}).length;
   var vf=r.verifiability||[]; var hyo=vf.filter(function(v){return v.type==='表れ型';}).length; var abst=vf.length-hyo;
-  // 構造制御スコア
-  var score=100*(c.強制/n) - 40*(c.好み/n) - 75*(c.未制御/n) - 35*pseudo;
-  score=Math.max(0,Math.min(100,Math.round(score)));
-  // 検証可能性スコア（表れ型の割合）
+  // 構造制御スコア（0-100）
+  var ctrlScore=100*(c.強制/n) - 40*(c.好み/n) - 75*(c.未制御/n) - 35*pseudo;
+  ctrlScore=Math.max(0,Math.min(100,Math.round(ctrlScore)));
+  // 操作可能性スコア（0-100）：表れ型の割合
   var verifyScore = vf.length ? Math.round(100*hyo/vf.length) : null;
+  // 総合スコア：構造制御60% + 操作可能性40%（操作可能性データがなければ構造制御のみ）
+  var score;
+  if(verifyScore!=null) score=Math.round(ctrlScore*0.6 + verifyScore*0.4);
+  else score=ctrlScore;
   var mode;
   if(pseudo) mode='偽の発見';
   else if(c.好み>0 && (r.structure_claims||[]).length) mode='手心あり';
   else if(c.強制>0 && (c.好み+c.未制御)===0) mode='制御';
   else if((c.未制御+c.好み)>=n*0.6) mode='意見';
   else mode='混在';
-  return {score:score, mode:mode, pseudo:pseudo, verify:verifyScore, hyo:hyo, abst:abst};
+  return {score:score, ctrlScore:ctrlScore, mode:mode, pseudo:pseudo, verify:verifyScore, hyo:hyo, abst:abst};
 }
 function qBadge(s){ var col=s.mode==='偽の発見'?'#f87171':(s.mode==='制御'?'var(--good)':'#fbbf24'); return '<span style="color:'+col+';font-weight:700">'+s.score+'</span> <span class="mut" style="font-size:11px">'+esc(s.mode)+'</span>'; }
 
@@ -2093,13 +2098,13 @@ function bindQuality(){
 }
 
 function renderQuality(){
-  var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, score:a.struct.score, mode:a.struct.mode, pseudo:a.struct.pseudo, verify:a.struct.verify, reach:a.perf, ext:false, struct:a.struct}; });
-  var ext=QEXT.map(function(e){ return {label:e.label, score:e.struct.score, mode:e.struct.mode, pseudo:e.struct.pseudo, verify:e.struct.verify, reach:e.reach, ext:true, struct:e.struct}; });
+  var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, score:a.struct.score, ctrlScore:a.struct.ctrlScore, mode:a.struct.mode, pseudo:a.struct.pseudo, verify:a.struct.verify, reach:a.perf, ext:false, struct:a.struct}; });
+  var ext=QEXT.map(function(e){ return {label:e.label, score:e.struct.score, ctrlScore:e.struct.ctrlScore, mode:e.struct.mode, pseudo:e.struct.pseudo, verify:e.struct.verify, reach:e.reach, ext:true, struct:e.struct}; });
   var pts=own.concat(ext);
   drawQ(pts);
   var t=$('#qTable'); if(!t) return; t.innerHTML='';
   if(!pts.length){ t.innerHTML='<tbody><tr><td class="mut" style="padding:12px">まだ解析結果がありません。記事一覧で選んで「構造解析」、または外部記事を追加してください。</td></tr></tbody>'; return; }
-  var thead=el('thead'); thead.innerHTML='<tr><th>記事</th><th>構造制御</th><th>モード</th><th>操作可能性(表れ%)</th><th>'+PERF_LABEL+'</th><th>偽の発見</th></tr>'; t.appendChild(thead);
+  var thead=el('thead'); thead.innerHTML='<tr><th>記事</th><th>総合</th><th>構造制御</th><th>操作可能性</th><th>モード</th><th>'+PERF_LABEL+'</th><th>偽の発見</th></tr>'; t.appendChild(thead);
   // グループ別平均
   if(own.length && ext.length){
     var avgOwn=mean(own.map(function(p){return p.score;}));
@@ -2111,7 +2116,7 @@ function renderQuality(){
   var tb=el('tbody');
   pts.slice().sort(function(a,b){return b.score-a.score;}).forEach(function(p){
     var r=el('tr');
-    r.innerHTML='<td>'+(p.ext?'🔗 ':'')+esc(p.label)+'</td><td>'+qBadge({score:p.score,mode:p.mode})+'</td><td>'+esc(p.mode)+'</td><td>'+(p.verify==null?'—':p.verify+'%')+'</td><td>'+(p.reach==null?'—':num(p.reach))+'</td><td>'+(p.pseudo||0)+'</td>';
+    r.innerHTML='<td>'+(p.ext?'🔗 ':'')+esc(p.label)+'</td><td>'+qBadge({score:p.score,mode:p.mode})+'</td><td>'+(p.ctrlScore!=null?p.ctrlScore:'—')+'</td><td>'+(p.verify==null?'—':p.verify+'%')+'</td><td>'+esc(p.mode)+'</td><td>'+(p.reach==null?'—':num(p.reach))+'</td><td>'+(p.pseudo||0)+'</td>';
     if(p.struct&&p.struct.raw){ r.style.cursor='pointer'; r.title='クリックで詳細を表示'; (function(pp){r.onclick=function(){showDetail(pp.struct,pp.label);};})(p); }
     tb.appendChild(r);
   });
