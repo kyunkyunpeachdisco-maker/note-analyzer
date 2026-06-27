@@ -589,7 +589,7 @@ function renderArticles(){
     if(x==null) return 1;  // nullは常に最後
     if(y==null) return -1;
     if(typeof x==='string') return sortState.dir*String(x).localeCompare(String(y),'ja');
-    return sortState.dir*(y-x);
+    return sortState.dir*(x-y);
   });
   var visible=rows.filter(artFilterFn);
   var hidden=rows.length-visible.length;
