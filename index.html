@@ -501,7 +501,7 @@ function renderUnderperformers(){
 function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
 
 /* ---------- 記事一覧 ---------- */
-var sortState={key:'perf',dir:-1};
+var sortState={key:'likes',dir:-1};
 
 function artFilterFn(a){
   var title=(a.title||'').toLowerCase();
