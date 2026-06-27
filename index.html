@@ -419,6 +419,7 @@ function loadData(obj){
   var asof = obj.meta && obj.meta.exportedAt ? fmtDateTime(obj.meta.exportedAt) : null;
   $('#metaInfo').textContent = obj.meta ? (obj.meta.count+'記事 / '+(HAS_VIEWS?'ビューあり':'ビューなし')+(asof?' / '+asof+'時点':'')) : '';
   switchTab('overview');
+  autoSaveToGist(true);
 }
 
 function tryLoad(text){
