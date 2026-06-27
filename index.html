@@ -58,7 +58,7 @@
   .card .v{font-size:22px; font-weight:800; margin-top:2px;}
   .card .v small{font-size:12px; color:var(--mut); font-weight:500;}
   table{width:100%; border-collapse:collapse; font-size:13px;}
-  .tablewrap{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  .tablewrap{overflow-x:auto; overflow-y:auto; max-height:70vh; -webkit-overflow-scrolling:touch;}
   th,td{padding:8px 10px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line);}
   th:first-child,td:first-child{text-align:left; white-space:normal; min-width:180px;}
   th{color:var(--mut); font-weight:600; cursor:pointer; user-select:none; position:sticky; top:0; background:var(--panel);}
@@ -110,6 +110,10 @@
   <div class="htop">
     <h1>📊 note アナライザー</h1>
     <span class="sub" id="metaInfo"></span>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="btn ghost" id="katexBtn" style="padding:6px 10px;font-size:12px">📐 KaTeX</button>
+      <button class="btn ghost" id="shareBtn" style="padding:6px 10px;font-size:12px">🖼 画像保存</button>
+    </div>
   </div>
   <nav class="tabs" id="tabs"></nav>
 </header>
@@ -157,13 +161,8 @@
 
   <!-- 概要 -->
   <section class="tab" data-tab="overview">
-    <div class="row" style="justify-content:space-between">
-      <div><h2 class="sec">概要</h2><p class="desc">全体サマリーと自動で見つけたポイント。</p></div>
-      <div class="row">
-        <button class="btn ghost" id="katexBtn">📐 KaTeX出力</button>
-        <button class="btn ghost" id="shareBtn">🖼 画像で保存</button>
-      </div>
-    </div>
+    <h2 class="sec">概要</h2>
+    <p class="desc">全体サマリーと自動で見つけたポイント。</p>
     <div class="cards" id="ovCards"></div>
     <div id="ovInsights" style="margin-top:16px"></div>
     <div id="ovUnder" style="margin-top:16px"></div>
@@ -455,6 +454,7 @@ function renderOverview(){
   var totalLikes=ARTS.reduce(function(s,a){return s+(a.likes||0);},0);
   var totalComments=ARTS.reduce(function(s,a){return s+(a.comments||0);},0);
   var avgLikeRate=mean(ARTS.map(function(a){return a.likeRate;}));
+  var medLikeRate=median(ARTS.map(function(a){return a.likeRate;}));
   var dates=ARTS.map(function(a){return a.publishAt?new Date(a.publishAt).getTime():null;}).filter(Boolean);
   var spanDays = dates.length>1 ? (Math.max.apply(null,dates)-Math.min.apply(null,dates))/86400000 : null;
   var freq = spanDays ? (ARTS.length/(spanDays/30)) : null; // 月あたり本数
@@ -466,6 +466,7 @@ function renderOverview(){
     ['総スキ', num(totalLikes)],
     ['総コメント', num(totalComments)],
     ['平均スキ率', avgLikeRate!=null?(avgLikeRate*100).toFixed(2)+'%':'—'],
+    ['中央値スキ率', medLikeRate!=null?(medLikeRate*100).toFixed(2)+'%':'—'],
     ['投稿ペース', freq!=null?f1(freq)+'<small> 本/月</small>':'—']
   ];
   cards.forEach(function(p){
@@ -504,11 +505,12 @@ function renderUnderperformers(){
     {k:'headingCount',label:'見出し数'},{k:'titleLength',label:'タイトル長'},
     {k:'xSelf',label:'X誘導(自分)'},{k:'nSelf',label:'note内リンク(自分)'}
   ];
-  var h='<h2 class="sec">伸び悩み記事の共通点</h2><p class="desc">'+PERF_LABEL+'が下位25%の記事と上位25%の記事で、各要素の平均を比較。</p>';
-  h+='<div class="tablewrap"><table><thead><tr><th>要素</th><th>伸び悩み(下位)</th><th>好調(上位)</th><th>差</th></tr></thead><tbody>';
+  var h='<h2 class="sec">伸び悩み記事の共通点</h2><p class="desc">'+PERF_LABEL+'が下位25%の記事と上位25%の記事で、各要素の平均・中央値を比較。</p>';
+  h+='<div class="tablewrap"><table><thead><tr><th>要素</th><th>伸び悩み 平均</th><th>伸び悩み 中央値</th><th>好調 平均</th><th>好調 中央値</th><th>差</th></tr></thead><tbody>';
   var hints=[];
   feats.forEach(function(f){
     var lo=mean(low.map(function(a){return a[f.k];})), hi=mean(high.map(function(a){return a[f.k];}));
+    var loMed=median(low.map(function(a){return a[f.k];})), hiMed=median(high.map(function(a){return a[f.k];}));
     var diff=(lo!=null&&hi!=null)?hi-lo:null;
     var pill='';
     if(diff!=null && hi){ var rel=(hi-lo)/Math.abs(hi||1);
@@ -519,7 +521,7 @@ function renderUnderperformers(){
       if(diff>0 && lo<hi*0.8) hints.push('好調記事は'+f.label+'が多め（'+f1(hi)+' vs 伸び悩み'+f1(lo)+'）');
       if(diff<0 && lo>hi*1.2) hints.push('伸び悩み記事は'+f.label+'が多すぎる傾向（'+f1(lo)+' vs 好調'+f1(hi)+'）');
     }
-    h+='<tr><td>'+f.label+'</td><td>'+f1(lo)+'</td><td>'+f1(hi)+'</td><td>'+pill+'</td></tr>';
+    h+='<tr><td>'+f.label+'</td><td>'+f1(lo)+'</td><td>'+f1(loMed)+'</td><td>'+f1(hi)+'</td><td>'+f1(hiMed)+'</td><td>'+pill+'</td></tr>';
   });
   h+='</tbody></table></div>';
   if(hints.length) h+='<div class="insight" style="margin-top:10px">'+hints.slice(0,3).join('<br>')+'</div>';
@@ -530,6 +532,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return 
 /* ---------- 記事一覧 ---------- */
 var sortState={key:'likes',dir:-1};
 var tagSortState={key:'avgViews',dir:-1};
+var fanSortState={key:'n',dir:-1};
 
 function artFilterFn(a){
   var title=(a.title||'').toLowerCase();
@@ -718,7 +721,7 @@ function tagAgg(){
     var eff=(av!=null && comp)?Math.round(av/comp*1000):null;
     return {tag:t, count:m.count, avgViews:av, medViews:median(m.views),
             avgLikeRate:mean(m.likeRate), medLikeRate:median(m.likeRate),
-            avgPerf:mean(m.perf), competition: comp, efficiency: eff};
+            avgPerf:mean(m.perf), medPerf:median(m.perf), competition: comp, efficiency: eff};
   });
 }
 function comboAgg(){
@@ -731,7 +734,7 @@ function comboAgg(){
       map[key].count++; map[key].perf.push(a.perf);
     }}
   });
-  return Object.keys(map).map(function(k){return {combo:k,count:map[k].count,avgPerf:mean(map[k].perf)};})
+  return Object.keys(map).map(function(k){return {combo:k,count:map[k].count,avgPerf:mean(map[k].perf),medPerf:median(map[k].perf)};})
     .filter(function(c){return c.count>=2;}).sort(function(a,b){return (b.avgPerf||0)-(a.avgPerf||0);});
 }
 function renderTags(){
@@ -748,16 +751,16 @@ function renderTags(){
   if(medComp==null) h+='<p class="desc">※競合度（タグ全体の記事数）が取得できていないため、成績のみで選定しています。</p>';
   if(!winners.length) h+='<div class="muted">該当なし。</div>';
   else { winners.forEach(function(t){
-    h+='<span class="tag" style="font-size:13px;padding:6px 12px;margin:3px">#'+esc(t.tag)+' <b>'+f1(t.avgPerf)+'</b>'+PERF_LABEL+(t.competition!=null?' / 競合'+num(t.competition):'')+'</span>';
+    h+='<span class="tag" style="font-size:13px;padding:6px 12px;margin:3px">#'+esc(t.tag)+' '+t.count+'記事 平均'+PERF_LABEL+'<b>'+f1(t.avgPerf)+'</b> 中央値<b>'+f1(t.medPerf)+'</b>'+(t.competition!=null?' / 競合'+num(t.competition):'')+'</span>';
   }); }
   // タグの組み合わせ別 勝ちパターン
   var combos=comboAgg();
   if(combos.length){
     h+='<h2 class="sec" style="margin-top:18px">タグの組み合わせ別 勝ちパターン</h2>';
     h+='<p class="desc">2記事以上で使われたタグの組み合わせを平均'+PERF_LABEL+'順に。</p>';
-    h+='<div class="tablewrap"><table><thead><tr><th>組み合わせ</th><th>記事数</th><th>平均'+PERF_LABEL+'</th></tr></thead><tbody>';
+    h+='<div class="tablewrap"><table><thead><tr><th>組み合わせ</th><th>記事数</th><th>平均'+PERF_LABEL+'</th><th>中央値'+PERF_LABEL+'</th></tr></thead><tbody>';
     combos.slice(0,8).forEach(function(c){
-      h+='<tr><td>'+esc(c.combo)+'</td><td>'+num(c.count)+'</td><td>'+f1(c.avgPerf)+'</td></tr>';
+      h+='<tr><td>'+esc(c.combo)+'</td><td>'+num(c.count)+'</td><td>'+f1(c.avgPerf)+'</td><td>'+f1(c.medPerf)+'</td></tr>';
     });
     h+='</tbody></table></div>';
   }
@@ -784,20 +787,39 @@ function renderTags(){
       .filter(function(t){return t.users>=2;})
       .sort(function(a,b){return b.users-a.users;});
     if(rTags.length){
-      h+='<h2 class="sec" style="margin-top:18px">コア読者が使っているタグ</h2>';
-      h+='<p class="desc">2人以上のコア読者が使用しているタグ。<span style="color:var(--good)">●</span> あなたも使用　<span style="color:var(--warn)">●</span> あなたは未使用</p>';
-      h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>使用読者数</th><th>あなたの使用</th><th>あなたの平均'+PERF_LABEL+'</th></tr></thead><tbody>';
-      rTags.slice(0,20).forEach(function(t){
-        var myTag=myTagSet[t.name];
-        var dot=t.mine?'<span style="color:var(--good)">●</span> 使用中':'<span style="color:var(--warn)">●</span> 未使用';
-        var myPerf=myTag?f1(myTag.avgPerf):'—';
-        h+='<tr><td>#'+esc(t.name)+'</td><td>'+t.users+'人</td><td>'+dot+'</td><td>'+myPerf+'</td></tr>';
-      });
-      h+='</tbody></table></div>';
-      // 未使用タグのインサイト
-      var unused=rTags.filter(function(t){return !t.mine;});
-      if(unused.length){
-        h+='<div class="insight">💡 読者層で人気だがあなたが書いていないタグ：'+unused.slice(0,8).map(function(t){return '<b>#'+esc(t.name)+'</b>('+t.users+'人)';}).join('、')+'</div>';
+      var rTagsShared=rTags.filter(function(t){return t.mine;});
+      var rTagsUnused=rTags.filter(function(t){return !t.mine;});
+      if(rTagsShared.length){
+        h+='<h2 class="sec" style="margin-top:18px">読者と共通のタグ</h2>';
+        h+='<p class="desc">あなたも読者も使っているタグ。</p>';
+        h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>使用読者数</th><th>あなた記事数</th><th>あなた平均'+PERF_LABEL+'</th><th>あなた中央値'+PERF_LABEL+'</th></tr></thead><tbody>';
+        rTagsShared.forEach(function(t){
+          var myTag=myTagSet[t.name];
+          h+='<tr><td>#'+esc(t.name)+'</td><td>'+t.users+'人</td><td>'+num(myTag.count)+'</td><td>'+f1(myTag.avgPerf)+'</td><td>'+f1(myTag.medPerf)+'</td></tr>';
+        });
+        h+='</tbody></table></div>';
+      }
+      if(rTagsUnused.length){
+        // 読者タグの成績集計
+        var rTagPerfMap={};
+        readerProfiles.forEach(function(pr){
+          if(!pr.tags) return;
+          pr.tags.forEach(function(t){
+            if(!rTagPerfMap[t.name]) rTagPerfMap[t.name]={likes:[]};
+            if(t.avgLikes!=null) for(var i=0;i<t.count;i++) rTagPerfMap[t.name].likes.push(t.avgLikes);
+          });
+        });
+        h+='<h2 class="sec" style="margin-top:18px">読者が使っているがあなたが未使用のタグ</h2>';
+        h+='<p class="desc">読者層で人気だがあなたが書いていないタグ。書けば読まれる可能性あり。</p>';
+        h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>使用読者数</th><th>読者記事数</th><th>読者平均スキ</th><th>読者中央値スキ</th></tr></thead><tbody>';
+        rTagsUnused.slice(0,15).forEach(function(t){
+          var rp=rTagPerfMap[t.name];
+          var rCount=rp?rp.likes.length:0;
+          var rAvg=rp&&rp.likes.length?Math.round(rp.likes.reduce(function(s,x){return s+x;},0)/rp.likes.length):null;
+          var rMed=rp?median(rp.likes):null;
+          h+='<tr><td>#'+esc(t.name)+'</td><td>'+t.users+'人</td><td>'+num(rCount)+'</td><td>'+(rAvg!=null?num(rAvg):'—')+'</td><td>'+(rMed!=null?f1(rMed):'—')+'</td></tr>';
+        });
+        h+='</tbody></table></div>';
       }
     }
   }
@@ -823,10 +845,10 @@ function renderTags(){
   var tagCols=[
     {k:'tag',label:'タグ',val:function(r){return r.tag;}},
     {k:'count',label:'記事数',val:function(r){return r.count;}},
-    {k:'avgViews',label:'平均ビュー',val:function(r){return r.avgViews;}},
-    {k:'medViews',label:'中央値',val:function(r){return r.medViews;}},
+    {k:'avgViews',label:'平均'+PERF_LABEL,val:function(r){return r.avgViews;}},
+    {k:'medViews',label:'中央値'+PERF_LABEL,val:function(r){return r.medViews;}},
     {k:'avgLikeRate',label:'平均スキ率',val:function(r){return r.avgLikeRate;}},
-    {k:'medLikeRate',label:'中央値',val:function(r){return r.medLikeRate;}},
+    {k:'medLikeRate',label:'中央値スキ率',val:function(r){return r.medLikeRate;}},
     {k:'competition',label:'競合度',val:function(r){return r.competition;}},
     {k:'efficiency',label:'効率',val:function(r){return r.efficiency;}}
   ];
@@ -988,7 +1010,7 @@ function renderTitle(){
     if(losers.length) h+='<div>'+losers.map(function(r){return '<b>'+r.f+'</b>';}).join('・')+' は中央値で見ると伸びにくい傾向。</div>';
     h+='</div>';
   }
-  h+='<div class="tablewrap"><table><thead><tr><th>特徴</th><th>該当</th><th>あり中央値</th><th>なし中央値</th><th>効果</th></tr></thead><tbody>';
+  h+='<div class="tablewrap"><table><thead><tr><th>特徴</th><th>該当</th><th>あり中央値'+PERF_LABEL+'</th><th>なし中央値'+PERF_LABEL+'</th><th>効果</th></tr></thead><tbody>';
   rows.forEach(function(r){
     var lift = (r.withMed!=null&&r.woMed)? (r.withMed/r.woMed-1):null;
     var pill = lift==null?'':(lift>0.15?'<span class="pill good">+'+(lift*100).toFixed(0)+'%</span>':(lift<-0.15?'<span class="pill bad">'+(lift*100).toFixed(0)+'%</span>':'<span class="pill">±</span>'));
@@ -1026,7 +1048,7 @@ function renderTitle(){
     };
     var myTotal=ARTS.length;
     h+='<h3 style="font-size:14px;margin:18px 0 8px">タイトル特徴の使用率比較（あなた vs 読者層）</h3>';
-    h+='<div class="tablewrap"><table><thead><tr><th>特徴</th><th>あなた</th><th>読者層</th><th>差</th></tr></thead><tbody>';
+    h+='<div class="tablewrap"><table><thead><tr><th>特徴</th><th>あなた使用率</th><th>読者層使用率</th><th>差</th></tr></thead><tbody>';
     corrFeats.forEach(function(f){
       var myCount=rows.filter(function(r){return r.f===f;})[0].nWith;
       var myPct=myTotal?(myCount/myTotal*100).toFixed(0)+'%':'—';
@@ -1049,7 +1071,7 @@ function renderEvergreen(){
   var top=arr.slice().sort(function(a,b){return b.perfPerDay-a.perfPerDay;}).slice(0,10);
   var h='<h3 style="font-size:14px;margin:4px 0 4px">日割り'+PERF_LABEL+' トップ（伸び続ける記事）</h3>';
   h+='<p class="desc">公開90日超×高日割り＝エバーグリーン。古い当たり記事はリライト候補。</p>';
-  h+='<div class="tablewrap"><table><thead><tr><th>タイトル</th><th>経過日数</th><th>累計'+PERF_LABEL+'</th><th>日割り</th><th>判定</th></tr></thead><tbody>';
+  h+='<div class="tablewrap"><table><thead><tr><th>タイトル</th><th>経過日数</th><th>累計'+PERF_LABEL+'</th><th>日割り'+PERF_LABEL+'</th><th>判定</th></tr></thead><tbody>';
   top.forEach(function(a){
     var tag = a.ageDays>90 ? '<span class="pill good">エバーグリーン</span>' : '<span class="pill warn">初速型</span>';
     h+='<tr><td><a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a></td><td>'+Math.round(a.ageDays)+'日</td><td>'+num(a.perf)+'</td><td>'+f1(a.perfPerDay)+'</td><td>'+tag+'</td></tr>';
@@ -1058,7 +1080,7 @@ function renderEvergreen(){
   // リライト候補：古い × 日割り低
   var fade=arr.filter(function(a){return a.ageDays>180 && a.perfPerDay<medPPD;}).sort(function(a,b){return a.perfPerDay-b.perfPerDay;}).slice(0,8);
   if(fade.length){
-    h+='<h3 style="font-size:14px;margin:18px 0 4px">リライト候補（古くて失速）</h3><div class="tablewrap"><table><thead><tr><th>タイトル</th><th>経過日数</th><th>日割り</th></tr></thead><tbody>';
+    h+='<h3 style="font-size:14px;margin:18px 0 4px">リライト候補（古くて失速）</h3><div class="tablewrap"><table><thead><tr><th>タイトル</th><th>経過日数</th><th>日割り'+PERF_LABEL+'</th></tr></thead><tbody>';
     fade.forEach(function(a){ h+='<tr><td><a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a></td><td>'+Math.round(a.ageDays)+'日</td><td>'+f1(a.perfPerDay)+'</td></tr>'; });
     h+='</tbody></table></div>';
   }
@@ -1092,7 +1114,7 @@ function renderFans(){
     var readerAvgOfMed=mean(readerMeds);
     h+='<div class="insight" style="margin:12px 0">';
     h+='<strong>読者層のレベル感</strong><br>';
-    h+='あなたの中央値スキ：<b>'+f1(myMedLikes)+'</b>　／　コア読者の中央値スキ（中央値）：<b>'+f1(readerMedOfMed)+'</b>（平均：'+f1(readerAvgOfMed)+'）';
+    h+='あなたの中央値スキ：<b>'+f1(myMedLikes)+'</b>　／　コア読者の中央値スキ：<b>'+f1(readerMedOfMed)+'</b>（平均スキ：'+f1(readerAvgOfMed)+'）';
     if(myMedLikes!=null && readerMedOfMed!=null){
       var ratio=myMedLikes/readerMedOfMed;
       if(ratio>1.5) h+='<br><span style="color:var(--good)">あなたは読者層より大きな反響を得ています。</span>';
@@ -1107,28 +1129,47 @@ function renderFans(){
   var profileMap={};
   profiles.forEach(function(p){ profileMap[p.urlname]=p; });
   if(profiles.length){
-    h+='<div class="tablewrap" style="max-height:600px;overflow-y:auto"><table><thead><tr>';
-    h+='<th>ユーザー</th><th>スキ回数</th><th>フォロワー</th><th>フォロー</th><th>記事数</th>';
-    h+='<th>最高スキ</th><th>平均スキ</th><th>中央値</th><th>Top10平均</th><th>Top10中央値</th>';
-    h+='<th>ペース</th><th>よく使うタグ</th>';
+    // ソート可能なコア読者テーブル
+    var fanCols=[
+      {k:'n',label:'スキ回数'},{k:'followerCount',label:'フォロワー'},{k:'followingCount',label:'フォロー'},
+      {k:'articleCount',label:'記事数'},{k:'maxLikes',label:'最高スキ'},{k:'avgLikes',label:'平均スキ'},
+      {k:'medLikes',label:'中央値スキ'},{k:'top10AvgLikes',label:'Top10平均スキ'},{k:'top10MedLikes',label:'Top10中央値スキ'},
+      {k:'writingPace',label:'ペース'}
+    ];
+    var fanRows=people.slice(0,30).map(function(p){
+      var pr=profileMap[p.u]||{};
+      return {u:p.u, n:p.n, nickname:pr.nickname||p.u, followerCount:pr.followerCount, followingCount:pr.followingCount,
+        articleCount:pr.articleCount, maxLikes:pr.maxLikes, avgLikes:pr.avgLikes, medLikes:pr.medLikes,
+        top10AvgLikes:pr.top10AvgLikes, top10MedLikes:pr.top10MedLikes, writingPace:pr.writingPace, tags:pr.tags};
+    });
+    fanRows.sort(function(a,b){
+      var va=a[fanSortState.key], vb=b[fanSortState.key];
+      if(va==null&&vb==null)return 0; if(va==null)return 1; if(vb==null)return -1;
+      return fanSortState.dir*(va-vb);
+    });
+    h+='<div class="tablewrap"><table id="fanTable"><thead><tr>';
+    h+='<th>ユーザー</th>';
+    fanCols.forEach(function(c){
+      h+='<th data-fk="'+c.k+'">'+c.label+(fanSortState.key===c.k?(fanSortState.dir<0?' ▼':' ▲'):'')+'</th>';
+    });
+    h+='<th>よく使うタグ</th>';
     h+='</tr></thead><tbody>';
-    people.slice(0,30).forEach(function(p){
-      var pr=profileMap[p.u];
+    fanRows.forEach(function(fr){
       var tagHtml='—';
-      if(pr&&pr.tags&&pr.tags.length){
-        tagHtml=pr.tags.slice(0,5).map(function(t){ return '<span class="tag">'+esc(t.name)+'<small style="color:var(--mut);margin-left:3px">'+t.count+'</small></span>'; }).join(' ');
+      if(fr.tags&&fr.tags.length){
+        tagHtml=fr.tags.slice(0,5).map(function(t){ return '<span class="tag">'+esc(t.name)+'<small style="color:var(--mut);margin-left:3px">'+t.count+'</small></span>'; }).join(' ');
       }
-      h+='<tr><td><a href="https://note.com/'+esc(p.u)+'" target="_blank" rel="noopener">@'+esc(pr&&pr.nickname?pr.nickname:p.u)+'</a></td>';
-      h+='<td>'+p.n+'</td>';
-      h+='<td>'+(pr&&pr.followerCount!=null?num(pr.followerCount):'—')+'</td>';
-      h+='<td>'+(pr&&pr.followingCount!=null?num(pr.followingCount):'—')+'</td>';
-      h+='<td>'+(pr?num(pr.articleCount):'—')+'</td>';
-      h+='<td>'+(pr&&pr.maxLikes!=null?num(pr.maxLikes):'—')+'</td>';
-      h+='<td>'+(pr&&pr.avgLikes!=null?num(pr.avgLikes):'—')+'</td>';
-      h+='<td>'+(pr&&pr.medLikes!=null?num(pr.medLikes):'—')+'</td>';
-      h+='<td>'+(pr&&pr.top10AvgLikes!=null?num(pr.top10AvgLikes):'—')+'</td>';
-      h+='<td>'+(pr&&pr.top10MedLikes!=null?num(pr.top10MedLikes):'—')+'</td>';
-      h+='<td>'+(pr&&pr.writingPace!=null?pr.writingPace+'日/記事':'—')+'</td>';
+      h+='<tr><td><a href="https://note.com/'+esc(fr.u)+'" target="_blank" rel="noopener">@'+esc(fr.nickname)+'</a></td>';
+      h+='<td>'+fr.n+'</td>';
+      h+='<td>'+(fr.followerCount!=null?num(fr.followerCount):'—')+'</td>';
+      h+='<td>'+(fr.followingCount!=null?num(fr.followingCount):'—')+'</td>';
+      h+='<td>'+(fr.articleCount!=null?num(fr.articleCount):'—')+'</td>';
+      h+='<td>'+(fr.maxLikes!=null?num(fr.maxLikes):'—')+'</td>';
+      h+='<td>'+(fr.avgLikes!=null?num(fr.avgLikes):'—')+'</td>';
+      h+='<td>'+(fr.medLikes!=null?num(fr.medLikes):'—')+'</td>';
+      h+='<td>'+(fr.top10AvgLikes!=null?num(fr.top10AvgLikes):'—')+'</td>';
+      h+='<td>'+(fr.top10MedLikes!=null?num(fr.top10MedLikes):'—')+'</td>';
+      h+='<td>'+(fr.writingPace!=null?fr.writingPace+'日/記事':'—')+'</td>';
       h+='<td style="white-space:normal">'+tagHtml+'</td></tr>';
     });
     h+='</tbody></table></div>';
@@ -1202,7 +1243,7 @@ function renderFans(){
     var readerOnlyTags=allTagEntries.filter(function(t){return !t.mine;}).sort(function(a,b){return b.readerAvg-a.readerAvg;});
     if(sharedTags.length){
       h+='<h3 style="font-size:14px;margin:18px 0 6px">共通タグの成績比較（あなた vs 読者層）</h3>';
-      h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>あなた記事数</th><th>あなた平均</th><th>あなた中央値</th><th>読者記事数</th><th>読者平均</th><th>読者中央値</th></tr></thead><tbody>';
+      h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>あなた記事数</th><th>あなた平均スキ</th><th>あなた中央値スキ</th><th>読者記事数</th><th>読者平均スキ</th><th>読者中央値スキ</th></tr></thead><tbody>';
       sharedTags.forEach(function(t){
         h+='<tr><td>#'+esc(t.tag)+'</td><td>'+num(t.myCount)+'</td><td>'+num(t.myAvg)+'</td><td>'+f1(t.myMed)+'</td><td>'+num(t.rCount)+'</td><td>'+num(t.readerAvg)+'</td><td>'+f1(t.readerMed)+'</td></tr>';
       });
@@ -1211,7 +1252,7 @@ function renderFans(){
     if(readerOnlyTags.length){
       h+='<h3 style="font-size:14px;margin:18px 0 6px">読者が使っているがあなたが未使用のタグ</h3>';
       h+='<p class="muted" style="font-size:12px;margin:0 0 8px">読者層で人気のタグ。書けば読まれる可能性あり。</p>';
-      h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>読者記事数</th><th>読者平均</th><th>読者中央値</th></tr></thead><tbody>';
+      h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>読者記事数</th><th>読者平均スキ</th><th>読者中央値スキ</th></tr></thead><tbody>';
       readerOnlyTags.slice(0,15).forEach(function(t){
         h+='<tr><td>#'+esc(t.tag)+'</td><td>'+num(t.rCount)+'</td><td>'+num(t.readerAvg)+'</td><td>'+f1(t.readerMed)+'</td></tr>';
       });
@@ -1226,21 +1267,81 @@ function renderFans(){
     h+='<div class="muted" style="margin-top:8px;font-size:12px">コア読者のプロフィール・タグを見るには collector.js を再実行してください。</div>';
   }
   box.innerHTML=h;
+  // コア読者テーブルのソートハンドラ
+  var ft=document.getElementById('fanTable');
+  if(ft){
+    ft.querySelectorAll('th[data-fk]').forEach(function(th){
+      th.onclick=function(){
+        var k=th.dataset.fk;
+        if(fanSortState.key===k) fanSortState.dir*=-1; else {fanSortState.key=k; fanSortState.dir=-1;}
+        renderFans();
+      };
+    });
+  }
 }
 
-/* ====================== シェア画像（Canvas / 方法1）====================== */
+/* ====================== シェア画像（Canvas / 全タブ対応）====================== */
+function getActiveTab(){
+  var active=document.querySelector('section.tab.active');
+  return active?active.getAttribute('data-tab'):'overview';
+}
+function tabLabel(id){
+  var t=TABS.filter(function(t){return t.id===id;})[0];
+  return t?t.label.replace(/^[^\s]+\s/,''):id;
+}
 function makeShareImage(){
   if(!ARTS.length){ alert('先にデータを読み込んでください'); return; }
+  var tab=getActiveTab();
   var W=1200,H=630, c=document.createElement('canvas'); c.width=W; c.height=H;
   var x=c.getContext('2d');
   var g=x.createLinearGradient(0,0,W,H); g.addColorStop(0,'#0e1116'); g.addColorStop(1,'#1c2a44');
   x.fillStyle=g; x.fillRect(0,0,W,H);
   x.fillStyle='#3b82f6'; x.fillRect(0,0,12,H);
-  x.fillStyle='#e6edf3'; x.font='bold 46px sans-serif';
-  x.fillText('📊 note 分析ダッシュボード', 56, 96);
-  x.fillStyle='#8b97a5'; x.font='24px sans-serif';
-  x.fillText('@'+((DATA.meta&&DATA.meta.urlname)||''), 56, 140);
+  x.fillStyle='#e6edf3'; x.font='bold 36px sans-serif';
+  x.fillText('📊 note 分析 — '+tabLabel(tab), 56, 64);
+  x.fillStyle='#8b97a5'; x.font='20px sans-serif';
+  var name=(DATA.meta&&DATA.meta.urlname)||'';
+  var asof=DATA.meta&&DATA.meta.exportedAt?fmtDateTime(DATA.meta.exportedAt):null;
+  x.fillText('@'+name+(asof?' / '+asof+'時点':''), 56, 96);
 
+  if(tab==='overview') drawImgOverview(x,W,H);
+  else if(tab==='gems') drawImgGems(x,W,H);
+  else if(tab==='tags') drawImgTags(x,W,H);
+  else if(tab==='structure') drawImgTable(x,W,H,'📐 構成密度',function(){
+    var b1=quantileBuckets(function(a){return a.charCount;}, function(a){return a.perf;}, ['短い','やや短','やや長','長い']);
+    if(!b1) return [];
+    return b1.map(function(b){var vals=b.vals.filter(function(v){return v!=null;}); return [b.label.replace(/<br>/g,' '), 'n='+vals.length, '中央値 '+(median(vals)!=null?Math.round(median(vals)).toLocaleString():'—')];});
+  });
+  else if(tab==='title') drawImgTable(x,W,H,'✍️ タイトル方程式',function(){
+    var feats=['数字入り','疑問形','カギカッコ','【】','記号区切り','長め(20字↑)'];
+    return feats.map(function(f){
+      var withF=[], without=[];
+      ARTS.forEach(function(a){ (titleFeatures(a.title)[f]?withF:without).push(a.perf); });
+      var wm=median(withF), nm=median(without);
+      var lift=(wm!=null&&nm)?(wm/nm-1):null;
+      return [f, 'n='+withF.filter(function(v){return v!=null;}).length, '中央値 '+(wm!=null?Math.round(wm).toLocaleString():'—'), lift!=null?((lift>0?'+':'')+(lift*100).toFixed(0)+'%'):''];
+    });
+  });
+  else if(tab==='evergreen') drawImgTable(x,W,H,'🌱 エバーグリーン',function(){
+    var arr=ARTS.filter(function(a){return a.perfPerDay!=null && a.ageDays!=null;});
+    return arr.sort(function(a,b){return b.perfPerDay-a.perfPerDay;}).slice(0,8).map(function(a){
+      return [clip(a.title,28), Math.round(a.ageDays)+'日', '日割り'+Math.round(a.perfPerDay*10)/10];
+    });
+  });
+  else if(tab==='fans') drawImgFans(x,W,H);
+  else if(tab==='quality') drawImgTable(x,W,H,'🧭 構造の質',function(){
+    var own=ARTS.filter(function(a){return a.struct;}).map(function(a){ return {label:a.title,score:a.struct.score,mode:a.struct.mode}; });
+    var ext=QEXT.map(function(e){ return {label:e.label,score:e.struct.score,mode:e.struct.mode}; });
+    return own.concat(ext).sort(function(a,b){return b.score-a.score;}).slice(0,8).map(function(p){
+      return [clip(p.label,28), 'スコア '+p.score, p.mode];
+    });
+  });
+  else drawImgOverview(x,W,H);
+
+  var url=c.toDataURL('image/png');
+  var a=document.createElement('a'); a.href=url; a.download='note-'+tab+'.png'; a.click();
+}
+function drawImgOverview(x,W,H){
   var totalViews=ARTS.reduce(function(s,a){return s+(a.views||0);},0);
   var totalLikes=ARTS.reduce(function(s,a){return s+(a.likes||0);},0);
   var avgRate=mean(ARTS.map(function(a){return a.likeRate;}));
@@ -1251,19 +1352,74 @@ function makeShareImage(){
     ['平均スキ率', avgRate!=null?(avgRate*100).toFixed(1)+'%':'—']
   ];
   stats.forEach(function(s,i){
-    var bx=56+(i%2)*560, by=210+Math.floor(i/2)*150;
+    var bx=56+(i%2)*560, by=140+Math.floor(i/2)*150;
     x.fillStyle='rgba(255,255,255,.05)'; roundRect(x,bx,by,520,128,16); x.fill();
     x.fillStyle='#8b97a5'; x.font='24px sans-serif'; x.fillText(s[0], bx+28, by+44);
     x.fillStyle='#e6edf3'; x.font='bold 56px sans-serif'; x.fillText(s[1], bx+28, by+104);
   });
   var top=ARTS.slice().sort(function(a,b){return (b.perf||0)-(a.perf||0);})[0];
-  if(top){ x.fillStyle='#a855f7'; x.font='22px sans-serif';
-    x.fillText('🏆 最も読まれた: '+clip(top.title,34), 56, 560); }
-  var asof=DATA.meta&&DATA.meta.exportedAt?fmtDateTime(DATA.meta.exportedAt):null;
-  if(asof){ x.fillStyle='#8b97a5'; x.font='20px sans-serif'; x.fillText(asof+' 時点', 56, 600); }
-
-  var url=c.toDataURL('image/png');
-  var a=document.createElement('a'); a.href=url; a.download='note-dashboard.png'; a.click();
+  if(top){ x.fillStyle='#a855f7'; x.font='22px sans-serif'; x.fillText('🏆 最も読まれた: '+clip(top.title,34), 56, 520); }
+}
+function drawImgGems(x,W,H){
+  var gems=findGems().slice(0,6);
+  if(!gems.length){ x.fillStyle='#8b97a5'; x.font='24px sans-serif'; x.fillText('該当なし', 56, 180); return; }
+  gems.forEach(function(a,i){
+    var by=140+i*78;
+    x.fillStyle='rgba(168,85,247,.1)'; roundRect(x,56,by,W-112,68,12); x.fill();
+    x.fillStyle='#e6edf3'; x.font='bold 22px sans-serif'; x.fillText(clip(a.title,36), 76, by+30);
+    x.fillStyle='#a855f7'; x.font='18px sans-serif'; x.fillText('ビュー '+num(a.views)+'  スキ率 '+(a.likeRate*100).toFixed(1)+'%', 76, by+56);
+  });
+}
+function drawImgTags(x,W,H){
+  var tags=tagAgg().sort(function(a,b){return (b.avgPerf||0)-(a.avgPerf||0);}).slice(0,8);
+  tags.forEach(function(t,i){
+    var by=140+i*58;
+    x.fillStyle='rgba(255,255,255,.04)'; roundRect(x,56,by,W-112,50,10); x.fill();
+    x.fillStyle='#e6edf3'; x.font='bold 20px sans-serif'; x.fillText('#'+t.tag, 76, by+32);
+    x.fillStyle='#8b97a5'; x.font='18px sans-serif';
+    x.fillText(t.count+'記事  平均'+PERF_LABEL+' '+f1(t.avgPerf)+'  中央値 '+f1(t.medPerf)+(t.competition!=null?'  競合'+num(t.competition):''), 300, by+32);
+  });
+}
+function drawImgFans(x,W,H){
+  var counter={};
+  ARTS.forEach(function(a){ (a.likers||[]).forEach(function(u){ counter[u]=(counter[u]||0)+1; }); });
+  var people=Object.keys(counter).map(function(u){return {u:u, n:counter[u]};}).sort(function(a,b){return b.n-a.n;});
+  var total=people.length;
+  var repeat=people.filter(function(p){return p.n>=2;}).length;
+  var core=people.filter(function(p){return p.n>=3;}).length;
+  var stats=[['スキ延べ人数',num(total)],['リピーター(2回↑)',num(repeat)],['コアファン(3回↑)',num(core)]];
+  stats.forEach(function(s,i){
+    var bx=56+i*370; var by=140;
+    x.fillStyle='rgba(255,255,255,.05)'; roundRect(x,bx,by,340,100,14); x.fill();
+    x.fillStyle='#8b97a5'; x.font='18px sans-serif'; x.fillText(s[0], bx+20, by+34);
+    x.fillStyle='#e6edf3'; x.font='bold 42px sans-serif'; x.fillText(s[1], bx+20, by+82);
+  });
+  var profiles=(DATA.meta&&DATA.meta.coreReaderProfiles)||[];
+  var profileMap={}; profiles.forEach(function(p){profileMap[p.urlname]=p;});
+  people.slice(0,6).forEach(function(p,i){
+    var by=280+i*50;
+    var pr=profileMap[p.u];
+    x.fillStyle='#e6edf3'; x.font='bold 18px sans-serif';
+    x.fillText('@'+(pr&&pr.nickname?clip(pr.nickname,16):clip(p.u,16)), 76, by+30);
+    x.fillStyle='#8b97a5'; x.font='16px sans-serif';
+    x.fillText('スキ '+p.n+'回'+(pr&&pr.followerCount!=null?'  フォロワー '+num(pr.followerCount):''), 340, by+30);
+  });
+}
+function drawImgTable(x,W,H,title,rowsFn){
+  var rows=rowsFn();
+  if(!rows.length){ x.fillStyle='#8b97a5'; x.font='24px sans-serif'; x.fillText('データなし', 56, 180); return; }
+  rows.forEach(function(cols,i){
+    var by=140+i*58;
+    x.fillStyle=i%2?'rgba(255,255,255,.02)':'rgba(255,255,255,.05)';
+    roundRect(x,56,by,W-112,50,8); x.fill();
+    var cx=76;
+    cols.forEach(function(col,ci){
+      x.fillStyle=ci===0?'#e6edf3':'#8b97a5';
+      x.font=ci===0?'bold 18px sans-serif':'16px sans-serif';
+      x.fillText(String(col), cx, by+32);
+      cx+=ci===0?460:200;
+    });
+  });
 }
 function roundRect(x,X,Y,w,h,r){x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);x.arcTo(X+w,Y+h,X,Y+h,r);x.arcTo(X,Y+h,X,Y,r);x.arcTo(X,Y,X+w,Y,r);x.closePath();}
 function clip(s,n){s=String(s||'');return s.length>n?s.slice(0,n)+'…':s;}
@@ -1436,10 +1592,31 @@ function katText(s){ // \text{} 内に入れる文字をサニタイズ
 function katClip(s,n){ s=String(s||''); return s.length>n?s.slice(0,n)+'…':s; }
 function makeKatex(){
   if(!ARTS.length){ alert('先にデータを読み込んでください'); return; }
+  var tab=getActiveTab();
+  var name=(DATA.meta&&DATA.meta.urlname)||'';
+  var asof=DATA.meta&&DATA.meta.exportedAt?fmtDateTime(DATA.meta.exportedAt):null;
+  var out='';
+
+  if(tab==='overview') out=katexOverview(name,asof);
+  else if(tab==='gems') out=katexGems(name,asof);
+  else if(tab==='tags') out=katexTags(name,asof);
+  else if(tab==='structure') out=katexStructure(name,asof);
+  else if(tab==='title') out=katexTitle(name,asof);
+  else if(tab==='evergreen') out=katexEvergreen(name,asof);
+  else if(tab==='fans') out=katexFans(name,asof);
+  else if(tab==='quality') out=katexQuality(name,asof);
+  else if(tab==='articles') out=katexOverview(name,asof);
+  else out=katexOverview(name,asof);
+
+  if(!out){ alert('このタブにはKaTeX出力するデータがありません'); return; }
+  showCopyModal('KaTeX出力（'+tabLabel(tab)+'）',
+    'note編集画面で本文に貼り付けてください（$$ … $$ がそのまま数式ブロックになります）。\n@'+name+(asof?' / '+asof+'時点':''),
+    out);
+}
+function katexOverview(name,asof){
   var totalViews=ARTS.reduce(function(s,a){return s+(a.views||0);},0);
   var totalLikes=ARTS.reduce(function(s,a){return s+(a.likes||0);},0);
   var avgRate=mean(ARTS.map(function(a){return a.likeRate;}));
-  var asof=DATA.meta&&DATA.meta.exportedAt?fmtDateTime(DATA.meta.exportedAt):null;
   var rows=[
     ['記事数', katNum(ARTS.length)],
     [HAS_VIEWS?'総ビュー':'総スキ', HAS_VIEWS?katNum(totalViews):katNum(totalLikes)],
@@ -1450,8 +1627,6 @@ function makeKatex(){
   var t1='\\begin{array}{|l|r|}\n\\hline\n\\textbf{\\text{指標}} & \\textbf{\\text{値}} \\\\ \\hline\n';
   rows.forEach(function(r){ t1+='\\text{'+katText(r[0])+'} & '+r[1]+' \\\\ \\hline\n'; });
   t1+='\\end{array}';
-
-  // 上位記事（バーは \rule で表現）
   var metric=HAS_VIEWS?'views':'likes';
   var top=ARTS.slice().sort(function(a,b){return (b[metric]||0)-(a[metric]||0);}).slice(0,5);
   var max=top.length?(top[0][metric]||1):1;
@@ -1461,12 +1636,116 @@ function makeKatex(){
     t2+=(i+1)+' & \\text{'+katText(katClip(a.title,18))+'} & \\rule{'+w+'em}{0.7em}\\,'+katNum(v)+' \\\\ \\hline\n';
   });
   t2+='\\end{array}';
-
-  var name=(DATA.meta&&DATA.meta.urlname)||'';
-  var out='$$\n'+t1+'\n$$\n\n$$\n'+t2+'\n$$';
-  showCopyModal('KaTeX出力（noteの本文にそのまま貼り付け）',
-    'note編集画面で本文に貼り付けてください（$$ … $$ がそのまま数式ブロックになります）。\n@'+name+(asof?' / '+asof+'時点':''),
-    out);
+  return '$$\n'+t1+'\n$$\n\n$$\n'+t2+'\n$$';
+}
+function katexGems(name,asof){
+  var gems=findGems();
+  if(!gems.length) return null;
+  var t='\\begin{array}{|l|r|r|}\n\\hline\n\\text{タイトル} & \\text{ビュー} & \\text{スキ率} \\\\ \\hline\n';
+  gems.slice(0,8).forEach(function(a){
+    t+='\\text{'+katText(katClip(a.title,20))+'} & '+katNum(a.views)+' & '+(a.likeRate*100).toFixed(1)+'\\% \\\\ \\hline\n';
+  });
+  t+='\\end{array}';
+  return '$$\n\\textbf{\\text{💎 埋もれた佳作（'+gems.length+'件）}}\n$$\n\n$$\n'+t+'\n$$';
+}
+function katexTags(name,asof){
+  var tags=tagAgg().sort(function(a,b){return (b.avgPerf||0)-(a.avgPerf||0);});
+  if(!tags.length) return null;
+  var t='\\begin{array}{|l|r|r|r|r|}\n\\hline\n\\text{タグ} & \\text{記事数} & \\text{平均'+katText(PERF_LABEL)+'} & \\text{中央値} & \\text{競合度} \\\\ \\hline\n';
+  tags.slice(0,10).forEach(function(r){
+    t+='\\text{\\#'+katText(r.tag)+'} & '+r.count+' & '+(r.avgPerf!=null?katNum(Math.round(r.avgPerf)):'-')+' & '+(r.medPerf!=null?katNum(Math.round(r.medPerf)):'-')+' & '+(r.competition!=null?katNum(r.competition):'-')+' \\\\ \\hline\n';
+  });
+  t+='\\end{array}';
+  var combos=comboAgg();
+  var out='$$\n\\textbf{\\text{🏷 タグ別成績 Top10}}\n$$\n\n$$\n'+t+'\n$$';
+  if(combos.length){
+    var ct='\\begin{array}{|l|r|r|}\n\\hline\n\\text{組み合わせ} & \\text{記事数} & \\text{平均'+katText(PERF_LABEL)+'} \\\\ \\hline\n';
+    combos.slice(0,5).forEach(function(c){
+      ct+='\\text{'+katText(c.combo)+'} & '+c.count+' & '+katNum(Math.round(c.avgPerf||0))+' \\\\ \\hline\n';
+    });
+    ct+='\\end{array}';
+    out+='\n\n$$\n\\textbf{\\text{タグ組み合わせ 勝ちパターン}}\n$$\n\n$$\n'+ct+'\n$$';
+  }
+  return out;
+}
+function katexStructure(name,asof){
+  var b1=quantileBuckets(function(a){return a.charCount;}, function(a){return a.perf;}, ['短い','やや短','やや長','長い']);
+  if(!b1) return null;
+  var t='\\begin{array}{|l|r|r|r|}\n\\hline\n\\text{文字数帯} & \\text{n} & \\text{中央値'+katText(PERF_LABEL)+'} & \\text{平均} \\\\ \\hline\n';
+  b1.forEach(function(b){
+    var vals=b.vals.filter(function(x){return x!=null;});
+    t+='\\text{'+katText(b.label.replace(/<br>/g,' '))+'} & '+vals.length+' & '+(median(vals)!=null?katNum(Math.round(median(vals))):'-')+' & '+(mean(vals)!=null?katNum(Math.round(mean(vals))):'-')+' \\\\ \\hline\n';
+  });
+  t+='\\end{array}';
+  return '$$\n\\textbf{\\text{📐 文字数帯 × '+katText(PERF_LABEL)+'}}\n$$\n\n$$\n'+t+'\n$$';
+}
+function katexTitle(name,asof){
+  var feats=['数字入り','疑問形','カギカッコ','【】','記号区切り','長め(20字↑)'];
+  var rows=feats.map(function(f){
+    var withF=[], without=[];
+    ARTS.forEach(function(a){ (titleFeatures(a.title)[f]?withF:without).push(a.perf); });
+    return {f:f, withMed:median(withF), woMed:median(without), nWith:withF.filter(function(x){return x!=null;}).length};
+  });
+  var t='\\begin{array}{|l|r|r|r|r|}\n\\hline\n\\text{特徴} & \\text{該当} & \\text{あり中央値} & \\text{なし中央値} & \\text{効果} \\\\ \\hline\n';
+  rows.forEach(function(r){
+    var lift=(r.withMed!=null&&r.woMed)?(r.withMed/r.woMed-1):null;
+    var eff=lift==null?'-':(lift>0?'+':'')+(lift*100).toFixed(0)+'\\%';
+    t+='\\text{'+katText(r.f)+'} & '+r.nWith+' & '+(r.withMed!=null?katNum(Math.round(r.withMed)):'-')+' & '+(r.woMed!=null?katNum(Math.round(r.woMed)):'-')+' & '+eff+' \\\\ \\hline\n';
+  });
+  t+='\\end{array}';
+  return '$$\n\\textbf{\\text{✍️ タイトル方程式}}\n$$\n\n$$\n'+t+'\n$$';
+}
+function katexEvergreen(name,asof){
+  var arr=ARTS.filter(function(a){return a.perfPerDay!=null && a.ageDays!=null;});
+  if(!arr.length) return null;
+  var top=arr.slice().sort(function(a,b){return b.perfPerDay-a.perfPerDay;}).slice(0,8);
+  var t='\\begin{array}{|l|r|r|r|}\n\\hline\n\\text{タイトル} & \\text{経過日} & \\text{累計'+katText(PERF_LABEL)+'} & \\text{日割り} \\\\ \\hline\n';
+  top.forEach(function(a){
+    t+='\\text{'+katText(katClip(a.title,18))+'} & '+Math.round(a.ageDays)+' & '+katNum(a.perf)+' & '+katNum(Math.round(a.perfPerDay*10)/10)+' \\\\ \\hline\n';
+  });
+  t+='\\end{array}';
+  return '$$\n\\textbf{\\text{🌱 エバーグリーン Top}}\n$$\n\n$$\n'+t+'\n$$';
+}
+function katexFans(name,asof){
+  var hasLikers=ARTS.some(function(a){return a.likers&&a.likers.length;});
+  if(!hasLikers) return null;
+  var counter={};
+  ARTS.forEach(function(a){ (a.likers||[]).forEach(function(u){ counter[u]=(counter[u]||0)+1; }); });
+  var people=Object.keys(counter).map(function(u){return {u:u, n:counter[u]};}).sort(function(a,b){return b.n-a.n;});
+  var total=people.length;
+  var repeat=people.filter(function(p){return p.n>=2;}).length;
+  var core=people.filter(function(p){return p.n>=3;}).length;
+  var t='\\begin{array}{|l|r|}\n\\hline\n\\text{指標} & \\text{値} \\\\ \\hline\n';
+  t+='\\text{スキ延べ人数} & '+katNum(total)+' \\\\ \\hline\n';
+  t+='\\text{リピーター(2回↑)} & '+katNum(repeat)+' \\\\ \\hline\n';
+  t+='\\text{コアファン(3回↑)} & '+katNum(core)+' \\\\ \\hline\n';
+  t+='\\end{array}';
+  var profiles=(DATA.meta&&DATA.meta.coreReaderProfiles)||[];
+  var t2='';
+  if(profiles.length){
+    t2='\\begin{array}{|l|r|r|r|}\n\\hline\n\\text{読者} & \\text{スキ回数} & \\text{フォロワー} & \\text{中央値スキ} \\\\ \\hline\n';
+    people.slice(0,8).forEach(function(p){
+      var pr=profiles.filter(function(x){return x.urlname===p.u;})[0];
+      t2+='\\text{@'+katText(pr&&pr.nickname?katClip(pr.nickname,12):katClip(p.u,12))+'} & '+p.n+' & '+(pr&&pr.followerCount!=null?katNum(pr.followerCount):'-')+' & '+(pr&&pr.medLikes!=null?katNum(pr.medLikes):'-')+' \\\\ \\hline\n';
+    });
+    t2+='\\end{array}';
+  }
+  var out='$$\n\\textbf{\\text{👥 コア読者}}\n$$\n\n$$\n'+t+'\n$$';
+  if(t2) out+='\n\n$$\n'+t2+'\n$$';
+  return out;
+}
+function katexQuality(name,asof){
+  var own=ARTS.filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, score:a.struct.score, mode:a.struct.mode, verify:a.struct.verify, reach:a.perf}; });
+  var ext=QEXT.map(function(e){ return {label:e.label, score:e.struct.score, mode:e.struct.mode, verify:e.struct.verify, reach:e.reach}; });
+  var pts=own.concat(ext);
+  if(!pts.length) return null;
+  pts.sort(function(a,b){return b.score-a.score;});
+  var t='\\begin{array}{|l|r|l|r|r|}\n\\hline\n\\text{記事} & \\text{構造制御} & \\text{モード} & \\text{表れ\\%} & \\text{'+katText(PERF_LABEL)+'} \\\\ \\hline\n';
+  pts.slice(0,10).forEach(function(p){
+    t+='\\text{'+katText(katClip(p.label,18))+'} & '+p.score+' & \\text{'+katText(p.mode)+'} & '+(p.verify!=null?p.verify+'\\%':'-')+' & '+(p.reach!=null?katNum(p.reach):'-')+' \\\\ \\hline\n';
+  });
+  t+='\\end{array}';
+  return '$$\n\\textbf{\\text{🧭 構造の質}}\n$$\n\n$$\n'+t+'\n$$';
 }
 $('#katexBtn').onclick=makeKatex;
 
@@ -1695,19 +1974,47 @@ function renderCorr(){
   var box=$('#qCorr'); if(!box) return;
   var own=ARTS.filter(function(a){return a.struct && a.perf!=null;});
   if(own.length<3){ box.style.display='none'; return; }
+  box.style.display='';
+  var h='<strong style="font-size:14px">構造の質と'+PERF_LABEL+'の相関分析（自記事 n='+own.length+'）</strong>';
+  // スコア×perf相関
   var scores=own.map(function(a){return a.struct.score;});
   var perfs=own.map(function(a){return a.perf;});
   var r=pearson(scores,perfs);
-  var strength= r==null?'—': Math.abs(r)>=0.5?'中〜強':'弱';
-  box.style.display='';
-  box.innerHTML='<strong style="font-size:14px">相関分析（自記事 n='+own.length+'）</strong>'+
-    '<div style="margin-top:8px;font-size:13px">黄金比スコア × '+PERF_LABEL+' ： r = '+
-    (r!=null?r.toFixed(3):'—')+
-    '<span class="muted" style="margin-left:8px">（'+strength+'の相関）</span></div>'+
-    '<div class="muted" style="font-size:12px;margin-top:4px">|r|≥0.5で中〜強の相関。n='+own.length+'なので参考値として読んでください。</div>'+
-    (own.filter(function(a){return a.struct.mode==='黄金比寄り：構造を制御できている';}).length ?
-      '<div style="margin-top:8px;font-size:13px">黄金比記事の平均'+PERF_LABEL+'：<strong>'+f1(mean(own.filter(function(a){return a.struct.mode==='黄金比寄り：構造を制御できている';}).map(function(a){return a.perf;})))+'</strong>'+
-      '　その他：<strong>'+f1(mean(own.filter(function(a){return a.struct.mode!=='黄金比寄り：構造を制御できている';}).map(function(a){return a.perf;})))+'</strong></div>' : '');
+  // verify×perf相関
+  var vOwn=own.filter(function(a){return a.struct.verify!=null;});
+  var rV=vOwn.length>=3?pearson(vOwn.map(function(a){return a.struct.verify;}),vOwn.map(function(a){return a.perf;})):null;
+  function corrLabel(r){return r==null?'—':(Math.abs(r)>0.3?'<span class="pill '+(r>0?'good':'bad')+'">'+(r>0?'正':'負')+'の相関</span>':(Math.abs(r)>0.1?'<span class="pill warn">弱い相関</span>':'<span class="pill">無相関</span>'));}
+  h+='<div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>指標</th><th>相関係数 r</th><th>n</th><th>強さ</th></tr></thead><tbody>';
+  h+='<tr><td>構造制御スコア × '+PERF_LABEL+'</td><td>'+(r!=null?r.toFixed(3):'—')+'</td><td>'+own.length+'</td><td>'+corrLabel(r)+'</td></tr>';
+  h+='<tr><td>操作可能性(表れ%) × '+PERF_LABEL+'</td><td>'+(rV!=null?rV.toFixed(3):'—')+'</td><td>'+vOwn.length+'</td><td>'+corrLabel(rV)+'</td></tr>';
+  h+='</tbody></table></div>';
+  // モード別の平均・中央値パフォーマンス
+  var modeMap={};
+  own.forEach(function(a){
+    var m=a.struct.mode||'不明';
+    if(!modeMap[m]) modeMap[m]={perfs:[],count:0};
+    modeMap[m].perfs.push(a.perf); modeMap[m].count++;
+  });
+  var modeKeys=Object.keys(modeMap).sort(function(a,b){return (mean(modeMap[b].perfs)||0)-(mean(modeMap[a].perfs)||0);});
+  if(modeKeys.length>1){
+    h+='<h4 style="font-size:13px;margin:14px 0 6px">モード別'+PERF_LABEL+'比較</h4>';
+    h+='<div class="tablewrap"><table><thead><tr><th>モード</th><th>記事数</th><th>平均'+PERF_LABEL+'</th><th>中央値'+PERF_LABEL+'</th></tr></thead><tbody>';
+    modeKeys.forEach(function(m){
+      var d=modeMap[m];
+      h+='<tr><td>'+esc(m)+'</td><td>'+d.count+'</td><td>'+f1(mean(d.perfs))+'</td><td>'+f1(median(d.perfs))+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  // 偽の発見あり vs なし
+  var withPseudo=own.filter(function(a){return a.struct.pseudo>0;});
+  var noPseudo=own.filter(function(a){return !a.struct.pseudo;});
+  if(withPseudo.length>=1 && noPseudo.length>=1){
+    h+='<div class="insight" style="margin-top:10px">';
+    h+='偽の発見あり（'+withPseudo.length+'件）：平均'+PERF_LABEL+' <b>'+f1(mean(withPseudo.map(function(a){return a.perf;})))+'</b>、中央値 <b>'+f1(median(withPseudo.map(function(a){return a.perf;})))+'</b>';
+    h+='<br>偽の発見なし（'+noPseudo.length+'件）：平均'+PERF_LABEL+' <b>'+f1(mean(noPseudo.map(function(a){return a.perf;})))+'</b>、中央値 <b>'+f1(median(noPseudo.map(function(a){return a.perf;})))+'</b>';
+    h+='</div>';
+  }
+  box.innerHTML=h;
 }
 
 function updateKeyBtn(){
@@ -1788,7 +2095,7 @@ function renderQuality(){
   drawQ(pts);
   var t=$('#qTable'); if(!t) return; t.innerHTML='';
   if(!pts.length){ t.innerHTML='<tbody><tr><td class="mut" style="padding:12px">まだ解析結果がありません。記事一覧で選んで「構造解析」、または外部記事を追加してください。</td></tr></tbody>'; return; }
-  var thead=el('thead'); thead.innerHTML='<tr><th>記事</th><th>構造制御</th><th>モード</th><th>操作可能性(表れ%)</th><th>スキ数</th><th>偽の発見</th></tr>'; t.appendChild(thead);
+  var thead=el('thead'); thead.innerHTML='<tr><th>記事</th><th>構造制御</th><th>モード</th><th>操作可能性(表れ%)</th><th>'+PERF_LABEL+'</th><th>偽の発見</th></tr>'; t.appendChild(thead);
   // グループ別平均
   if(own.length && ext.length){
     var avgOwn=mean(own.map(function(p){return p.score;}));
