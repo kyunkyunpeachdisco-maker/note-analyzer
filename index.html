@@ -801,6 +801,22 @@ function renderTags(){
       }
     }
   }
+  // タグ指標の相関
+  if(tags.length>=3){
+    var tagCorrs=[
+      {label:'記事数 × 平均'+PERF_LABEL, xs:tags.map(function(t){return t.count;}), ys:tags.map(function(t){return t.avgPerf;})},
+      {label:'競合度 × 平均'+PERF_LABEL, xs:tags.filter(function(t){return t.competition!=null;}).map(function(t){return t.competition;}), ys:tags.filter(function(t){return t.competition!=null;}).map(function(t){return t.avgPerf;})},
+      {label:'効率 × 平均'+PERF_LABEL, xs:tags.filter(function(t){return t.efficiency!=null;}).map(function(t){return t.efficiency;}), ys:tags.filter(function(t){return t.efficiency!=null;}).map(function(t){return t.avgPerf;})}
+    ];
+    h+='<h2 class="sec" style="margin-top:18px">タグ指標の相関</h2>';
+    h+='<div class="tablewrap"><table><thead><tr><th>指標</th><th>相関係数 r</th><th>強さ</th></tr></thead><tbody>';
+    tagCorrs.forEach(function(tc){
+      var r=pearson(tc.xs,tc.ys);
+      var strength=r==null?'—':(Math.abs(r)>0.3?'<span class="pill '+(r>0?'good':'bad')+'">'+(r>0?'正':'負')+'の相関</span>':(Math.abs(r)>0.1?'<span class="pill warn">弱い相関</span>':'<span class="pill">無相関</span>'));
+      h+='<tr><td>'+tc.label+'</td><td>'+(r!=null?r.toFixed(3):'—')+'</td><td>'+strength+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
   win.innerHTML=h;
 
   // 全タグ表（ソート可能）
@@ -903,6 +919,25 @@ function renderStructure(){
   h+= b1?'<div style="margin-bottom:18px">'+bucketBars('本文の長さ × '+perfLabel,b1)+'</div>':'';
   h+= b2?'<div style="margin-bottom:18px">'+bucketBars('画像頻度（1000字あたり） × '+perfLabel,b2)+'</div>':'';
   h+= b3?'<div>'+bucketBars('見出し間隔（字／見出し） × '+perfLabel,b3)+'</div>':'';
+  // 相関係数
+  var structCorrs=[
+    {label:'文字数', get:function(a){return a.charCount;}},
+    {label:'画像頻度(1000字あたり)', get:function(a){return a.imgPer1k;}},
+    {label:'見出し間隔(字/見出し)', get:function(a){return a.headInterval;}}
+  ];
+  var hasCorr=false;
+  var corrH='<h3 style="font-size:14px;margin:18px 0 8px">構成要素と'+PERF_LABEL+'の相関</h3>';
+  corrH+='<div class="tablewrap"><table><thead><tr><th>要素</th><th>相関係数 r</th><th>強さ</th></tr></thead><tbody>';
+  structCorrs.forEach(function(sc){
+    var xs=[],ys=[];
+    ARTS.forEach(function(a){ var x=sc.get(a); if(x!=null&&a.perf!=null){xs.push(x);ys.push(a.perf);} });
+    var r=pearson(xs,ys);
+    if(r!=null) hasCorr=true;
+    var strength=r==null?'—':(Math.abs(r)>0.3?'<span class="pill '+(r>0?'good':'bad')+'">'+(r>0?'正':'負')+'の相関</span>':(Math.abs(r)>0.1?'<span class="pill warn">弱い相関</span>':'<span class="pill">無相関</span>'));
+    corrH+='<tr><td>'+sc.label+'</td><td>'+(r!=null?r.toFixed(3):'—')+'</td><td>'+strength+'</td></tr>';
+  });
+  corrH+='</tbody></table></div>';
+  if(hasCorr) h+=corrH;
   // 読者との比較
   var rProfiles=(DATA.meta&&DATA.meta.coreReaderProfiles)||[];
   var rCharCounts=rProfiles.map(function(p){return p.medCharCount;}).filter(function(x){return x!=null;});
