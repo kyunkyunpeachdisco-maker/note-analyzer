@@ -528,6 +528,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return 
 
 /* ---------- 記事一覧 ---------- */
 var sortState={key:'likes',dir:-1};
+var tagSortState={key:'avgViews',dir:-1};
 
 function artFilterFn(a){
   var title=(a.title||'').toLowerCase();
@@ -758,10 +759,35 @@ function renderTags(){
   }
   win.innerHTML=h;
 
-  // 全タグ表
-  var rows=tags.sort(function(a,b){return (b.avgPerf||0)-(a.avgPerf||0);});
+  // 全タグ表（ソート可能）
+  var tagCols=[
+    {k:'tag',label:'タグ',val:function(r){return r.tag;}},
+    {k:'count',label:'記事数',val:function(r){return r.count;}},
+    {k:'avgViews',label:'平均ビュー',val:function(r){return r.avgViews;}},
+    {k:'medViews',label:'中央値',val:function(r){return r.medViews;}},
+    {k:'avgLikeRate',label:'平均スキ率',val:function(r){return r.avgLikeRate;}},
+    {k:'medLikeRate',label:'中央値',val:function(r){return r.medLikeRate;}},
+    {k:'competition',label:'競合度',val:function(r){return r.competition;}}
+  ];
+  if(!tagSortState) tagSortState={key:'avgViews',dir:-1};
+  var rows=tags.slice().sort(function(a,b){
+    var x=tagCols.filter(function(c){return c.k===tagSortState.key;})[0];
+    if(!x) return 0;
+    var va=x.val(a), vb=x.val(b);
+    if(va==null && vb==null) return 0;
+    if(va==null) return 1;
+    if(vb==null) return -1;
+    if(typeof va==='string') return tagSortState.dir*String(va).localeCompare(String(vb),'ja');
+    return tagSortState.dir*(va-vb);
+  });
   var t=$('#tagTable');
-  t.innerHTML='<thead><tr><th>タグ</th><th>記事数</th><th>平均ビュー</th><th>中央値</th><th>平均スキ率</th><th>中央値</th><th>競合度</th></tr></thead>';
+  var thead=el('thead'); var htr=el('tr');
+  tagCols.forEach(function(c){
+    var th=el('th',null,c.label+(tagSortState.key===c.k?(tagSortState.dir<0?' ▼':' ▲'):''));
+    th.onclick=function(){ if(tagSortState.key===c.k)tagSortState.dir*=-1; else {tagSortState.key=c.k; tagSortState.dir=-1;} renderTags(); };
+    htr.appendChild(th);
+  });
+  thead.appendChild(htr); t.innerHTML=''; t.appendChild(thead);
   var tb=el('tbody');
   rows.forEach(function(r){
     var win=r.avgPerf!=null&&r.avgPerf>=medPerf&&(medComp==null||r.competition==null||r.competition<=medComp);
@@ -821,16 +847,16 @@ function renderStructure(){
   var b1=quantileBuckets(function(a){return a.charCount;}, function(a){return a.perf;}, ['短い','やや短','やや長','長い']);
   var b2=quantileBuckets(function(a){return a.imgPer1k;}, function(a){return a.perf;}, ['画像少','やや少','やや多','画像多']);
   var b3=quantileBuckets(function(a){return a.headInterval;}, function(a){return a.perf;}, ['見出し密','やや密','やや疎','見出し疎']);
-  var h='';
-  h+= b1?'<div style="margin-bottom:18px">'+bucketBars('本文の長さ × '+perfLabel,b1)+'</div>':'';
-  h+= b2?'<div style="margin-bottom:18px">'+bucketBars('画像頻度（1000字あたり） × '+perfLabel,b2)+'</div>':'';
-  h+= b3?'<div>'+bucketBars('見出し間隔（字／見出し） × '+perfLabel,b3)+'</div>':'';
-  // 短評
+  // 短評（冒頭に表示）
   var tips=[];
   var bb1=bestBucket(b1); if(bb1) tips.push('文字数は<b>'+bb1.label+'</b>が中央値 '+f1(bb1.med)+' '+PERF_LABEL+'で最も伸びやすい');
   var bb2=bestBucket(b2); if(bb2) tips.push('画像は<b>'+bb2.label+'</b>が好成績');
   var bb3=bestBucket(b3); if(bb3) tips.push('見出し間隔は<b>'+bb3.label+'</b>が最適');
-  if(tips.length) h+='<div class="insight">'+tips.join('。')+'。<br><span class="muted" style="font-size:11px">※中央値ベース。1記事のバズに左右されにくい指標です。</span></div>';
+  var h='';
+  if(tips.length) h+='<div class="insight" style="margin-bottom:16px">'+tips.join('。')+'。<br><span class="muted" style="font-size:11px">※中央値ベース。1記事のバズに左右されにくい指標です。</span></div>';
+  h+= b1?'<div style="margin-bottom:18px">'+bucketBars('本文の長さ × '+perfLabel,b1)+'</div>':'';
+  h+= b2?'<div style="margin-bottom:18px">'+bucketBars('画像頻度（1000字あたり） × '+perfLabel,b2)+'</div>':'';
+  h+= b3?'<div>'+bucketBars('見出し間隔（字／見出し） × '+perfLabel,b3)+'</div>':'';
   box.innerHTML= h || '<div class="empty">構成データが不足しています。</div>';
 }
 
@@ -854,22 +880,23 @@ function renderTitle(){
     ARTS.forEach(function(a){ (titleFeatures(a.title)[f]?withF:without).push(a.perf); });
     return {f:f, withMed:median(withF), woMed:median(without), withAvg:mean(withF), woAvg:mean(without), nWith:withF.filter(function(x){return x!=null;}).length};
   });
-  var h='<div class="tablewrap"><table><thead><tr><th>特徴</th><th>該当</th><th>あり中央値</th><th>なし中央値</th><th>効果</th></tr></thead><tbody>';
+  // 短評（冒頭に表示）
+  var winners=rows.filter(function(r){ return r.withMed!=null&&r.woMed&&r.withMed/r.woMed>1.15; });
+  var losers=rows.filter(function(r){ return r.withMed!=null&&r.woMed&&r.withMed/r.woMed<0.85; });
+  var h='';
+  if(winners.length||losers.length){
+    h+='<div class="insight" style="margin-bottom:16px">';
+    if(winners.length) h+='<div>'+winners.map(function(r){return '<b>'+r.f+'</b>';}).join('・')+' を使った記事は中央値で伸びやすい傾向。</div>';
+    if(losers.length) h+='<div>'+losers.map(function(r){return '<b>'+r.f+'</b>';}).join('・')+' は中央値で見ると伸びにくい傾向。</div>';
+    h+='</div>';
+  }
+  h+='<div class="tablewrap"><table><thead><tr><th>特徴</th><th>該当</th><th>あり中央値</th><th>なし中央値</th><th>効果</th></tr></thead><tbody>';
   rows.forEach(function(r){
     var lift = (r.withMed!=null&&r.woMed)? (r.withMed/r.woMed-1):null;
     var pill = lift==null?'':(lift>0.15?'<span class="pill good">+'+(lift*100).toFixed(0)+'%</span>':(lift<-0.15?'<span class="pill bad">'+(lift*100).toFixed(0)+'%</span>':'<span class="pill">±</span>'));
     h+='<tr><td>'+r.f+'</td><td>'+r.nWith+'</td><td>'+f1(r.withMed)+'<br><span class="muted" style="font-size:10px">平均 '+f1(r.withAvg)+'</span></td><td>'+f1(r.woMed)+'<br><span class="muted" style="font-size:10px">平均 '+f1(r.woAvg)+'</span></td><td>'+pill+'</td></tr>';
   });
-  // 短評
-  var winners=rows.filter(function(r){ return r.withMed!=null&&r.woMed&&r.withMed/r.woMed>1.15; });
-  var losers=rows.filter(function(r){ return r.withMed!=null&&r.woMed&&r.withMed/r.woMed<0.85; });
   h+='</tbody></table></div>';
-  if(winners.length||losers.length){
-    h+='<div class="insight">';
-    if(winners.length) h+='<div>'+winners.map(function(r){return '<b>'+r.f+'</b>';}).join('・')+' を使った記事は中央値で伸びやすい傾向。</div>';
-    if(losers.length) h+='<div>'+losers.map(function(r){return '<b>'+r.f+'</b>';}).join('・')+' は中央値で見ると伸びにくい傾向。</div>';
-    h+='</div>';
-  }
   h+='<p class="desc" style="margin-top:10px">「効果」は中央値ベースで比較。1記事のバズに左右されにくい指標です。</p>';
   box.innerHTML=h;
 }
