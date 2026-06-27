@@ -144,6 +144,8 @@
       return getJSON(url).then(function (j) {
         var data = j.data || {};
         var list = data.note_stats || data.noteStats || [];
+        if (page === 1 && list.length) console.log('[note-analyzer] stats sample:', JSON.stringify(list[0]).slice(0, 300), 'keys:', Object.keys(list[0]));
+        if (page === 1 && !list.length) console.log('[note-analyzer] stats data keys:', Object.keys(data), 'raw:', JSON.stringify(data).slice(0, 500));
         for (var i = 0; i < list.length; i++) {
           var s = list[i];
           byId[String(s.id)] = {
