@@ -153,9 +153,9 @@
             comments: (s.comment_count != null ? s.comment_count : s.commentCount)
           };
         }
-        var lastPage = data.last_page || data.lastPage || data.total_pages || data.totalPages || page;
-        ui.msg('統計取得中… page ' + page + '/' + lastPage + '（' + Object.keys(byId).length + '件）');
-        if (page < lastPage && page < MAX_PAGES) { page++; return sleep(FETCH_INTERVAL_MS).then(next); }
+        var lastPage = data.last_page || data.lastPage || data.total_pages || data.totalPages || 999;
+        ui.msg('統計取得中… page ' + page + '（' + Object.keys(byId).length + '件）');
+        if (list.length > 0 && page < lastPage && page < MAX_PAGES) { page++; return sleep(FETCH_INTERVAL_MS).then(next); }
         return byId;
       });
     }
