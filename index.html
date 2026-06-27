@@ -559,8 +559,11 @@ function renderArticles(){
   thead.appendChild(tr); t.appendChild(thead);
   var rows=ARTS.slice().sort(function(a,b){
     var x=a[sortState.key], y=b[sortState.key];
-    if(typeof x==='string'){return sortState.dir*String(x).localeCompare(String(y),'ja');}
-    return sortState.dir*((y==null?-Infinity:y)-(x==null?-Infinity:x));
+    if(x==null && y==null) return 0;
+    if(x==null) return 1;  // nullは常に最後
+    if(y==null) return -1;
+    if(typeof x==='string') return sortState.dir*String(x).localeCompare(String(y),'ja');
+    return sortState.dir*(y-x);
   });
   var visible=rows.filter(artFilterFn);
   var hidden=rows.length-visible.length;
