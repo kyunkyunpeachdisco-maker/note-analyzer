@@ -789,26 +789,30 @@ function renderTags(){
     if(rTags.length){
       var rTagsShared=rTags.filter(function(t){return t.mine;});
       var rTagsUnused=rTags.filter(function(t){return !t.mine;});
+      // 読者タグの成績集計（共通・未使用の両方で使う）
+      var rTagPerfMap={};
+      readerProfiles.forEach(function(pr){
+        if(!pr.tags) return;
+        pr.tags.forEach(function(t){
+          if(!rTagPerfMap[t.name]) rTagPerfMap[t.name]={likes:[]};
+          if(t.avgLikes!=null) for(var i=0;i<t.count;i++) rTagPerfMap[t.name].likes.push(t.avgLikes);
+        });
+      });
       if(rTagsShared.length){
         h+='<h2 class="sec" style="margin-top:18px">読者と共通のタグ</h2>';
-        h+='<p class="desc">あなたも読者も使っているタグ。</p>';
-        h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>使用読者数</th><th>あなた記事数</th><th>あなた平均'+PERF_LABEL+'</th><th>あなた中央値'+PERF_LABEL+'</th></tr></thead><tbody>';
+        h+='<p class="desc">あなたも読者も使っているタグの成績比較。</p>';
+        h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>使用読者数</th><th>あなた記事数</th><th>あなた平均'+PERF_LABEL+'</th><th>あなた中央値'+PERF_LABEL+'</th><th>読者記事数</th><th>読者平均スキ</th><th>読者中央値スキ</th></tr></thead><tbody>';
         rTagsShared.forEach(function(t){
           var myTag=myTagSet[t.name];
-          h+='<tr><td>#'+esc(t.name)+'</td><td>'+t.users+'人</td><td>'+num(myTag.count)+'</td><td>'+f1(myTag.avgPerf)+'</td><td>'+f1(myTag.medPerf)+'</td></tr>';
+          var rp=rTagPerfMap[t.name];
+          var rCount=rp?rp.likes.length:0;
+          var rAvg=rp&&rp.likes.length?Math.round(rp.likes.reduce(function(s,x){return s+x;},0)/rp.likes.length):null;
+          var rMed=rp?median(rp.likes):null;
+          h+='<tr><td>#'+esc(t.name)+'</td><td>'+t.users+'人</td><td>'+num(myTag.count)+'</td><td>'+f1(myTag.avgPerf)+'</td><td>'+f1(myTag.medPerf)+'</td><td>'+num(rCount)+'</td><td>'+(rAvg!=null?num(rAvg):'—')+'</td><td>'+(rMed!=null?f1(rMed):'—')+'</td></tr>';
         });
         h+='</tbody></table></div>';
       }
       if(rTagsUnused.length){
-        // 読者タグの成績集計
-        var rTagPerfMap={};
-        readerProfiles.forEach(function(pr){
-          if(!pr.tags) return;
-          pr.tags.forEach(function(t){
-            if(!rTagPerfMap[t.name]) rTagPerfMap[t.name]={likes:[]};
-            if(t.avgLikes!=null) for(var i=0;i<t.count;i++) rTagPerfMap[t.name].likes.push(t.avgLikes);
-          });
-        });
         h+='<h2 class="sec" style="margin-top:18px">読者が使っているがあなたが未使用のタグ</h2>';
         h+='<p class="desc">読者層で人気だがあなたが書いていないタグ。書けば読まれる可能性あり。</p>';
         h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>使用読者数</th><th>読者記事数</th><th>読者平均スキ</th><th>読者中央値スキ</th></tr></thead><tbody>';
