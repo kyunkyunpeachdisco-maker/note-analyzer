@@ -528,29 +528,31 @@ function renderArticles(){
   if(isMobile){ tableWrap.style.display='none'; cardsEl.style.display='block'; if(cardSortEl){cardSortEl.style.display='';} if(cardSortDirEl){cardSortDirEl.style.display='';} }
   else { tableWrap.style.display=''; cardsEl.style.display='none'; if(cardSortEl){cardSortEl.style.display='none';} if(cardSortDirEl){cardSortDirEl.style.display='none';} }
   var cols=[
-    {k:'title',label:'タイトル',fmt:function(a){return '<a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a>';}},
-    {k:'views',label:'ビュー',fmt:function(a){return num(a.views);}},
-    {k:'likes',label:'スキ',fmt:function(a){return num(a.likes);}},
-    {k:'comments',label:'コメ',fmt:function(a){return num(a.comments);}},
-    {k:'likeRate',label:'スキ率',fmt:function(a){return a.likeRate!=null?(a.likeRate*100).toFixed(1)+'%':'—';}},
-    {k:'charCount',label:'文字数',fmt:function(a){return num(a.charCount);}},
-    {k:'imageCount',label:'画像',fmt:function(a){return num(a.imageCount);}},
-    {k:'headingCount',label:'見出し',fmt:function(a){return num(a.headingCount);}},
-    {k:'xSelf',label:'X自',fmt:function(a){return num(a.xSelf);}},
-    {k:'xOther',label:'X他',fmt:function(a){return num(a.xOther);}},
-    {k:'nSelf',label:'note自',fmt:function(a){return num(a.nSelf);}},
-    {k:'nOther',label:'note他',fmt:function(a){return num(a.nOther);}},
-    {k:'publishAt',label:'公開日',fmt:function(a){return a.publishAt?a.publishAt.slice(0,10):'—';}}
+    {k:'title',label:'タイトル',tip:'記事のタイトル（クリックでnoteを開く）',fmt:function(a){return '<a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a>';}},
+    {k:'views',label:'ビュー',tip:'閲覧数（ダッシュボードで収集時のみ取得可）',fmt:function(a){return num(a.views);}},
+    {k:'likes',label:'スキ',tip:'スキされた回数',fmt:function(a){return num(a.likes);}},
+    {k:'comments',label:'コメ',tip:'コメント数',fmt:function(a){return num(a.comments);}},
+    {k:'likeRate',label:'スキ率',tip:'スキ÷ビュー（記事を見た人のうちスキした割合）',fmt:function(a){return a.likeRate!=null?(a.likeRate*100).toFixed(1)+'%':'—';}},
+    {k:'charCount',label:'文字数',tip:'本文の文字数（空白除く）',fmt:function(a){return num(a.charCount);}},
+    {k:'imageCount',label:'画像',tip:'本文中の画像の数',fmt:function(a){return num(a.imageCount);}},
+    {k:'headingCount',label:'見出し',tip:'本文中の見出し（h1〜h6）の数',fmt:function(a){return num(a.headingCount);}},
+    {k:'xSelf',label:'X自',tip:'自分のXアカウントへのリンク数',fmt:function(a){return num(a.xSelf);}},
+    {k:'xOther',label:'X他',tip:'他人のXアカウントへのリンク数',fmt:function(a){return num(a.xOther);}},
+    {k:'nSelf',label:'note自',tip:'自分の他のnote記事へのリンク数（内部リンク）',fmt:function(a){return num(a.nSelf);}},
+    {k:'nOther',label:'note他',tip:'他人のnote記事へのリンク数（外部引用）',fmt:function(a){return num(a.nOther);}},
+    {k:'publishAt',label:'公開日',tip:'記事の公開日',fmt:function(a){return a.publishAt?a.publishAt.slice(0,10):'—';}}
   ];
   var t=$('#artTable'); t.innerHTML='';
   var thead=el('thead'); var tr=el('tr');
   tr.appendChild(el('th',null,'✓'));
   cols.forEach(function(c){
     var th=el('th',null,c.label+(sortState.key===c.k?(sortState.dir<0?' ▼':' ▲'):''));
+    if(c.tip) th.title=c.tip;
     th.onclick=function(){ if(sortState.key===c.k)sortState.dir*=-1; else {sortState.key=c.k; sortState.dir=-1;} renderArticles(); };
     tr.appendChild(th);
   });
-  tr.appendChild(el('th',null,'質'));
+  var qth=el('th',null,'質'); qth.title='構造解析スコア（LLMによる構造制御の評価）';
+  tr.appendChild(qth);
   thead.appendChild(tr); t.appendChild(thead);
   var rows=ARTS.slice().sort(function(a,b){
     var x=a[sortState.key], y=b[sortState.key];
@@ -1369,7 +1371,7 @@ function bindQuality(){
     var model=$('#qModel').value;
     $('#runAll').disabled=true; $('#cancelAll').style.display=''; $('#runAllMsg').textContent='解析中 0/'+all.length;
     runPool(all, function(a){
-      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); autoSaveToGist(true); })
+      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); autoSaveToGist(true); renderArticles(); })
         .catch(function(e){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; });
     }, 2, function(d,t){ $('#runAllMsg').textContent='解析中 '+d+'/'+t; naGistMsg('解析中 '+d+'/'+all.length); }).then(function(){
       $('#runAll').disabled=false; $('#cancelAll').style.display='none';
@@ -1384,7 +1386,7 @@ function bindQuality(){
     if(!sel.length){ qmsg('本文のある記事を選んでください（本文未収集の記事はチェック不可）'); return; }
     var model=$('#qModel').value; $('#runStruct').disabled=true; qmsg('解析中 0/'+sel.length); naGistMsg('解析中 0/'+sel.length);
     runPool(sel, function(a){
-      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); autoSaveToGist(true); })
+      return analyzeText(a.text, model).then(function(r){ a.struct=Object.assign(qualityScore(r),{raw:r}); autoSaveToGist(true); renderArticles(); })
         .catch(function(e){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; });
     }, 2, function(d,t){ qmsg('解析中 '+d+'/'+t); naGistMsg('解析中 '+d+'/'+sel.length); }).then(function(){
       $('#runStruct').disabled=false; qmsg('完了'); renderArticles(); renderQuality(); renderCorr(); switchTab('quality');
