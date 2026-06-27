@@ -12,6 +12,8 @@
  */
 (function () {
   'use strict';
+  var NA_VERSION = '0.5.17 (2026-06-27)';
+  console.log('[note-analyzer] collector v' + NA_VERSION);
 
   // ====== 設定（自分のアカウント識別子）======
   var OWN = {
