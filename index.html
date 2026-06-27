@@ -658,9 +658,9 @@ function renderGems(){
   var html='<h2 class="sec">再宣伝候補リスト（'+gems.length+'件）</h2>';
   if(!gems.length){ html+='<div class="muted">該当なし。バランス良く届いています。</div>'; }
   else{
-    html+='<div class="tablewrap"><table><thead><tr><th>タイトル</th><th>ビュー</th><th>スキ率</th><th>X誘導</th></tr></thead><tbody>';
+    html+='<div class="tablewrap"><table><thead><tr><th>タイトル</th><th>ビュー</th><th>スキ率</th></tr></thead><tbody>';
     gems.forEach(function(a){
-      html+='<tr><td><a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a> <span class="pill gem">佳作</span></td><td>'+num(a.views)+'</td><td>'+(a.likeRate*100).toFixed(1)+'%</td><td>'+(a.xSelf>0?'済':'<span class="pill warn">未</span>')+'</td></tr>';
+      html+='<tr><td><a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a> <span class="pill gem">佳作</span></td><td>'+num(a.views)+'</td><td>'+(a.likeRate*100).toFixed(1)+'%</td></tr>';
     });
     html+='</tbody></table></div>';
   }
