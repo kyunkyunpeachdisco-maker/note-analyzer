@@ -276,6 +276,10 @@
           var body = detail.body || detail.note_body || '';
           var an = analyzeBody(body);
           var st = stats && stats[it.id] ? stats[it.id] : null;
+          // ビュー数: 統計API → 詳細APIフォールバック
+          var views = st ? st.views : (detail.read_count != null ? detail.read_count : (detail.readCount != null ? detail.readCount : null));
+          var likes = st && st.likes != null ? st.likes : (detail.like_count != null ? detail.like_count : (detail.likeCount != null ? detail.likeCount : it.likes));
+          var comments = st && st.comments != null ? st.comments : (detail.comment_count != null ? detail.comment_count : (detail.commentCount != null ? detail.commentCount : it.comments));
           articles.push({
             id: it.id,
             key: it.key,
@@ -283,9 +287,9 @@
             title: it.title,
             titleLength: (it.title || '').length,
             publishAt: it.publishAt,
-            views: st ? st.views : null,
-            likes: st && st.likes != null ? st.likes : it.likes,
-            comments: st && st.comments != null ? st.comments : it.comments,
+            views: views,
+            likes: likes,
+            comments: comments,
             tags: extractTags(detail),
             charCount: an.charCount,
             headingCount: an.headingCount,
