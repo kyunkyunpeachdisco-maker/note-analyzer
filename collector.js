@@ -269,7 +269,7 @@
         var detailData;
         return fetchDetail(it.key).then(function (detail) {
           detailData = detail;
-          return fetchLikers(it.id);
+          return fetchLikers(it.key);
         }).then(function (likers) {
           var detail = detailData;
           var body = detail.body || detail.note_body || '';
