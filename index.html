@@ -760,6 +760,46 @@ function renderTags(){
     });
     h+='</tbody></table></div>';
   }
+  // コア読者のタグとの比較
+  var readerProfiles=(DATA.meta&&DATA.meta.coreReaderProfiles)||[];
+  if(readerProfiles.length){
+    var myTagSet={};
+    tags.forEach(function(t){ myTagSet[t.tag]=t; });
+    // 読者タグ集計（使用人数＋平均使用回数）
+    var rTagAgg={};
+    readerProfiles.forEach(function(pr){
+      if(!pr.tags) return;
+      var seen={};
+      pr.tags.forEach(function(t){
+        if(!seen[t.name]){
+          if(!rTagAgg[t.name]) rTagAgg[t.name]={name:t.name,users:0,totalCount:0,mine:!!myTagSet[t.name]};
+          rTagAgg[t.name].users++;
+          rTagAgg[t.name].totalCount+=t.count;
+          seen[t.name]=1;
+        }
+      });
+    });
+    var rTags=Object.keys(rTagAgg).map(function(k){return rTagAgg[k];})
+      .filter(function(t){return t.users>=2;})
+      .sort(function(a,b){return b.users-a.users;});
+    if(rTags.length){
+      h+='<h2 class="sec" style="margin-top:18px">コア読者が使っているタグ</h2>';
+      h+='<p class="desc">2人以上のコア読者が使用しているタグ。<span style="color:var(--good)">●</span> あなたも使用　<span style="color:var(--warn)">●</span> あなたは未使用</p>';
+      h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>使用読者数</th><th>あなたの使用</th><th>あなたの平均'+PERF_LABEL+'</th></tr></thead><tbody>';
+      rTags.slice(0,20).forEach(function(t){
+        var myTag=myTagSet[t.name];
+        var dot=t.mine?'<span style="color:var(--good)">●</span> 使用中':'<span style="color:var(--warn)">●</span> 未使用';
+        var myPerf=myTag?f1(myTag.avgPerf):'—';
+        h+='<tr><td>#'+esc(t.name)+'</td><td>'+t.users+'人</td><td>'+dot+'</td><td>'+myPerf+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
+      // 未使用タグのインサイト
+      var unused=rTags.filter(function(t){return !t.mine;});
+      if(unused.length){
+        h+='<div class="insight">💡 読者層で人気だがあなたが書いていないタグ：'+unused.slice(0,8).map(function(t){return '<b>#'+esc(t.name)+'</b>('+t.users+'人)';}).join('、')+'</div>';
+      }
+    }
+  }
   win.innerHTML=h;
 
   // 全タグ表（ソート可能）
@@ -973,7 +1013,7 @@ function renderFans(){
   var profileMap={};
   profiles.forEach(function(p){ profileMap[p.urlname]=p; });
   if(profiles.length){
-    h+='<div class="tablewrap"><table><thead><tr><th>ユーザー</th><th>スキした記事数</th><th>記事数</th><th>中央値スキ</th><th>よく使うタグ</th></tr></thead><tbody>';
+    h+='<div class="tablewrap"><table><thead><tr><th>ユーザー</th><th>スキ回数</th><th>記事数</th><th>中央値</th><th>Top10平均</th><th>ペース</th><th>よく使うタグ</th></tr></thead><tbody>';
     people.slice(0,30).forEach(function(p){
       var pr=profileMap[p.u];
       var tagHtml='—';
@@ -984,6 +1024,8 @@ function renderFans(){
       h+='<td>'+p.n+'</td>';
       h+='<td>'+(pr?num(pr.articleCount):'—')+'</td>';
       h+='<td>'+(pr&&pr.medLikes!=null?num(pr.medLikes):'—')+'</td>';
+      h+='<td>'+(pr&&pr.top10AvgLikes!=null?num(pr.top10AvgLikes):'—')+'</td>';
+      h+='<td>'+(pr&&pr.writingPace!=null?pr.writingPace+'日/記事':'—')+'</td>';
       h+='<td style="white-space:normal">'+tagHtml+'</td></tr>';
     });
     h+='</tbody></table></div>';
@@ -1018,6 +1060,37 @@ function renderFans(){
         h+=readerOnly.map(function(t){ return esc(t.name)+'('+t.users+'人)'; }).join('、');
         h+='</div>';
       }
+    }
+    // タグ別パフォーマンス比較（自分 vs 読者層）
+    var myTagMap={};
+    ARTS.forEach(function(a){ (a.tags||[]).forEach(function(t){
+      if(!myTagMap[t]) myTagMap[t]={likes:[]};
+      myTagMap[t].likes.push(a.likes);
+    }); });
+    var rTagPerf={};
+    profiles.forEach(function(pr){
+      if(!pr.tags) return;
+      pr.tags.forEach(function(t){
+        if(!rTagPerf[t.name]) rTagPerf[t.name]={totalLikes:0,totalCount:0};
+        if(t.avgLikes!=null){ rTagPerf[t.name].totalLikes+=t.avgLikes*t.count; rTagPerf[t.name].totalCount+=t.count; }
+      });
+    });
+    var tagCompare=Object.keys(rTagPerf).filter(function(t){ return rTagPerf[t].totalCount>=2; })
+      .map(function(t){
+        var rAvg=Math.round(rTagPerf[t].totalLikes/rTagPerf[t].totalCount);
+        var my=myTagMap[t];
+        var myAvg=my?Math.round(my.likes.reduce(function(s,x){return s+x;},0)/my.likes.length):null;
+        return {tag:t, readerAvg:rAvg, myAvg:myAvg, mine:!!my};
+      }).sort(function(a,b){ return b.readerAvg-a.readerAvg; });
+    if(tagCompare.length){
+      h+='<h3 style="font-size:14px;margin:18px 0 6px">タグ別パフォーマンス比較（あなた vs 読者層）</h3>';
+      h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>読者平均スキ</th><th>あなた平均スキ</th><th>差</th></tr></thead><tbody>';
+      tagCompare.slice(0,15).forEach(function(t){
+        var diff=t.myAvg!=null?(t.myAvg-t.readerAvg):null;
+        var diffHtml=diff==null?'—':(diff>0?'<span style="color:var(--good)">+'+num(diff)+'</span>':'<span style="color:'+(diff<0?'var(--warn)':'var(--fg)')+'">'+num(diff)+'</span>');
+        h+='<tr><td>#'+esc(t.tag)+'</td><td>'+num(t.readerAvg)+'</td><td>'+(t.myAvg!=null?num(t.myAvg):'—')+'</td><td>'+diffHtml+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
     }
   } else {
     h+='<div class="tablewrap"><table><thead><tr><th>ユーザー</th><th>スキした記事数</th></tr></thead><tbody>';

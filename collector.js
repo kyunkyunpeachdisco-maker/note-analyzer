@@ -337,14 +337,22 @@
           profile.top10MedLikes = top10.length ? (function (a) { a.sort(function (x, y) { return x - y; }); var m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; })(top10.slice()) : null;
           // 執筆ペース（日/記事）
           profile.writingPace = daySpan && arts.length > 1 ? Math.round(daySpan / (arts.length - 1) * 10) / 10 : null;
-          // タグ集計（使用回数順）
-          var tagCount = {};
+          // タグ集計（使用回数＋平均スキ）
+          var tagData = {};
           for (var ti = 0; ti < arts.length; ti++) {
             var at = arts[ti].tags || [];
-            for (var tj = 0; tj < at.length; tj++) { tagCount[at[tj]] = (tagCount[at[tj]] || 0) + 1; }
+            for (var tj = 0; tj < at.length; tj++) {
+              if (!tagData[at[tj]]) tagData[at[tj]] = { count: 0, likes: [] };
+              tagData[at[tj]].count++;
+              tagData[at[tj]].likes.push(arts[ti].likes);
+            }
           }
-          profile.tags = Object.keys(tagCount)
-            .map(function (t) { return { name: t, count: tagCount[t] }; })
+          profile.tags = Object.keys(tagData)
+            .map(function (t) {
+              var d = tagData[t];
+              var avg = d.likes.length ? Math.round(d.likes.reduce(function (s, x) { return s + x; }, 0) / d.likes.length) : null;
+              return { name: t, count: d.count, avgLikes: avg };
+            })
             .sort(function (a, b) { return b.count - a.count; })
             .slice(0, 15);
           results.push(profile);
