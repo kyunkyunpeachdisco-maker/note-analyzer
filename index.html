@@ -918,11 +918,52 @@ function renderFans(){
   h+='<div class="card"><div class="k">一見さん率</div><div class="v">'+pct(total-repeat,total)+'</div></div>';
   h+='</div>';
   h+='<h3 style="font-size:14px;margin:18px 0 6px">あなたのコア読者 トップ</h3>';
-  h+='<div class="tablewrap"><table><thead><tr><th>ユーザー</th><th>スキした記事数</th></tr></thead><tbody>';
-  people.slice(0,20).forEach(function(p){
-    h+='<tr><td><a href="https://note.com/'+esc(p.u)+'" target="_blank" rel="noopener">@'+esc(p.u)+'</a></td><td>'+p.n+'</td></tr>';
-  });
-  h+='</tbody></table></div>';
+  // コア読者プロフィールがあるか
+  var profiles=(DATA.meta&&DATA.meta.coreReaderProfiles)||[];
+  var profileMap={};
+  profiles.forEach(function(p){ profileMap[p.urlname]=p; });
+  if(profiles.length){
+    h+='<div class="tablewrap"><table><thead><tr><th>ユーザー</th><th>スキした記事数</th><th>記事数</th><th>中央値スキ</th><th>よく使うタグ</th></tr></thead><tbody>';
+    people.slice(0,30).forEach(function(p){
+      var pr=profileMap[p.u];
+      var tagHtml='—';
+      if(pr&&pr.tags&&pr.tags.length){
+        tagHtml=pr.tags.slice(0,5).map(function(t){ return '<span class="tag">'+esc(t.name)+'<small style="color:var(--mut);margin-left:3px">'+t.count+'</small></span>'; }).join(' ');
+      }
+      h+='<tr><td><a href="https://note.com/'+esc(p.u)+'" target="_blank" rel="noopener">@'+esc(pr&&pr.nickname?pr.nickname:p.u)+'</a></td>';
+      h+='<td>'+p.n+'</td>';
+      h+='<td>'+(pr?num(pr.articleCount):'—')+'</td>';
+      h+='<td>'+(pr&&pr.medLikes!=null?num(pr.medLikes):'—')+'</td>';
+      h+='<td style="white-space:normal">'+tagHtml+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+    // コア読者に共通するタグ集計
+    var allTagCount={};
+    profiles.forEach(function(pr){
+      if(!pr.tags) return;
+      var seen={};
+      pr.tags.forEach(function(t){ if(!seen[t.name]){ allTagCount[t.name]=(allTagCount[t.name]||0)+1; seen[t.name]=1; } });
+    });
+    var commonTags=Object.keys(allTagCount).map(function(t){return {name:t,users:allTagCount[t]};})
+      .sort(function(a,b){return b.users-a.users;}).slice(0,20);
+    if(commonTags.length){
+      h+='<h3 style="font-size:14px;margin:18px 0 6px">コア読者に共通するタグ</h3>';
+      h+='<p class="muted" style="font-size:12px;margin:0 0 8px">複数のコア読者が使っているタグ（人数順）</p>';
+      h+=commonTags.filter(function(t){return t.users>=2;}).map(function(t){
+        return '<span class="tag" style="font-size:13px;padding:4px 10px;margin:2px">'+esc(t.name)+' <small style="color:var(--mut)">'+t.users+'人</small></span>';
+      }).join(' ');
+      if(!commonTags.filter(function(t){return t.users>=2;}).length){
+        h+='<span class="muted" style="font-size:13px">2人以上に共通するタグはありませんでした。</span>';
+      }
+    }
+  } else {
+    h+='<div class="tablewrap"><table><thead><tr><th>ユーザー</th><th>スキした記事数</th></tr></thead><tbody>';
+    people.slice(0,20).forEach(function(p){
+      h+='<tr><td><a href="https://note.com/'+esc(p.u)+'" target="_blank" rel="noopener">@'+esc(p.u)+'</a></td><td>'+p.n+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+    h+='<div class="muted" style="margin-top:8px;font-size:12px">コア読者のプロフィール・タグを見るには collector.js を再実行してください。</div>';
+  }
   box.innerHTML=h;
 }
 

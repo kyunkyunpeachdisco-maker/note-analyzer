@@ -272,7 +272,7 @@
   }
 
   function fetchReaderArticles(urlname) {
-    // 最新50件程度を取得してスキ数統計を計算
+    // 最新50件程度を取得してスキ数統計・タグを収集
     var items = [];
     var page = 1;
     function next() {
@@ -281,9 +281,11 @@
         var list = data.contents || [];
         for (var i = 0; i < list.length; i++) {
           var c = list[i];
+          var tags = extractTags(c);
           items.push({
             likes: c.likeCount != null ? c.likeCount : (c.like_count != null ? c.like_count : 0),
-            publishAt: c.publishAt || c.publish_at || null
+            publishAt: c.publishAt || c.publish_at || null,
+            tags: tags
           });
         }
         var isLast = data.isLastPage === true || list.length === 0;
@@ -335,6 +337,16 @@
           profile.top10MedLikes = top10.length ? (function (a) { a.sort(function (x, y) { return x - y; }); var m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; })(top10.slice()) : null;
           // 執筆ペース（日/記事）
           profile.writingPace = daySpan && arts.length > 1 ? Math.round(daySpan / (arts.length - 1) * 10) / 10 : null;
+          // タグ集計（使用回数順）
+          var tagCount = {};
+          for (var ti = 0; ti < arts.length; ti++) {
+            var at = arts[ti].tags || [];
+            for (var tj = 0; tj < at.length; tj++) { tagCount[at[tj]] = (tagCount[at[tj]] || 0) + 1; }
+          }
+          profile.tags = Object.keys(tagCount)
+            .map(function (t) { return { name: t, count: tagCount[t] }; })
+            .sort(function (a, b) { return b.count - a.count; })
+            .slice(0, 15);
           results.push(profile);
           idx++;
           return sleep(FETCH_INTERVAL_MS).then(step);
