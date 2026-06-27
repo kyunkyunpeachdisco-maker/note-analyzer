@@ -712,9 +712,12 @@ function tagAgg(){
   var stats=(DATA.meta&&DATA.meta.tagStats)||{};
   return Object.keys(map).map(function(t){
     var m=map[t];
-    return {tag:t, count:m.count, avgViews:mean(m.views), medViews:median(m.views),
+    var av=mean(m.views); var comp=stats[t]!=null?stats[t]:null;
+    // 効率＝自分の平均ビュー÷競合記事数×1000（競合1000件あたりの自分のビュー）
+    var eff=(av!=null && comp)?Math.round(av/comp*1000):null;
+    return {tag:t, count:m.count, avgViews:av, medViews:median(m.views),
             avgLikeRate:mean(m.likeRate), medLikeRate:median(m.likeRate),
-            avgPerf:mean(m.perf), competition: stats[t]!=null?stats[t]:null};
+            avgPerf:mean(m.perf), competition: comp, efficiency: eff};
   });
 }
 function comboAgg(){
@@ -767,7 +770,8 @@ function renderTags(){
     {k:'medViews',label:'中央値',val:function(r){return r.medViews;}},
     {k:'avgLikeRate',label:'平均スキ率',val:function(r){return r.avgLikeRate;}},
     {k:'medLikeRate',label:'中央値',val:function(r){return r.medLikeRate;}},
-    {k:'competition',label:'競合度',val:function(r){return r.competition;}}
+    {k:'competition',label:'競合度',val:function(r){return r.competition;}},
+    {k:'efficiency',label:'効率',val:function(r){return r.efficiency;}}
   ];
   if(!tagSortState) tagSortState={key:'avgViews',dir:-1};
   var rows=tags.slice().sort(function(a,b){
@@ -798,7 +802,8 @@ function renderTags(){
       '<td>'+(HAS_VIEWS&&r.medViews!=null?f1(r.medViews):'—')+'</td>'+
       '<td>'+(r.avgLikeRate!=null?(r.avgLikeRate*100).toFixed(1)+'%':'—')+'</td>'+
       '<td>'+(r.medLikeRate!=null?(r.medLikeRate*100).toFixed(1)+'%':'—')+'</td>'+
-      '<td>'+(r.competition!=null?num(r.competition):'—')+'</td>'));
+      '<td>'+(r.competition!=null?num(r.competition):'—')+'</td>'+
+      '<td>'+(r.efficiency!=null?num(r.efficiency):'—')+'</td>'));
   });
   t.appendChild(tb);
 }
@@ -944,6 +949,24 @@ function renderFans(){
   h+='<div class="card"><div class="k">コアファン(3回↑)</div><div class="v">'+num(core)+'<small> '+pct(core,total)+'</small></div></div>';
   h+='<div class="card"><div class="k">一見さん率</div><div class="v">'+pct(total-repeat,total)+'</div></div>';
   h+='</div>';
+  // 読者層レベル比較
+  var profiles=(DATA.meta&&DATA.meta.coreReaderProfiles)||[];
+  if(profiles.length){
+    var myMedLikes=median(ARTS.map(function(a){return a.likes;}));
+    var readerMeds=profiles.map(function(p){return p.medLikes;}).filter(function(x){return x!=null;});
+    var readerMedOfMed=median(readerMeds);
+    var readerAvgOfMed=mean(readerMeds);
+    h+='<div class="insight" style="margin:12px 0">';
+    h+='<strong>読者層のレベル感</strong><br>';
+    h+='あなたの中央値スキ：<b>'+f1(myMedLikes)+'</b>　／　コア読者の中央値スキ（中央値）：<b>'+f1(readerMedOfMed)+'</b>（平均：'+f1(readerAvgOfMed)+'）';
+    if(myMedLikes!=null && readerMedOfMed!=null){
+      var ratio=myMedLikes/readerMedOfMed;
+      if(ratio>1.5) h+='<br><span style="color:var(--good)">あなたは読者層より大きな反響を得ています。</span>';
+      else if(ratio>0.8) h+='<br><span style="color:var(--fg)">読者層と同程度の反響規模です。</span>';
+      else h+='<br><span style="color:var(--warn)">読者層の方が反響が大きい傾向 — より大きなクリエイターに読まれている可能性。</span>';
+    }
+    h+='</div>';
+  }
   h+='<h3 style="font-size:14px;margin:18px 0 6px">あなたのコア読者 トップ</h3>';
   // コア読者プロフィールがあるか
   var profiles=(DATA.meta&&DATA.meta.coreReaderProfiles)||[];
