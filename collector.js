@@ -426,19 +426,24 @@
           if (articles[i].tags) allTags = allTags.concat(articles[i].tags);
         }
         return fetchTagStats(allTags).then(function (tagStats) {
-          var out = {
-            meta: {
-              urlname: OWN.noteUrlname,
-              exportedAt: new Date().toISOString(),
-              count: articles.length,
-              hasViews: !!stats,
-              hasLikers: COLLECT_LIKERS,
-              tagStats: tagStats,
-              schema: 1
-            },
-            articles: articles
-          };
-          ui.done(JSON.stringify(out, null, 2));
+          // コア読者プロフィール取得
+          var profilePromise = COLLECT_LIKERS ? fetchCoreReaderProfiles(articles) : Promise.resolve([]);
+          return profilePromise.then(function (coreProfiles) {
+            var out = {
+              meta: {
+                urlname: OWN.noteUrlname,
+                exportedAt: new Date().toISOString(),
+                count: articles.length,
+                hasViews: !!stats,
+                hasLikers: COLLECT_LIKERS,
+                tagStats: tagStats,
+                coreReaderProfiles: coreProfiles,
+                schema: 1
+              },
+              articles: articles
+            };
+            ui.done(JSON.stringify(out, null, 2));
+          });
         });
       });
     })
