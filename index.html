@@ -231,6 +231,7 @@
     <h2 class="sec">📐 構成密度の最適解</h2>
     <p class="desc">本文量・画像頻度・見出し間隔ごとの平均成績。あなたにとっての最適バランスを探す。</p>
     <div class="panel" id="structCharts"></div>
+    <div class="panel" id="styloPanel"></div>
   </section>
 
   <!-- D: タイトル -->
@@ -252,6 +253,19 @@
     <h2 class="sec">👥 コア読者・リピーター分析</h2>
     <p class="desc">繰り返しスキしてくれる人＝あなたの本当のファン。常連定着度を可視化。</p>
     <div class="panel" id="fans"></div>
+    <div class="panel">
+      <strong style="font-size:14px">コア読者の構造・文体比較（自分 vs 読者層）</strong>
+      <p class="mut" style="margin:6px 0">コア読者が自分で書いた人気記事を取得し、<strong>文体指標（無料・決定的）</strong>と任意で<strong>LLM構造指標</strong>を、あなたの記事と比較します（公開記事のみ・r.jina.ai経由。読者記事URLはv0.6.0以降のcollectorで収集されます）。モデル・サンプル数は「構造の質」タブの設定を使います。</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <select id="rdReaders" class="ctrl"><option value="5">上位5人</option><option value="10" selected>上位10人</option><option value="999">全コア読者</option></select>
+        <select id="rdPerReader" class="ctrl"><option value="1">各1記事</option><option value="2">各2記事</option><option value="3" selected>各3記事</option><option value="5">各5記事</option></select>
+        <label class="mut" style="display:flex;align-items:center;gap:4px;font-size:13px" title="文体指標は常に無料。ONにすると読者記事にもLLM構造解析を実行（API課金）"><input type="checkbox" id="rdLLM"> LLM構造解析も</label>
+        <button class="btn" id="rdRun">読者を解析</button>
+        <button class="btn ghost" id="rdCancel" style="display:none">⏹ 中断</button>
+        <span class="mut" id="rdMsg"></span>
+      </div>
+      <div id="rdCompare"></div>
+    </div>
   </section>
 
   <!-- 構造の質（自由度アナライザ統合） -->
@@ -263,7 +277,7 @@
       <div class="panel" style="margin-top:8px;font-size:13px;line-height:1.8">
         <strong>■ 一覧表の列（大枠｜内訳｜フラグ）</strong>
         <table style="font-size:13px;margin:8px 0 16px">
-          <tr><th style="text-align:left;white-space:normal">ジャンル<span class="mut">（大枠）</span></th><td style="text-align:left;white-space:normal">技術設計／実験検証／論証／案出し／エッセイ体験。どの物差しで評価したかのレンズ。複合記事は最も支配的なジャンルを表示（区間内訳は詳細ビュー）。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">ジャンル<span class="mut">（大枠）</span></th><td style="text-align:left;white-space:normal">技術設計／実験検証／論証／批評／案出し／エッセイ体験。どの物差しで評価したかのレンズ。複合記事は最も支配的なジャンルを表示（区間内訳は詳細ビュー）。</td></tr>
           <tr><th style="text-align:left;white-space:normal">総合<span class="mut">（大枠）</span></th><td style="text-align:left;white-space:normal">0〜100。ジャンルで有効な内訳観点の平均（偽の発見1件で −35）。エッセイ等で数値観点が無い場合は「—」（不当な0点を出さない）。</td></tr>
           <tr><th style="text-align:left;white-space:normal">構造制御<span class="mut">（内訳）</span></th><td style="text-align:left;white-space:normal">0〜100。<strong>構造的な手筋だけ</strong>（強制/好み/未制御）で算出。報告（体験・引用・ナレーション）は分母から除外。構造的手筋が無い記事は「—」。</td></tr>
           <tr><th style="text-align:left;white-space:normal">推論の質<span class="mut">（内訳）</span></th><td style="text-align:left;white-space:normal">0〜100。結論が強制されているかとは別に、提案・主張が前提から筋が通り・区別が一貫し・反例を処理しているか。案出しやエッセイの論理の良し悪しはここで測る。</td></tr>
@@ -282,7 +296,7 @@
         </table>
         <strong>■ スコアの考え方</strong>
         <div style="margin:8px 0">
-          総合は<strong>ジャンル相応</strong>に作ります。技術設計／実験は構造制御＋接地＋独自構築、論証は構造制御＋推論の質＋接地、案出しは推論の質＋接地＋独自構築、エッセイは推論の質＋独自構築（構造制御は「—」）。<strong>エッセイや案出しを構造制御の物差しで0点に沈めない</strong>のが要点です。LLM判定が外れたら詳細ビューで直せば、スコアもマッピングも追従します。
+          総合は<strong>ジャンル相応</strong>に作ります。技術設計／実験は構造制御＋接地＋独自構築、論証は推論の質＋構造制御＋接地、<strong>批評は推論の質＋接地（具体性）＋独自構築（構造制御は外す）</strong>、案出しは推論の質＋接地＋独自構築、エッセイは推論の質＋独自構築（構造制御は「—」）。<strong>批評・エッセイ・案出しを構造制御の物差しで0点に沈めない</strong>のが要点です。主軸の観点が抽出できないと「⚠低信頼」を表示します。LLM判定が外れたら詳細ビューで直せば、スコアもマッピングも追従します。
         </div>
       </div>
     </details>
@@ -327,19 +341,6 @@
       </div>
       <button class="btn ghost" id="runSample">🔍 検索・解析</button>
       <span class="mut" id="sampleMsg" style="margin-left:8px"></span>
-    </div>
-    <div class="panel">
-      <strong style="font-size:14px">コア読者の構造・文体比較（自分 vs 読者層）</strong>
-      <p class="mut" style="margin:6px 0">コア読者が自分で書いた人気記事を取得し、<strong>文体指標（無料・決定的）</strong>と任意で<strong>LLM構造指標</strong>を、あなたの記事と比較します（公開記事のみ・r.jina.ai経由。読者記事URLはv0.6.0以降のcollectorで収集されます）。</p>
-      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
-        <select id="rdReaders" class="ctrl"><option value="5">上位5人</option><option value="10" selected>上位10人</option><option value="999">全コア読者</option></select>
-        <select id="rdPerReader" class="ctrl"><option value="1">各1記事</option><option value="2">各2記事</option><option value="3" selected>各3記事</option><option value="5">各5記事</option></select>
-        <label class="mut" style="display:flex;align-items:center;gap:4px;font-size:13px" title="文体指標は常に無料。ONにすると読者記事にもLLM構造解析を実行（API課金）"><input type="checkbox" id="rdLLM"> LLM構造解析も</label>
-        <button class="btn" id="rdRun">読者を解析</button>
-        <button class="btn ghost" id="rdCancel" style="display:none">⏹ 中断</button>
-        <span class="mut" id="rdMsg"></span>
-      </div>
-      <div id="rdCompare"></div>
     </div>
     <div class="panel" style="padding:0"><div class="tablewrap"><table id="qTable"></table></div></div>
   </section>
@@ -500,6 +501,7 @@ function renderAll(){
   renderOverview(); renderArticles(); renderGems();
   renderTags(); renderStructure(); renderTitle(); renderEvergreen(); renderFans();
   renderQuality();
+  if(typeof renderStylo==='function') renderStylo();
   if(typeof renderCorr==='function') renderCorr();
   if(typeof renderReaderCompare==='function') renderReaderCompare();
 }
@@ -985,6 +987,33 @@ function bestBucket(buckets){
     if(m!=null && (best==null || m>best.med)) best={label:b.label.replace(/<br>/g,' '), med:m};
   });
   return best;
+}
+// 文体指標（無料・決定的）：記事ごとの中央値＋成績相関。構成タブに表示
+function renderStylo(){
+  var box=$('#styloPanel'); if(!box) return;
+  var styAll=(ARTS||[]).filter(function(a){ return a.text; });
+  if(styAll.length<3){ box.innerHTML='<div class="muted" style="font-size:13px">本文のある記事が3件未満のため文体指標は表示できません。</div>'; return; }
+  styAll.forEach(function(a){ if(!a._stylo) a._stylo=styloMetrics(a.text); });
+  var perfCols=[]; if(HAS_VIEWS) perfCols.push({key:'views',label:'ビュー'}); perfCols.push({key:'likes',label:'スキ'});
+  function perfVal(a,k){ return k==='likeRate'?a.likeRate:a[k]; }
+  function rCell(r){ if(r==null) return '<span class="mut">—</span>'; var c=Math.abs(r)>0.3?(r>0?'var(--good)':'var(--bad)'):(Math.abs(r)>0.1?'var(--warn)':'var(--mut)'); return '<span style="color:'+c+';font-weight:600">'+r.toFixed(3)+'</span>'; }
+  var perfHead=perfCols.map(function(pc){return '<th>r×'+pc.label+'</th>';}).join('');
+  var h='<strong style="font-size:14px">文体指標（無料・決定的・本文から機械計算）</strong>';
+  h+='<div class="muted" style="font-size:12px;margin:4px 0 8px">文の長さ・段落・見出し密度・漢字比率など「書き方の形」。AIのブレと無関係で毎回同じ値。右はビュー/スキとの相関（n='+styAll.length+'）。</div>';
+  h+='<div class="tablewrap"><table><thead><tr><th>指標</th><th>中央値</th>'+perfHead+'<th>n</th></tr></thead><tbody>';
+  STYLO_FIELDS.forEach(function(f){
+    var vals=styAll.map(function(a){return a._stylo?a._stylo[f.key]:null;});
+    var med=median(vals.filter(function(v){return v!=null;}));
+    var cells=perfCols.map(function(pc){
+      var rows=styAll.filter(function(a){ return a._stylo&&a._stylo[f.key]!=null && perfVal(a,pc.key)!=null; });
+      var r=rows.length>=3?pearson(rows.map(function(a){return a._stylo[f.key];}),rows.map(function(a){return perfVal(a,pc.key);})):null;
+      return '<td>'+rCell(r)+'</td>';
+    }).join('');
+    var nn=vals.filter(function(v){return v!=null;}).length;
+    h+='<tr><td>'+f.label+(f.unit?'('+f.unit+')':'')+'</td><td>'+(med!=null?f1(med):'—')+'</td>'+cells+'<td>'+nn+'</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  box.innerHTML=h;
 }
 function renderStructure(){
   var box=$('#structCharts');
@@ -1881,14 +1910,20 @@ function qext(s){ var e=$('#qExtMsg'); if(e)e.textContent=s; }
 var Q_SYSTEM=[
 'あなたは文章を分析する抽出器です。vibe採点はしません。まず記事のジャンルを判定し、ジャンルに応じた物差しで、手筋・推論・構造主張・引用・独自構築を抽出して、JSONだけを返します。',
 '',
-'# ステップ0：ジャンル判定（最初に必ず行う）',
-'記事全体を次のいずれかに分類する（primary_genre）。複合記事は sections で区間ごとに分ける。',
+'# 基本原則（最重要）',
+'手法やジャンルの「珍しさ・馴染み」で評価するな。見たことのない手法でも、各主張が次の基本量を満たすかだけで測れ：(1) 具体的で読者が手順通り検証できるか（表れ型＝接地）、(2) 推論として筋が通るか（推論の質）。新規でも検証可能なら高く、ありふれていても検証不能なら低い。手法を名前で当てにいくのではなく、手法が結果として示す性質（具体性・検証可能性・論理の妥当性）を測る。',
+'',
+'# ステップ0：ジャンル判定（最初に必ず行う・空にしない）',
+'記事全体を次のいずれかに必ず分類する（primary_genre は空文字にせず、最も支配的なものを選ぶ）。複合記事は sections で区間ごとに分ける。',
 '- 技術設計 … 何かを設計・実装した記事。設計判断・実装・仕様がある。',
 '- 実験検証 … 仮説を立てデータ・比較で検証した記事。',
 '- 論証 … 主張を根拠・論理で支える記事。',
+'- 批評 … 作品・主張・文章を具体的に検討して是非を論じる記事（書評・論評・添削）。本体は「批判の筋が通っているか」。',
 '- 案出し … 規範・アイデア・提案を出す記事。結論が強制されないのが規範。ただし提案の論理の良し悪し（推論の質）は評価する。',
 '- エッセイ体験 … 個人の体験・回想・対話の記事。',
-'重要：ジャンルで当てる物差しが違う。構造制御（強制/好み/未制御）の物差しは、構造・論証の主張にのみ当てる。エッセイの体験報告・引用・ナレーションには当てない（→制御度は「報告」）。',
+'重要：ジャンルで当てる物差しが違う。構造制御（強制/好み/未制御）の物差しは、技術設計・実験・論証の構造主張にのみ当てる。',
+'批評では、個々の美的判断（読みやすい/くどい等）が主観的なのは当然であり、それ自体を構造の穴（好み/未制御）として重く扱わない。批評の評価軸は「推論の質（批判が筋として通るか）」と「接地（逐語引用・修正案・代入など具体で検証可能か）」。',
+'エッセイの体験報告・引用・ナレーションには構造制御を当てない（→制御度は「報告」）。',
 '',
 '# 手筋への分解と制御度',
 '記事を論理ステップ（手筋）に分解し、各手筋に「射程」（押さえる構造の非自明さ：低/中/高）と「制御度」を付与。制御度は4値：',
@@ -1899,7 +1934,8 @@ var Q_SYSTEM=[
 '重要：表層の厳密さ（数式・引用・整った構成）は強制を意味しない。逆に、自嘲や砕けたトーンは「好み」を意味しない。トーンではなく実質で判断せよ。',
 '',
 '# 推論の質（reasoning）',
-'荷重を担う主張・提案について、「結論が強制されているか」とは別に、推論として筋が通っているかを評価する。案出し・論証・エッセイで特に重要（案出しでも論理の良し悪しはある）。',
+'荷重を担う主張・提案について、「結論が強制されているか」とは別に、推論として筋が通っているかを評価する。論証・批評・案出し・エッセイで特に重要。',
+'**重要：論証・批評・案出しでは、記事の荷重を担う主張/批判を必ず reasoning に1件以上入れること（空にしない）。** moves は「論の運び（どんなステップを踏んだか）」、reasoning は「その論が妥当か」。批評記事なら個々の批判（例：語法の誤り指摘・代入による矛盾導出・含意論証）を reasoning に入れて評価する。',
 '各主張/提案について次の観点をチェックし、verdict（高/中/低）を出す：',
 '- 前提からの帰結 … 提案/結論が、述べられた問題設定・前提から実際に導かれているか。',
 '- 区別の一貫性 … 持ち出した区別・分類が一貫し、恣意的でないか。',
@@ -1909,7 +1945,7 @@ var Q_SYSTEM=[
 '',
 '# 偽の発見（pseudo-structure）検査',
 '「本質は〜」「つまり〜と同じ」など構造・本質・等値を真剣に主張する箇所を見つけ、1) 主張された構造の定義特徴を挙げ、2) 写像先がそれを満たすか各々検査、3) 欠けていれば smuggled=true。',
-'偽の発見にしないもの：比喩・アナロジー（「〜みたいな」）／既存名を借りつつ独自定義を明示した新指標（造語・パロディ名でも計算式・定義が厳密なら成立）／謙遜・自嘲（「ジョーク指標」等）でも定義・計算が厳密な場合。疑わしければ smuggled=false。',
+'偽の発見にしないもの：比喩・アナロジー（「〜みたいな」）／既存名を借りつつ独自定義を明示した新指標（造語・パロディ名でも計算式・定義が厳密なら成立）／謙遜・自嘲（「ジョーク指標」等）でも定義・計算が厳密な場合／修辞的・文学的な援用（小説や作品を引いた比喩）。疑わしければ・著者自身が比喩的/境界的と認めている場合は smuggled=false。偽の発見は「本気で構造的等値を主張し、かつ定義特徴を満たさない」場合に限る。',
 '',
 '# 引用負荷テスト',
 '各引用について、論証のどのステップを強制するかを問う。消しても論理の強さが変わらない／同語反復なら forces_step=false（権威の装飾）。',
@@ -1925,7 +1961,7 @@ var Q_SYSTEM=[
 '- original_concept：独自に定義した概念・指標・フレームワーク（名前と定義がある）。',
 '- implementation：概念を実装・実証したもの（アプリ・実験・データ・計算結果）。',
 '- iteration：課題発見→分析→対策のサイクルを回した箇所。',
-'- cross_domain：異分野の構造を正当に接続したもの（定義特徴を満たす接続）。',
+'- cross_domain：異分野の構造を正当に接続したもの（定義特徴を満たす接続）。**ある分野の確立した方法を別主題に持ち込んで実演している場合も含む**（例：校閲・実験計画・反証・形式化などの方法を、本来の分野外の対象に適用して見せる）。',
 'エッセイ・感想にこれらが無いのは普通で、減点ではない。',
 '',
 '# 較正例',
@@ -1937,8 +1973,8 @@ var Q_SYSTEM=[
 '',
 '# 出力（このJSONのみ。前後に説明文を一切付けない。半角ダブルクオートのみ使用）',
 '{',
-'  "primary_genre":"技術設計|実験検証|論証|案出し|エッセイ体験",',
-'  "sections":[{"summary":"区間の内容","genre":"技術設計|実験検証|論証|案出し|エッセイ体験"}],',
+'  "primary_genre":"技術設計|実験検証|論証|批評|案出し|エッセイ体験",',
+'  "sections":[{"summary":"区間の内容","genre":"技術設計|実験検証|論証|批評|案出し|エッセイ体験"}],',
 '  "moves":[{"id":1,"summary":"短い要約","quote":"該当箇所の引用(30字程度)","reach":"低|中|高","control":"強制|好み|未制御|報告","reason":"分類の根拠"}],',
 '  "reasoning":[{"target":"評価した主張/提案","checks":[{"point":"前提からの帰結|区別の一貫性|反例処理|無矛盾|定義の一貫","ok":true,"reason":"…"}],"verdict":"高|中|低","reason":"…"}],',
 '  "structure_claims":[{"claim":"主張","claimed_structure":"持ち込んだ構造名","defining_features":["特徴1","特徴2"],"target":"写像先","feature_checks":[{"feature":"特徴1","satisfied":true,"reason":"…"}],"smuggled":true,"reason":"…"}],',
@@ -2088,7 +2124,7 @@ function analyzeAndScore(text, model, excludeKey){
     return st;
   });
 }
-var Q_GENRES=['技術設計','実験検証','論証','案出し','エッセイ体験'];
+var Q_GENRES=['技術設計','実験検証','論証','批評','案出し','エッセイ体験'];
 // 内訳観点（大枠＝ジャンル＋総合、内訳＝この4観点、フラグ＝偽の発見）
 var Q_AXES=[
   {key:'ctrlScore',  label:'構造制御'},
@@ -2096,13 +2132,15 @@ var Q_AXES=[
   {key:'groundScore',label:'接地'},
   {key:'buildScore', label:'独自構築'}
 ];
-// ジャンル別に「総合」を構成する内訳観点
+// ジャンル別に「総合」を構成する内訳観点（先頭＝そのジャンルの主軸）
 function genreAxes(g){
   if(g==='技術設計'||g==='実験検証') return ['ctrlScore','groundScore','buildScore'];
-  if(g==='論証') return ['ctrlScore','reasonScore','groundScore'];
+  if(g==='論証') return ['reasonScore','ctrlScore','groundScore'];
+  if(g==='批評') return ['reasonScore','groundScore','buildScore']; // 批評は推論の質＋接地（具体性）主軸。構造制御は外す
   if(g==='案出し') return ['reasonScore','groundScore','buildScore'];
   if(g==='エッセイ体験') return ['reasonScore','buildScore'];
-  return ['ctrlScore','reasonScore','groundScore','buildScore'];
+  // 不明・空ジャンルは構造制御を主軸にしない（誤適用で潰さないため）
+  return ['reasonScore','groundScore','buildScore'];
 }
 // モデル出力の表記揺れを正規化（4値・報告を含む）
 function normControl(v){
@@ -2147,9 +2185,12 @@ function qualityScore(r){
   var active=genreAxes(genre);
   var used=active.map(function(k){ return self[k]; }).filter(function(v){ return v!=null; });
   var score=used.length? Math.round(used.reduce(function(s,v){return s+v;},0)/used.length) : null;
-  if(score!=null) score=Math.max(0,Math.min(100, score - 35*pseudo));
+  // 偽の発見ペナルティは比率化＋上限（1件の境界事例で総合が0に潰れないように）
+  if(score!=null) score=Math.max(0,Math.min(100, score - Math.min(40, 20*pseudo)));
+  // 低信頼：そのジャンルの主軸（先頭の観点）が抽出できていない＝評価が不安定
+  var lowConf = (self[active[0]]==null) || (!genre);
   return {
-    genre:genre, score:score,
+    genre:genre, score:score, lowConf:lowConf,
     ctrlScore:ctrlScore, reasonScore:reasonScore, groundScore:groundScore, buildScore:buildScore,
     active:active, mode:(pseudo?'偽の発見':(genre||'—')),
     pseudo:pseudo, verify:groundScore, hyo:hyo, abst:abst, conCount:cons.length, counts:c
@@ -2163,7 +2204,8 @@ function qBadge(s){
   var col = s.pseudo? '#f87171' : (s.score==null? 'var(--mut)' : (s.score>=70?'var(--good)':(s.score>=40?'#fbbf24':'#f87171')));
   var g=s.genre?(' <span class="mut" style="font-size:11px">'+esc(s.genre)+'</span>'):'';
   var flag=s.pseudo?(' <span style="color:#f87171;font-size:11px">偽'+s.pseudo+'</span>'):'';
-  return '<span style="color:'+col+';font-weight:700">'+sc+'</span>'+g+flag;
+  var lc=s.lowConf?(' <span class="mut" style="font-size:11px" title="主軸の観点が抽出できておらず低信頼">⚠低信頼</span>'):'';
+  return '<span style="color:'+col+';font-weight:700">'+sc+'</span>'+g+flag+lc;
 }
 
 var _poolCancel=false;
@@ -2224,15 +2266,6 @@ function renderCorr(){
   metrics.forEach(function(mt){ h+=corrRow(mt[0], function(a){return a.struct[mt[1]];}, own); });
   h+='</tbody></table></div>';
   h+='<div class="muted" style="font-size:12px;margin-top:4px">r&gt;0＝その指標が高い記事ほど成績が高い。|r|≥0.3で中〜強・≥0.1で弱。nが小さいうちは参考値（目安 n≥8で傾向, n≥20で判断材料）。<b>ビューは外部流入に, スキは質的反応に効きやすい</b>。</div>';
-  // 文体指標 × ビュー/スキ（無料・決定的）
-  var styAll=ARTS.filter(function(a){ return a.text; });
-  if(styAll.length>=3){
-    styAll.forEach(function(a){ if(!a._stylo) a._stylo=styloMetrics(a.text); });
-    h+='<h4 style="font-size:13px;margin:14px 0 6px">文体指標 × 成績（無料・決定的）</h4>';
-    h+='<div class="tablewrap"><table><thead><tr><th>文体指標</th>'+perfHead+'<th>n</th></tr></thead><tbody>';
-    STYLO_FIELDS.forEach(function(f){ h+=corrRow(f.label+(f.unit?'('+f.unit+')':''), function(a){return a._stylo?a._stylo[f.key]:null;}, styAll); });
-    h+='</tbody></table></div>';
-  }
   // ジャンル別の平均・中央値パフォーマンス（mode＝ジャンル）
   var modeMap={};
   own.forEach(function(a){
@@ -2333,7 +2366,7 @@ function bindQuality(){
   };
 }
 
-var GENRE_COLORS={'技術設計':'#60a5fa','実験検証':'#34d399','論証':'#a78bfa','案出し':'#fbbf24','エッセイ体験':'#f472b6'};
+var GENRE_COLORS={'技術設計':'#60a5fa','実験検証':'#34d399','論証':'#a78bfa','批評':'#fb923c','案出し':'#fbbf24','エッセイ体験':'#f472b6'};
 var QPLOT={x:'ctrlScore', y:'reach'};
 function qPlotAxes(){ return [
   {key:'score',label:'総合'},{key:'ctrlScore',label:'構造制御'},{key:'reasonScore',label:'推論の質'},
@@ -2770,9 +2803,10 @@ function recomputeDetail(isEdit){
   var col = q.pseudo? 'var(--bad)' : (q.score==null?'var(--mut)':(q.score>=70?'var(--good)':(q.score>=40?'var(--warn)':'var(--bad)')));
   var ensHtml = ens? '<span class="muted" style="font-size:12px;margin-left:8px">一致度 ジャンル'+ens.genreAgree+'%'+(ens.spread!=null?' ・スコア幅±'+Math.round(ens.spread/2):'')+'（'+ens.n+'回）</span>' : '';
   var calHtml = (DETAIL_STATE.struct&&DETAIL_STATE.struct._calibrated)? '<span class="pill" style="margin-left:6px">✎ 較正に使用</span>' : '';
+  var lcHtml = q.lowConf? '<span class="pill" style="color:var(--warn);margin-left:6px" title="主軸の観点（このジャンルで最重要の指標）が抽出できておらず、総合は低信頼。詳細を確認・修正してください">⚠ 低信頼</span>' : '';
   $('#qDetailVerdict').innerHTML='<span style="font-weight:700;font-size:18px;color:'+col+'">総合 '+(q.score==null?'—':q.score)+'</span>'+
     '<span class="muted" style="font-size:13px;margin-left:8px">'+esc(q.genre||'ジャンル未判定')+'</span>'+
-    (q.pseudo?'<span class="pill" style="color:var(--bad);margin-left:8px">偽の発見 '+q.pseudo+'</span>':'')+ensHtml+calHtml;
+    (q.pseudo?'<span class="pill" style="color:var(--bad);margin-left:8px">偽の発見 '+q.pseudo+'</span>':'')+lcHtml+ensHtml+calHtml;
   function ax(lbl,v,suf){ return '<span class="pill">'+lbl+'：'+(v==null?'—':v+(suf||''))+'</span>'; }
   $('#qDetailSignals').innerHTML=
     ax('構造制御',q.ctrlScore)+ax('推論の質',q.reasonScore)+ax('接地',q.groundScore,'%')+ax('独自構築',q.buildScore)+
