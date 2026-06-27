@@ -937,6 +937,9 @@ function renderFans(){
       h+='<td style="white-space:normal">'+tagHtml+'</td></tr>';
     });
     h+='</tbody></table></div>';
+    // 自分のタグ集合
+    var myTags={};
+    ARTS.forEach(function(a){ (a.tags||[]).forEach(function(t){ myTags[t]=1; }); });
     // コア読者に共通するタグ集計
     var allTagCount={};
     profiles.forEach(function(pr){
@@ -944,16 +947,26 @@ function renderFans(){
       var seen={};
       pr.tags.forEach(function(t){ if(!seen[t.name]){ allTagCount[t.name]=(allTagCount[t.name]||0)+1; seen[t.name]=1; } });
     });
-    var commonTags=Object.keys(allTagCount).map(function(t){return {name:t,users:allTagCount[t]};})
-      .sort(function(a,b){return b.users-a.users;}).slice(0,20);
+    var commonTags=Object.keys(allTagCount).map(function(t){return {name:t,users:allTagCount[t],mine:!!myTags[t]};})
+      .sort(function(a,b){return b.users-a.users;}).slice(0,30);
     if(commonTags.length){
+      var shared=commonTags.filter(function(t){return t.users>=2 && t.mine;});
+      var readerOnly=commonTags.filter(function(t){return t.users>=2 && !t.mine;});
       h+='<h3 style="font-size:14px;margin:18px 0 6px">コア読者に共通するタグ</h3>';
-      h+='<p class="muted" style="font-size:12px;margin:0 0 8px">複数のコア読者が使っているタグ（人数順）</p>';
-      h+=commonTags.filter(function(t){return t.users>=2;}).map(function(t){
-        return '<span class="tag" style="font-size:13px;padding:4px 10px;margin:2px">'+esc(t.name)+' <small style="color:var(--mut)">'+t.users+'人</small></span>';
-      }).join(' ');
-      if(!commonTags.filter(function(t){return t.users>=2;}).length){
+      h+='<p class="muted" style="font-size:12px;margin:0 0 8px">複数のコア読者が使っているタグ。<span style="color:var(--good)">緑枠</span>＝あなたも使用、<span style="color:var(--warn)">黄枠</span>＝読者だけが使用（潜在的な関心領域）</p>';
+      var hasTags=false;
+      commonTags.filter(function(t){return t.users>=2;}).forEach(function(t){
+        hasTags=true;
+        var border=t.mine?'border-color:var(--good);color:var(--good)':'border-color:var(--warn);color:var(--warn)';
+        h+='<span class="tag" style="font-size:13px;padding:4px 10px;margin:2px;'+border+'">'+esc(t.name)+' <small style="color:var(--mut)">'+t.users+'人</small>'+(t.mine?' ✓':'')+'</span>';
+      });
+      if(!hasTags){
         h+='<span class="muted" style="font-size:13px">2人以上に共通するタグはありませんでした。</span>';
+      }
+      if(readerOnly.length){
+        h+='<div class="insight" style="margin-top:12px"><strong>💡 読者は興味があるがあなたが書いていないタグ：</strong> ';
+        h+=readerOnly.map(function(t){ return esc(t.name)+'('+t.users+'人)'; }).join('、');
+        h+='</div>';
       }
     }
   } else {
