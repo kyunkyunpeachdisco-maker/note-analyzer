@@ -12,7 +12,7 @@
  */
 (function () {
   'use strict';
-  var NA_VERSION = '0.6.0 (2026-06-27)';
+  var NA_VERSION = '0.6.1 (2026-06-27)';
   console.log('[note-analyzer] collector v' + NA_VERSION);
 
   // ====== 設定（自分のアカウント識別子）======
@@ -84,11 +84,17 @@
   }
 
   function analyzeBody(html) {
+    // ブロック要素の境界を改行にしてから textContent を取る（段落・行構造を保持）
+    var html2 = (html || '')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|h[1-6]|li|blockquote|figure|figcaption|pre|tr|ul|ol)>/gi, '\n\n');
     var div = document.createElement('div');
-    div.innerHTML = html || '';
+    div.innerHTML = html2;
 
+    // 段落区切りを正規化（textContentの素の改行＋上で挿入した改行を整える）
+    var text = (div.textContent || '')
+      .replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
     // 文字数（空白除く）
-    var text = div.textContent || '';
     var charCount = text.replace(/\s+/g, '').length;
 
     // 見出し数（h1-h6）
@@ -121,7 +127,7 @@
       imageCount: imageCount,
       xLinksSelf: xSelf, xLinksOther: xOther,
       noteLinksSelf: noteSelf, noteLinksOther: noteOther,
-      text: text.replace(/\s+\n/g, '\n') // 構造解析用の本文（全文）
+      text: text // 構造解析用の本文（全文・段落改行を保持）
     };
   }
 

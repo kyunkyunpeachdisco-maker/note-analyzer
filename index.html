@@ -469,8 +469,9 @@ function loadData(obj){
       nSelf:a.noteLinksSelf||0, nOther:a.noteLinksOther||0
     });
   });
-  // Gistから外部記事を復元
+  // Gistから外部記事・コア読者比較結果を復元
   if(obj._qext && Array.isArray(obj._qext)) QEXT=obj._qext;
+  if(obj._qreader && Array.isArray(obj._qreader) && typeof QREADER!=='undefined') QREADER=obj._qreader;
   refreshPerfSelector();
   renderAll();
   var asof = obj.meta && obj.meta.exportedAt ? fmtDateTime(obj.meta.exportedAt) : null;
@@ -1648,6 +1649,7 @@ function syncStructToData(){
   var map={}; ARTS.forEach(function(a){ if(a.struct) map[aid(a)]=a.struct; });
   (DATA.articles||[]).forEach(function(a){ if(map[aid(a)]) a.struct=map[aid(a)]; });
   DATA._qext=QEXT; // 外部記事もGistに保存
+  if(typeof QREADER!=='undefined') DATA._qreader=QREADER; // コア読者比較の結果も保存
 }
 var _gistSaving=false;
 function autoSaveToGist(silent){
@@ -2299,8 +2301,9 @@ function renderCorr(){
   var own=ARTS.filter(function(a){return a.struct;});
   if(own.length<3){ box.style.display='none'; return; }
   box.style.display='';
-  // 成績指標はビューとスキを同時に出す（無ければ片方）
-  var perfCols=[]; if(HAS_VIEWS) perfCols.push({key:'views',label:'ビュー'}); perfCols.push({key:'likes',label:'スキ'});
+  // 成績指標：質との相関はスキ・スキ率を主に、ビューは補助（無ければスキのみ）
+  var perfCols=[{key:'likes',label:'スキ'}];
+  if(HAS_VIEWS){ perfCols.push({key:'likeRate',label:'スキ率'}); perfCols.push({key:'views',label:'ビュー'}); }
   function perfVal(a,k){ return k==='likeRate'?a.likeRate:a[k]; }
   function rCell(r){ if(r==null) return '<span class="mut">—</span>'; var c=Math.abs(r)>0.3?(r>0?'var(--good)':'var(--bad)'):(Math.abs(r)>0.1?'var(--warn)':'var(--mut)'); return '<span style="color:'+c+';font-weight:600">'+r.toFixed(3)+'</span>'; }
   function corrRow(label, getVal, pool){
@@ -2445,16 +2448,22 @@ function bindQuality(){
 }
 
 var GENRE_COLORS={'技術設計':'#60a5fa','実験検証':'#34d399','論証':'#a78bfa','批評':'#fb923c','案出し':'#fbbf24','エッセイ体験':'#f472b6'};
-var QPLOT={x:'ctrlScore', y:'reach'};
-function qPlotAxes(){ return [
-  {key:'score',label:'総合'},{key:'ctrlScore',label:'構造制御'},{key:'reasonScore',label:'推論の質'},
-  {key:'groundScore',label:'接地'},{key:'buildScore',label:'独自構築'},
-  {key:'reach',label:(typeof PERF_LABEL!=='undefined'?PERF_LABEL:'スキ数')} ]; }
+var QPLOT={x:'ctrlScore', y:'likes'};
+function qPlotAxes(){
+  var ax=[
+    {key:'score',label:'総合'},{key:'ctrlScore',label:'構造制御'},{key:'reasonScore',label:'推論の質'},
+    {key:'groundScore',label:'接地'},{key:'buildScore',label:'独自構築'}];
+  if(HAS_VIEWS) ax.push({key:'views',label:'ビュー'});
+  ax.push({key:'likes',label:'スキ'});
+  ax.push({key:'likeRate',label:'スキ率'});
+  return ax;
+}
 function qAxisLabel(k){ var m=qPlotAxes().filter(function(a){return a.key===k;})[0]; return m?m.label:k; }
+function qIsPerfAxis(k){ return k==='views'||k==='likes'||k==='likeRate'||k==='reach'; }
 
 function renderQuality(){
-  var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, reach:a.perf, ext:false, struct:a.struct, text:a.text}; });
-  var ext=QEXT.map(function(e){ return {label:e.label, reach:e.reach, ext:true, struct:e.struct, text:e.text||null}; });
+  var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, reach:a.perf, views:a.views, likes:a.likes, likeRate:a.likeRate, ext:false, struct:a.struct, text:a.text}; });
+  var ext=QEXT.map(function(e){ return {label:e.label, reach:e.reach, views:null, likes:e.reach, likeRate:null, ext:true, struct:e.struct, text:e.text||null}; });
   var pts=own.concat(ext);
   drawQ(pts);
   var t=$('#qTable'); if(!t) return; t.innerHTML='';
@@ -2517,8 +2526,13 @@ function drawQ(pts){
   x.fillStyle='#8b97a5'; x.font='12px sans-serif';
   var xa=qAxisLabel(QPLOT.x), ya=qAxisLabel(QPLOT.y);
   x.fillText(xa+' 低',L-2,B+16); x.fillText(xa+' 高',R-46,B+16); x.fillText(ya+' 高',4,T+8); x.fillText(ya+' 低',4,B-2);
-  var maxR=Math.max(1,Math.max.apply(null,pts.map(function(p){return p.reach||0;})));
-  function norm(p,key){ var v=(key==='reach')?p.reach:p.struct[key]; if(v==null)return null; return key==='reach'?v/maxR:Math.max(0,Math.min(100,v))/100; }
+  // 成績軸（ビュー/スキ/スキ率）は各軸の最大値で正規化
+  function axMax(key){ return Math.max(1,Math.max.apply(null,pts.map(function(p){var v=p[key]; return v==null?0:v;}))); }
+  var maxOf={views:axMax('views'),likes:axMax('likes'),likeRate:axMax('likeRate'),reach:axMax('reach')};
+  function norm(p,key){
+    if(qIsPerfAxis(key)){ var v=p[key]; if(v==null)return null; return v/maxOf[key]; }
+    var sv=p.struct?p.struct[key]:null; if(sv==null)return null; return Math.max(0,Math.min(100,sv))/100;
+  }
   var dropped=0;
   pts.forEach(function(p){
     var nx=norm(p,QPLOT.x), ny=norm(p,QPLOT.y);
@@ -2625,17 +2639,23 @@ function bindReaderCompare(){
     QREADER=[]; var model=$('#qModel').value;
     btn.disabled=true; if(cancel)cancel.style.display=''; $('#rdMsg').textContent='取得・解析中 0/'+targets.length;
     var done=0;
+    var llmErr=null, fetchFail=0;
     runPool(targets, function(tg){
       return fetchReader(tg.url).then(function(text){
         var rec={label:tg.title, reader:tg.reader, url:tg.url, likes:tg.likes, stylo:styloMetrics(String(text))};
         var p=Promise.resolve();
-        if(useLLM){ p=analyzeAndScore(String(text), model).then(function(st){ rec.struct=st; }).catch(function(){}); }
+        if(useLLM){ p=analyzeAndScore(String(text), model).then(function(st){ rec.struct=st; }).catch(function(e){ rec.structErr=String(e&&e.message||e); if(!llmErr)llmErr=rec.structErr; }); }
         return p.then(function(){ QREADER.push(rec); done++; $('#rdMsg').textContent='解析中 '+done+'/'+targets.length; });
-      }).catch(function(){ done++; }); // 取得失敗はスキップ
+      }).catch(function(){ fetchFail++; done++; }); // 取得失敗はスキップ
     }, 2, null).then(function(){
       btn.disabled=false; if(cancel)cancel.style.display='none';
-      $('#rdMsg').textContent=_poolCancel?('中断（'+QREADER.length+'件取得）'):('完了（'+QREADER.length+'件）');
+      var okStruct=QREADER.filter(function(r){return r.struct;}).length;
+      var msg=_poolCancel?('中断（'+QREADER.length+'件取得）'):('完了（'+QREADER.length+'件）');
+      if(fetchFail) msg+=' / 取得失敗'+fetchFail;
+      if(useLLM){ msg+=' / LLM構造 成功'+okStruct; var llmFail=QREADER.length-okStruct; if(llmFail){ msg+='・失敗'+llmFail+(llmErr?'（'+llmErr.slice(0,60)+'）':''); } }
+      $('#rdMsg').textContent=msg;
       renderReaderCompare();
+      if(typeof autoSaveToGist==='function') autoSaveToGist(true);
     });
   };
 }
