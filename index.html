@@ -2000,8 +2000,9 @@ var Q_SYSTEM=[
 '- 定義の一貫 … 鍵概念を定義し、最後まで同じ意味で使っているか。',
 '',
 '# 偽の発見（pseudo-structure）検査',
-'「本質は〜」「つまり〜と同じ」など構造・本質・等値を真剣に主張する箇所を見つけ、1) 主張された構造の定義特徴を挙げ、2) 写像先がそれを満たすか各々検査、3) 欠けていれば smuggled=true。',
-'偽の発見にしないもの：比喩・アナロジー（「〜みたいな」）／既存名を借りつつ独自定義を明示した新指標（造語・パロディ名でも計算式・定義が厳密なら成立）／謙遜・自嘲（「ジョーク指標」等）でも定義・計算が厳密な場合／修辞的・文学的な援用（小説や作品を引いた比喩）。疑わしければ・著者自身が比喩的/境界的と認めている場合は smuggled=false。偽の発見は「本気で構造的等値を主張し、かつ定義特徴を満たさない」場合に限る。',
+'**前提：偽の発見は「記事の結論・主要な論証がその等値/本質視の正しさに依存している荷重主張」に限って検査する。** 記事がそこに寄りかかっていない一言は、たとえ等値を述べていても対象外。まず「この主張が崩れたら記事の主結論は崩れるか？」を問い、崩れない（非荷重）なら検査せず smuggled=false。',
+'荷重主張のうち「本質は〜」「つまり〜と同じ」など構造・本質・等値を真剣に主張する箇所について、1) 主張された構造の定義特徴を挙げ、2) 写像先がそれを満たすか各々検査、3) 欠けていれば smuggled=true。',
+'偽の発見にしないもの：**記事の締め・余談・問いかけ・修辞的な一言など、本論の結論がそれに依存していない非荷重の主張**（仮に等値や断定を述べていても、記事の価値はその一言ではなく本体の手続き・論証にある場合）／比喩・アナロジー（「〜みたいな」）／既存名を借りつつ独自定義を明示した新指標（造語・パロディ名でも計算式・定義が厳密なら成立）／謙遜・自嘲（「ジョーク指標」等）でも定義・計算が厳密な場合／修辞的・文学的な援用（小説や作品を引いた比喩）。疑わしければ・著者自身が比喩的/境界的/私見と認めている場合は smuggled=false。偽の発見は「記事が荷重している主張で、本気で構造的等値を主張し、かつ定義特徴を満たさない」場合に限る。',
 '',
 '# 引用負荷テスト',
 '各引用について、論証のどのステップを強制するかを問う。消しても論理の強さが変わらない／同語反復なら forces_step=false（権威の装飾）。',
@@ -2014,18 +2015,18 @@ var Q_SYSTEM=[
 '',
 '# 独自構築の検出（正のシグナル）',
 '著者が独自に構築したものを検出する（構造の穴ではなく強さの証拠）。',
-'- original_concept：独自に定義した概念・指標・フレームワーク（名前と定義がある）。',
+'- original_concept：独自に定義した概念・指標・フレームワーク・分析手法（名前と手続き・評価軸がある）。批評・分析の新しいやり方（独自の検査メソッド・添削方式・評価の組み立て）を考案して記事内で実際に適用している場合も含む。「何を言ったか」より「どんな手続きを発明して回したか」を見る。',
 '- implementation：概念を実装・実証したもの（アプリ・実験・データ・計算結果）。',
 '- iteration：課題発見→分析→対策のサイクルを回した箇所。',
 '- cross_domain：異分野の構造を正当に接続したもの（定義特徴を満たす接続）。**ある分野の確立した方法を別主題に持ち込んで実演している場合も含む**（例：校閲・実験計画・反証・形式化などの方法を、本来の分野外の対象に適用して見せる）。',
 'エッセイ・感想にこれらが無いのは普通で、減点ではない。',
 '',
-'# 較正例',
-'- オリジナル指標の設計記事で「0.5は決めの値」「0.7掛け」「愛着ボーナス」等：自嘲トーンで判断せず、値の選択理由・課題・対策が記事内で説明されていれば「好み」ではなく設計判断（強制）。理由なく置いただけが「好み」。',
-'- WAR等の既存名を借りた造語指標（MVAR等）：独自に計算式を定義していれば偽の発見ではない。',
-'- 「持続可能な議論の案出し」型：本編の提案は推論の質（区別の一貫・反例処理）で評価し、併載の具体的批判実践は表れ型・強制で拾う。「開いてるから0点」にしない。',
-'- エッセイで体験を根拠に述べる洞察（具体的やり取りが根拠）：未制御ではなく報告。',
-'- 「因数分解＝整理＝生きる力」：定義特徴を写像先が満たさない→smuggled=true。',
+'# 判定の原則（どの記事にも一般に適用する。特定の記事・指標名を前提にしない）',
+'- 設計記事でパラメータ・係数・補正値・閾値を選んでいる箇所：その値を選んだ理由・解決しようとした課題・調整の経緯が記事内で説明されていれば「好み」ではなく設計判断（強制）。説明なく置いた値だけが「好み」。自嘲・砕けたトーンは判断材料にしない。',
+'- 既存の名称を借りた造語の指標・概念：独自の定義（計算式・判定手続き・適用範囲）を与えていれば、名前を借りただけでは偽の発見にしない。借用元の定義特徴を実際に満たすかで判断する。',
+'- 案出し・規範提案の記事：本編の提案は推論の質（区別の一貫・反例処理・前提からの帰結）で評価する。提案が抽象的でも「結論が開いている＝0点」にはしない（案出しは結論が強制されないのが規範）。併載された具体的な実践例があれば、その部分は表れ型・強制として別に拾う。',
+'- エッセイ・体験記で、具体的なやり取り・観察・引用を根拠に述べる洞察：著者の好みや無根拠の一般化ではなく「報告」。',
+'- 逆に、ある概念を別概念と本質的に等値・同一だと真剣に主張しているのに、持ち込んだ構造の定義特徴を写像先が満たさない場合は smuggled=true（偽の発見）。比喩・謙遜・明示された造語はこれに当たらない。',
 '',
 '# 出力（このJSONのみ。前後に説明文を一切付けない。半角ダブルクオートのみ使用）',
 '{',
@@ -2044,10 +2045,10 @@ var Q_SYSTEM=[
 function qParseJSON(t){ try{return JSON.parse(t);}catch(e){} var m=t.match(/\{[\s\S]*\}/); if(m){try{return JSON.parse(m[0]);}catch(e){}} return null; }
 
 // 長文記事をスケルトン圧縮して渡す
-// 12000字以下はそのまま。超える場合は先頭6000字＋見出し・段落先頭2文を抽出して結合
+// 40000字以下はそのまま。超える場合は先頭12000字＋見出し・段落先頭2文を抽出して結合
 function prepareText(text){
   if(!text) return '';
-  if(text.length<=12000) return text;
+  if(text.length<=40000) return text;
   // 見出し行と各段落の先頭2文を抽出
   var lines=text.split('\n');
   var skeleton=[];
@@ -2070,9 +2071,9 @@ function prepareText(text){
   });
   if(inPara.length) skeleton.push(inPara.join(' ').split(/(?<=[。！？])/).slice(0,2).join(''));
   var skeletonText=skeleton.join('\n');
-  // 先頭6000字＋スケルトンを結合（重複しても構わない）
-  var combined=text.slice(0,6000)+'\n\n---（以下は長文のため見出し・段落先頭要約）---\n\n'+skeletonText;
-  return combined.slice(0,24000); // 安全上限
+  // 先頭12000字＋スケルトンを結合（重複しても構わない）
+  var combined=text.slice(0,12000)+'\n\n---（以下は長文のため見出し・段落先頭要約）---\n\n'+skeletonText;
+  return combined.slice(0,48000); // 安全上限
 }
 
 function analyzeText(text, model, calib){
@@ -2159,7 +2160,7 @@ function styloMetrics(text){
 function analyzeAndScore(text, model, excludeKey){
   var calib=buildCalibration(excludeKey);
   var n=qSamplesGet();
-  if(n<=1) return analyzeText(text,model,calib).then(function(r){ return Object.assign(qualityScore(r),{raw:r}); });
+  if(n<=1) return analyzeText(text,model,calib).then(function(r){ return Object.assign(qualityScore(r),{raw:r, model:model}); });
   var runs=[];
   var chain=Promise.resolve();
   for(var i=0;i<n;i++){ chain=chain.then(function(){ return analyzeText(text,model,calib).then(function(r){ runs.push(r); }).catch(function(){}); }); }
@@ -2174,7 +2175,7 @@ function analyzeAndScore(text, model, excludeKey){
     }
     var genres={}; scored.forEach(function(s){ var g=s.q.genre||'?'; genres[g]=(genres[g]||0)+1; });
     var topG=Object.keys(genres).sort(function(a,b){return genres[b]-genres[a];})[0];
-    var st=Object.assign(canonical.q,{raw:canonical.raw});
+    var st=Object.assign(canonical.q,{raw:canonical.raw, model:model});
     st.ensemble={ n:scored.length, genreAgree:Math.round(100*genres[topG]/scored.length), topGenre:topG,
       spread:(nums.length?Math.max.apply(null,nums)-Math.min.apply(null,nums):null), scores:scored.map(function(s){return s.q.score;}) };
     return st;
@@ -2462,8 +2463,8 @@ function qAxisLabel(k){ var m=qPlotAxes().filter(function(a){return a.key===k;})
 function qIsPerfAxis(k){ return k==='views'||k==='likes'||k==='likeRate'||k==='reach'; }
 
 function renderQuality(){
-  var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, reach:a.perf, views:a.views, likes:a.likes, likeRate:a.likeRate, ext:false, struct:a.struct, text:a.text}; });
-  var ext=QEXT.map(function(e){ return {label:e.label, reach:e.reach, views:null, likes:e.reach, likeRate:null, ext:true, struct:e.struct, text:e.text||null}; });
+  var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, reach:a.perf, views:a.views, likes:a.likes, likeRate:a.likeRate, ext:false, struct:a.struct, text:a.text, url:a.url, tags:a.tags, publishAt:a.publishAt, charCount:a.charCount, comments:a.comments, ageDays:a.ageDays}; });
+  var ext=QEXT.map(function(e){ return {label:e.label, reach:e.reach, views:null, likes:e.reach, likeRate:null, ext:true, struct:e.struct, text:e.text||null, url:e.url, tags:null, publishAt:null, charCount:null, comments:null, ageDays:null}; });
   var pts=own.concat(ext);
   drawQ(pts);
   var t=$('#qTable'); if(!t) return; t.innerHTML='';
@@ -2500,7 +2501,7 @@ function renderQuality(){
       '<td>'+(s.buildScore!=null?s.buildScore+'<small style="color:var(--mut);margin-left:2px">('+s.conCount+')</small>':'—')+'</td>'+
       '<td>'+(p.reach==null?'—':num(p.reach))+'</td>'+
       '<td'+(s.pseudo?' style="color:#f87171"':'')+'>'+(s.pseudo||0)+'</td>';
-    if(s.raw){ r.style.cursor='pointer'; r.title='クリックで詳細・項目修正'; (function(pp){r.onclick=function(){showDetail(pp.struct,pp.label,pp.text);};})(p); }
+    if(s.raw){ r.style.cursor='pointer'; r.title='クリックで詳細・項目修正'; (function(pp){r.onclick=function(){showDetail(pp.struct,pp.label,pp.text,pp);};})(p); }
     tb.appendChild(r);
   });
   t.appendChild(tb);
@@ -2694,14 +2695,15 @@ function renderReaderCompare(){
 bindReaderCompare();
 
 /* ====================== 構造詳細モーダル ====================== */
-var DETAIL_STATE={result:null,struct:null,text:null,label:''};
+var DETAIL_STATE={result:null,struct:null,text:null,label:'',meta:null};
 var SEL_STYLE='background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px';
 
-function showDetail(struct,label,text){
+function showDetail(struct,label,text,meta){
   DETAIL_STATE.result=struct.raw;
   DETAIL_STATE.struct=struct;
   DETAIL_STATE.text=text||null;
   DETAIL_STATE.label=label||'';
+  DETAIL_STATE.meta=meta||null;
   $('#qDetailLabel').textContent=label;
   redrawDetail(false);
   $('#qDetailModal').style.display='block';
@@ -2721,14 +2723,27 @@ function buildEvalExport(){
     '- 独自構築 = original_concept/implementation/iteration/cross_domain の数と多様性。',
     '- 総合 = そのジャンルで有効な観点(構造制御/推論の質/接地/独自構築)の平均 − 35×偽の発見。エッセイ体験は構造制御を出さない。'
   ].join('\n');
+  var m=DETAIL_STATE.meta||{};
   var parts=[
     '# note記事 構造評価の妥当性レビュー依頼',
     'noteアナライザーが下記の記事に付けた構造評価です。評価が妥当か、ロジックに照らして見直してください。誤分類があれば「どの手筋/主張をどう直すべきか」「ジャンル判定は適切か」「スコア式に問題はないか」を具体的に指摘してください。',
     '',
-    '記事タイトル: '+(DETAIL_STATE.label||'(無題)')
+    '## 記事メタデータ',
+    '- タイトル: '+(DETAIL_STATE.label||'(無題)'),
+    '- 元URL: '+(m.url||'(なし)')
   ];
-  if(DETAIL_STATE.text){ parts.push('', '## 記事本文', String(DETAIL_STATE.text).slice(0,14000)); }
-  else { parts.push('', '（本文未保存。下のJSON内の手筋summary/quoteから推測してください）'); }
+  var reaction='スキ '+(m.likes!=null?num(m.likes):'—')+(m.views!=null?' / ビュー '+num(m.views):'')+(m.likeRate!=null?' / スキ率 '+(m.likeRate*100).toFixed(2)+'%':'')+(m.comments!=null?' / コメント '+num(m.comments):'');
+  parts.push('- 世間の反応: '+reaction);
+  if(m.publishAt) parts.push('- 公開日: '+m.publishAt+(m.ageDays!=null?'（経過 '+Math.round(m.ageDays)+'日）':''));
+  if(m.tags&&m.tags.length) parts.push('- タグ: '+m.tags.map(function(t){return '#'+t;}).join(' '));
+  if(m.charCount!=null) parts.push('- 本文文字数: '+num(m.charCount)+'字');
+  parts.push('- 解析モデル: '+((DETAIL_STATE.struct&&DETAIL_STATE.struct.model)?DETAIL_STATE.struct.model:'未記録（この解析より前のデータ）'));
+  if(m.ext) parts.push('- ※外部記事（他者の記事。スキ数のみ・ビュー等は取得不可）');
+  parts.push('- 注意: 反応値は公開からの経過日数に依存します。質と反応の食い違いを論じる際は経過日数も考慮してください。');
+  if(DETAIL_STATE.text){
+    var full=String(DETAIL_STATE.text);
+    parts.push('', '## 記事本文'+(full.length>40000?'（全'+num(full.length)+'字中、先頭40000字に切り詰め）':''), full.slice(0,40000));
+  } else { parts.push('', '（本文未保存。下のJSON内の手筋summary/quoteから推測してください）'); }
   parts.push('', '## ツールが出した評価(JSON)', '```json', JSON.stringify({スコア:scores, 詳細:d}, null, 2), '```', '', logic);
   return parts.join('\n');
 }
