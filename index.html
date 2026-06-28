@@ -1651,18 +1651,19 @@ function syncStructToData(){
   DATA._qext=QEXT; // 外部記事もGistに保存
   if(typeof QREADER!=='undefined') DATA._qreader=QREADER; // コア読者比較の結果も保存
 }
-var _gistSaving=false;
+var _gistSaving=false, _gistPending=false, _gistPendingLoud=false;
 function autoSaveToGist(silent){
   if(!naGistId||!naGhPat) return;
-  if(_gistSaving) return; // 前の保存が終わるまで待つ
-  _gistSaving=true;
+  // 進行中なら最新状態での追従保存を1回だけ予約（取りこぼし防止＝中断してもやったところまで残す）
+  if(_gistSaving){ _gistPending=true; if(!silent) _gistPendingLoud=true; return; }
+  _gistSaving=true; _gistPending=false;
   syncStructToData();
   var payload=JSON.stringify(DATA, null, 2);
   var body=JSON.stringify({files:{'note-analyzer.json':{content:payload}}});
   fetch('https://api.github.com/gists/'+naGistId,{method:'PATCH',headers:naGistHeaders(),body:body})
   .then(function(r){if(!r.ok)throw new Error(r.status); if(!silent)naGistMsg('☁️ 保存');})
   .catch(function(e){ naGistMsg('⚠️ Gist保存失敗: '+(e.message||e)); })
-  .then(function(){ _gistSaving=false; });
+  .then(function(){ _gistSaving=false; if(_gistPending){ var loud=_gistPendingLoud; _gistPendingLoud=false; autoSaveToGist(!loud); } });
 }
 var _naToastTimer;
 function naGistMsg(s){
@@ -2412,7 +2413,7 @@ function bindQuality(){
     $('#runAll').disabled=true; $('#cancelAll').style.display=''; $('#runAllMsg').textContent='解析中 0/'+all.length;
     runPool(all, function(a){
       return analyzeAndScore(a.text, model, aid(a)).then(function(st){ a.struct=st; autoSaveToGist(true); renderArticles(); })
-        .catch(function(e){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; });
+        .catch(function(e){ if(!a.struct || a.struct.mode==='失敗'){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; } });
     }, 2, function(d,t){ $('#runAllMsg').textContent='解析中 '+d+'/'+t; naGistMsg('解析中 '+d+'/'+all.length); }).then(function(){
       $('#runAll').disabled=false; $('#cancelAll').style.display='none';
       $('#runAllMsg').textContent=_poolCancel?'中断しました':'完了（'+all.length+'件）';
@@ -2427,7 +2428,7 @@ function bindQuality(){
     var model=$('#qModel').value; $('#runStruct').disabled=true; qmsg('解析中 0/'+sel.length); naGistMsg('解析中 0/'+sel.length);
     runPool(sel, function(a){
       return analyzeAndScore(a.text, model, aid(a)).then(function(st){ a.struct=st; autoSaveToGist(true); renderArticles(); })
-        .catch(function(e){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; });
+        .catch(function(e){ if(!a.struct || a.struct.mode==='失敗'){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; } });
     }, 2, function(d,t){ qmsg('解析中 '+d+'/'+t); naGistMsg('解析中 '+d+'/'+sel.length); }).then(function(){
       $('#runStruct').disabled=false; qmsg('完了'); renderArticles(); renderQuality(); renderCorr(); switchTab('quality');
       autoSaveToGist();
@@ -2443,7 +2444,7 @@ function bindQuality(){
     $('#qAdd').disabled=true; qext('取得・解析中…');
     getText.then(function(text){ return analyzeAndScore(String(text), model); })
       .then(function(st){ QEXT.push({label:label,url:url,reach:reach,external:true,struct:st});
-        $('#qAdd').disabled=false; qext('追加しました'); $('#qText').value=''; $('#qUrl').value=''; $('#qLabel').value=''; $('#qReach').value=''; renderQuality(); renderCorr(); })
+        autoSaveToGist(true); $('#qAdd').disabled=false; qext('追加しました'); $('#qText').value=''; $('#qUrl').value=''; $('#qLabel').value=''; $('#qReach').value=''; renderQuality(); renderCorr(); })
       .catch(function(e){ $('#qAdd').disabled=false; qext('失敗: '+(e.message||e)+'（取得不可なら本文を直接貼ってください）'); });
   };
 }
@@ -2606,7 +2607,7 @@ function bindSampling(){
             .catch(function(){}); // 取得失敗はスキップ
         }, 2, null).then(function(){
           $('#runSample').disabled=false; $('#sampleMsg').textContent='完了（'+done+'件解析）';
-          renderQuality(); renderCorr();
+          renderQuality(); renderCorr(); autoSaveToGist(true);
         });
       })
       .catch(function(e){ $('#runSample').disabled=false; $('#sampleMsg').textContent='失敗: '+e.message; });
