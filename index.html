@@ -206,6 +206,16 @@
         <input id="gistUrl" placeholder="GistのURL（↓読み込み時に自動入力）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
         <input id="repoSlug" placeholder="📦の保存先リポジトリ owner/repo（非公開推奨）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
       </div>
+      <details style="margin-top:8px">
+        <summary style="cursor:pointer;color:var(--mut);font-size:13px">📦 Claude連携のセットアップ（リンク付き・3ステップ）</summary>
+        <ol style="margin:8px 0 0;padding-left:20px;color:var(--mut);font-size:13px;line-height:1.9">
+          <li><a href="https://github.com/new?name=note-analyzer-data&visibility=private&description=note-analyzer%20data%20for%20Claude" target="_blank" rel="noopener" style="color:var(--accent)">データ置き場リポジトリを作る</a>（リンクを開くと名前と非公開が入力済み。そのまま「Create repository」を押すだけ）</li>
+          <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:var(--accent)">PAT（fine-grained）を発行</a>：Repository access→<b>Only select repositories</b>→手順1のリポジトリを選択／Permissions→<b>Contents: Read and write</b>（Gist保存も同じトークンで行うなら Account permissions→<b>Gists: Read and write</b> も）→ 発行された <code>github_pat_…</code> を上の「⚙️ Gist設定」に貼る<br>
+          <span style="font-size:12px">お手軽版：<a href="https://github.com/settings/tokens/new?scopes=gist,repo&description=note-analyzer" target="_blank" rel="noopener" style="color:var(--accent)">クラシックトークン（スコープ設定済みリンク）</a>でも可。ただし全リポジトリに効く強い権限なので fine-grained 推奨</span></li>
+          <li>上の入力欄に <code>自分のID/リポジトリ名</code> を入れて「📦 Claude用にリポジトリへ保存」を押す</li>
+        </ol>
+        <p class="mut" style="font-size:13px;margin:8px 0 0">使うとき：<a href="https://claude.ai/code" target="_blank" rel="noopener" style="color:var(--accent)">claude.ai/code</a> で手順1のリポジトリを選んでセッションを開始し、「dataブランチの評価データを見て」と頼むだけ。エクスポートの貼り付けは不要になります。</p>
+      </details>
       <span class="mut" id="gistMsg" style="margin-top:6px;display:block"></span>
     </div>
     <div class="panel">
