@@ -200,9 +200,11 @@
         <button class="btn ghost" id="gistSettings">⚙️ Gist設定</button>
         <button class="btn" id="saveGist">↑ Gistに保存</button>
         <button class="btn ghost" id="loadGist">↓ Gistから読み込み</button>
+        <button class="btn ghost" id="saveRepo" title="下で指定した自分のリポジトリのdataブランチ（data/note-analyzer.json）に保存。Claude Codeのセッションをそのリポジトリで開くと評価データを直接参照できる（要: そのリポジトリのContents書き込み権限つきPAT）">📦 Claude用にリポジトリへ保存</button>
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
         <input id="gistUrl" placeholder="GistのURL（↓読み込み時に自動入力）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
+        <input id="repoSlug" placeholder="📦の保存先リポジトリ owner/repo（非公開推奨）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
       </div>
       <span class="mut" id="gistMsg" style="margin-top:6px;display:block"></span>
     </div>
@@ -222,12 +224,12 @@
         <li>noteにログインし <a href="https://note.com/dashboard" target="_blank" rel="noopener" style="color:var(--accent)">ダッシュボード</a> を開く</li>
         <li>下の「収集スクリプトをコピー」を押す</li>
         <li><b>PC：</b>F12でDevToolsを開き、Consoleタブにペースト → Enter<br>
-            <b>iPhone：</b>ショートカットに「Webページで JavaScript を実行」を追加してそのままペースト（末尾の completion() は同梱済み。編集不要）。ショートカットの設定で<b>「共有シートに表示」をON</b>にし、Safariでnoteのページを開いて<b>共有ボタン→ショートカット名</b>で実行（共有シート経由でないとページを受け取れない）<br>
-            <b>Android：</b>「ブックマークレットとしてコピー」をブックマークのURLに貼り、noteのページでアドレスバーから起動</li>
+            <b>スマホ（iPhone/Android）：</b>「ブックマークレットとしてコピー」をブックマークのURL欄に貼って保存（先頭が JavaScript: のまま残っているか確認）。noteのページを開いて、iPhoneはブックマークメニューから、Androidはアドレスバーにブックマーク名を入力してタップで起動<br>
+            <span class="mut">※iPhoneはショートカットの「Webページで JavaScript を実行」でも可（上の共用スクリプトをペースト）だが、iOSのバージョンによっては動かないためブックマークレット推奨</span></li>
         <li>収集完了後にJSONをコピーして、ここに貼り付けるか「Gistに保存」</li>
       </ol>
       <button class="btn ghost" id="copyCollector" style="margin-top:8px">収集スクリプトをコピー（PCコンソール／iPhoneショートカット共用）</button>
-      <button class="btn ghost" id="copyBookmarklet" style="margin-top:8px">📱 ブックマークレットとしてコピー（Android用）</button>
+      <button class="btn ghost" id="copyBookmarklet" style="margin-top:8px">📱 ブックマークレットとしてコピー（iPhone/Android用）</button>
       <span id="copyCollectorMsg" class="muted" style="margin-left:8px"></span>
       <p class="desc" style="margin-top:10px">データはこのブラウザ内だけで処理され、どこにも送信されません。<br>※ ダッシュボードで実行するとビュー数も取得できます。プロフィールページではビューなしになります。</p>
     </div>
@@ -454,6 +456,7 @@ var ARTS = [];         // 派生指標を付与した記事配列
 var naGhPat   = localStorage.getItem('na_github_pat')||'';
 var naGistId  = localStorage.getItem('na_gist_id')||'';
 var naGistUrl = localStorage.getItem('na_gist_url')||'';
+var naRepoSlug = localStorage.getItem('na_repo_slug')||''; // 📦の保存先（owner/repo・各ユーザーが自分のリポジトリを指定）
 var HAS_VIEWS = false;
 var PERF_KEY = 'views';   // 主指標（ビューが無ければスキ）
 var PERF_LABEL = 'ビュー';
@@ -1770,6 +1773,7 @@ switchTab('data');
 // 保存済みGist URLを復元して自動読み込み
 (function(){
   if(naGistUrl) $('#gistUrl').value=naGistUrl;
+  if(naRepoSlug && $('#repoSlug')) $('#repoSlug').value=naRepoSlug;
   if(!naGistId) return;
   naGistMsg('読み込み中…');
   var headers=naGhPat?naGistHeaders():{'Accept':'application/vnd.github+json'};
@@ -1863,9 +1867,13 @@ function syncStructToData(){
   DATA._qext=QEXT; // 外部記事もGistに保存
   if(typeof QREADER!=='undefined') DATA._qreader=QREADER; // コア読者比較の結果も保存
 }
-var _gistSaving=false, _gistPending=false, _gistPendingLoud=false;
+var _gistSaving=false, _gistPending=false, _gistPendingLoud=false, _gistPatWarned=false;
 function autoSaveToGist(silent){
-  if(!naGistId||!naGhPat) return;
+  if(!naGistId||!naGhPat){
+    // Gist連携済みなのにPATが無い＝「保存されているつもり」事故を防ぐため一度だけ知らせる
+    if(naGistId && !naGhPat && !_gistPatWarned){ _gistPatWarned=true; naGistMsg('ℹ️ PAT未設定のためGist保存はスキップ中（読み込みは可・変更はこの端末の画面にのみ反映）'); }
+    return;
+  }
   // 進行中なら最新状態での追従保存を1回だけ予約（取りこぼし防止＝中断してもやったところまで残す）
   if(_gistSaving){ _gistPending=true; if(!silent) _gistPendingLoud=true; return; }
   _gistSaving=true; _gistPending=false;
@@ -1895,20 +1903,79 @@ $('#gistSettings').onclick=function(){
 $('#saveGist').onclick=function(){
   if(!naGhPat){ alert('先にGist設定でGitHub PATを入力してください'); $('#gistSettings').click(); return; }
   if(!DATA){ alert('先にデータを読み込んでください'); return; }
+  // URL欄を空にして保存すると既存Gistを切り離し、新規Gistを作成する（公開→シークレットの移行用。
+  // 起動時にURL欄は自動復元されるため、空＝ユーザーが意図的に消した場合のみ）
+  var gid=($('#gistUrl').value||'').trim()===''? '' : naGistId;
   naGistMsg('アップロード中…'); $('#saveGist').disabled=true;
+  syncStructToData(); // 解析結果・外部記事・読者記事をDATAに反映してから保存（自動保存と同じ経路）
   var payload=JSON.stringify(DATA, null, 2);
-  var body=JSON.stringify({description:'note-analyzer data',public:true,files:{'note-analyzer.json':{content:payload}}});
-  fetch(naGistId?'https://api.github.com/gists/'+naGistId:'https://api.github.com/gists',
-    {method:naGistId?'PATCH':'POST',headers:naGistHeaders(),body:body})
+  // public:false＝シークレットGist（プロフィールの一覧に載らず、URLを知る人だけが読める。
+  // 無認証での読み込みは引き続き可能なので、PAT無し端末からの「Gistから読み込み」も動く）
+  var body=JSON.stringify({description:'note-analyzer data',public:false,files:{'note-analyzer.json':{content:payload}}});
+  fetch(gid?'https://api.github.com/gists/'+gid:'https://api.github.com/gists',
+    {method:gid?'PATCH':'POST',headers:naGistHeaders(),body:body})
   .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,80));});return r.json();})
   .then(function(j){
-    if(!naGistId){naGistId=j.id; localStorage.setItem('na_gist_id',naGistId);}
+    if(!gid){naGistId=j.id; localStorage.setItem('na_gist_id',naGistId);}
     var url='https://gist.github.com/'+j.owner.login+'/'+j.id;
     naGistUrl=url; localStorage.setItem('na_gist_url',url);
     $('#gistUrl').value=url;
     naGistMsg('保存しました ✅  '+url);
     $('#saveGist').disabled=false;
   }).catch(function(e){ naGistMsg('エラー: '+(e.message||e)); $('#saveGist').disabled=false; });
+};
+
+/* ===== リポジトリ保存（Claude Code連携用） =====
+   Claude Codeのセッションは設定したリポジトリのみ参照できる（Gistは不可）。
+   各自が指定したリポジトリ（owner/repo・非公開推奨）の data ブランチの
+   data/note-analyzer.json にデータを置くことで、そのリポジトリで開いた
+   セッションから評価データを直接読めるようにする。PATはGist設定と同じ欄
+   （指定リポジトリの Contents 読み書き権限が必要。fine-grained推奨） */
+var NA_REPO={branch:'data', path:'data/note-analyzer.json'};
+function b64EncodeUnicode(str){
+  var bytes=new TextEncoder().encode(str); var bin=''; var CH=0x8000;
+  for(var i=0;i<bytes.length;i+=CH){ bin+=String.fromCharCode.apply(null, bytes.subarray(i,i+CH)); }
+  return btoa(bin);
+}
+function naRepoTarget(){
+  var slug=((($('#repoSlug')||{}).value)||naRepoSlug||'').trim().replace(/^https:\/\/github\.com\//,'').replace(/\/+$/,'');
+  return /^[\w.-]+\/[\w.-]+$/.test(slug)? slug : null;
+}
+function naRepoApi(slug,p){ return 'https://api.github.com/repos/'+slug+p; }
+function ensureDataBranch(slug){
+  return fetch(naRepoApi(slug,'/branches/'+NA_REPO.branch),{headers:naGistHeaders()}).then(function(r){
+    if(r.ok) return true;
+    // 無ければ既定ブランチの先頭から作成
+    return fetch(naRepoApi(slug,''),{headers:naGistHeaders()})
+      .then(function(r0){ if(!r0.ok) throw new Error('リポジトリ参照 '+r0.status+'（owner/repoの綴りとPATの権限を確認）'); return r0.json(); })
+      .then(function(meta){ return fetch(naRepoApi(slug,'/git/ref/heads/'+meta.default_branch),{headers:naGistHeaders()}); })
+      .then(function(r1){ if(!r1.ok) throw new Error('既定ブランチ参照 '+r1.status); return r1.json(); })
+      .then(function(j){ return fetch(naRepoApi(slug,'/git/refs'),{method:'POST',headers:naGistHeaders(),body:JSON.stringify({ref:'refs/heads/'+NA_REPO.branch, sha:j.object.sha})}); })
+      .then(function(r2){ if(!r2.ok) throw new Error('dataブランチ作成失敗 '+r2.status); return true; });
+  });
+}
+$('#saveRepo').onclick=function(){
+  var slug=naRepoTarget();
+  if(!slug){ alert('保存先リポジトリを「owner/repo」形式で入力してください（例: yourname/my-note-data）。\n非公開リポジトリ推奨。Claude Codeでそのリポジトリを開くと評価データを直接参照できます'); var f=$('#repoSlug'); if(f)f.focus(); return; }
+  naRepoSlug=slug; localStorage.setItem('na_repo_slug', slug); // 形式が正しければ即保存（PAT未設定でも設定は残す）
+  if(!naGhPat){ alert('先に「⚙️ Gist設定」でPATを入力してください。\nリポジトリ保存には '+slug+' の Contents 読み書き権限が必要です（fine-grained PAT推奨。gistスコープのみのPATでは403になります）'); return; }
+  if(!DATA){ alert('先にデータを読み込んでください'); return; }
+  var btn=$('#saveRepo'); btn.disabled=true;
+  syncStructToData();
+  naGistMsg('📦 '+slug+' へ保存中…');
+  ensureDataBranch(slug).then(function(){
+    // 既存ファイルのsha取得（初回は404で新規作成）
+    return fetch(naRepoApi(slug,'/contents/'+NA_REPO.path+'?ref='+NA_REPO.branch),{headers:naGistHeaders()})
+      .then(function(r){ return r.ok? r.json().then(function(j){return j.sha;}) : null; }).catch(function(){ return null; });
+  }).then(function(sha){
+    var body={message:'note-analyzer data update ('+((DATA.meta&&DATA.meta.count)||'?')+'記事)', content:b64EncodeUnicode(JSON.stringify(DATA,null,2)), branch:NA_REPO.branch};
+    if(sha) body.sha=sha;
+    return fetch(naRepoApi(slug,'/contents/'+NA_REPO.path),{method:'PUT',headers:naGistHeaders(),body:JSON.stringify(body)});
+  }).then(function(r){
+    if(!r.ok) return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,100));});
+    naGistMsg('📦 '+slug+' に保存しました ✅ Claude Codeが直接参照できます');
+    btn.disabled=false;
+  }).catch(function(e){ naGistMsg('⚠️ リポジトリ保存失敗: '+(e.message||e)); btn.disabled=false; });
 };
 
 $('#loadGist').onclick=function(){
