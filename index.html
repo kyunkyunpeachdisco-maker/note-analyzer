@@ -1841,11 +1841,14 @@ $('#copyBookmarklet').onclick=function(){
       if(!t) return;
       kept.push(t);
     });
-    return 'javascript:'+encodeURIComponent(kept.join('\n'));
+    // スキームは大文字混じりの「JavaScript:」にする。URLスキームは大文字小文字を
+    // 区別しないので実行には影響せず、iOSがペースト時に小文字の javascript: を
+    // 字面検出して剥がすサニタイザをすり抜けられる場合がある
+    return 'JavaScript:'+encodeURIComponent(kept.join('\n'));
   });
   copyTextAsync(p).then(function(){
     return p.then(function(bm){
-      msg.textContent='コピーしました ✅ ブックマークのURL欄に貼り付け（'+Math.round(bm.length/1024)+'KB）。noteのページでアドレスバーから起動';
+      msg.textContent='コピーしました ✅ ブックマークのURL欄に貼り付け（'+Math.round(bm.length/1024)+'KB）。保存後、URL先頭が JavaScript: のまま残っているか確認';
       msg.style.color='var(--good)';
     });
   }).catch(function(e){ msg.textContent='失敗: '+(e.message||e); msg.style.color='var(--bad)'; });
