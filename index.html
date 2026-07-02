@@ -125,6 +125,49 @@
   .art-card-stats .val{color:var(--fg);font-weight:600}
   #naToast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1c232c;border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-size:13px;z-index:9000;white-space:nowrap;pointer-events:none;transition:opacity .3s;opacity:0}
   #naToast.show{opacity:1}
+  /* ===== 可視化共通（散布図・相関バー・ダンベル比較） ===== */
+  :root{
+    /* ジャンル配色: 全ペアCVD検証済み(worst ΔE 10.3, dark #0d1117) — 形状との複合エンコーディング前提 */
+    --viz-g1:#3987e5; --viz-g2:#c98500; --viz-g3:#008300; --viz-g4:#e66767; --viz-g5:#d55181; --viz-g6:#d95926;
+    --viz-pos:#3987e5; --viz-neg:#e66767; /* 相関の発散ペア(青↔赤・中立はグリッド灰) */
+    --viz-you:#3987e5; --viz-them:#8b97a5; /* 強調: あなた=アクセント, 比較対象=灰 */
+    --viz-grid:#232b36; --viz-axis:#2a3340; --viz-surface:#0d1117;
+  }
+  .viz-tip{position:fixed;z-index:9500;background:#1c232c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.6;pointer-events:none;max-width:280px;box-shadow:0 4px 16px rgba(0,0,0,.4);display:none}
+  .viz-tip .tt-title{font-weight:700;font-size:13px;color:var(--fg);margin-bottom:2px;word-break:break-all}
+  .viz-tip .tt-row{display:flex;justify-content:space-between;gap:12px;color:var(--mut)}
+  .viz-tip .tt-row b{color:var(--fg);font-weight:600}
+  .viz-legend{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin:6px 0}
+  .viz-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);font-size:11.5px;color:var(--mut);cursor:pointer;user-select:none;background:transparent}
+  .viz-chip.off{opacity:.35}
+  .viz-chip svg{flex:0 0 auto}
+  .viz-note{font-size:11.5px;color:var(--mut)}
+  .corr-cell{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+  .corr-track{position:relative;width:86px;height:12px;flex:0 0 auto}
+  .corr-track .mid{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--viz-axis)}
+  .corr-track .bar{position:absolute;top:2px;height:8px;border-radius:0 4px 4px 0}
+  .corr-track .bar.neg{border-radius:4px 0 0 4px}
+  .corr-val{min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
+  .dumb-wrap{display:flex;flex-direction:column;gap:2px;margin-top:8px}
+  .dumb-row{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;padding:4px 0}
+  .dumb-lbl{font-size:12px;color:var(--mut);text-align:right}
+  .dumb-track{position:relative;height:34px}
+  .dumb-track .rail{position:absolute;left:0;right:0;top:50%;height:1px;background:var(--viz-grid)}
+  .dumb-track .link{position:absolute;top:50%;height:2px;margin-top:-1px;background:var(--viz-them);opacity:.55}
+  .dumb-track .pt{position:absolute;top:50%;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid var(--viz-surface)}
+  .dumb-track .pv{position:absolute;transform:translateX(-50%);font-size:11px;font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap}
+  .dumb-track .pv.you{top:-1px}
+  .dumb-track .pv.them{bottom:-1px;color:var(--mut)}
+  .strip-wrap{position:relative;height:34px;margin:2px 0 8px}
+  .strip-wrap .rail{position:absolute;left:0;right:0;top:50%;height:1px;background:var(--viz-grid)}
+  .strip-wrap .pt{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid var(--viz-surface);cursor:pointer}
+  .strip-wrap .med{position:absolute;top:4px;bottom:4px;width:2px;transform:translateX(-50%);border-radius:1px}
+  .gbar-row{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;padding:3px 0}
+  .gbar-lbl{font-size:12px;color:var(--mut);text-align:right}
+  .gbar-track{display:flex;flex-direction:column;gap:2px}
+  .gbar{position:relative;height:11px}
+  .gbar .fill{position:absolute;left:0;top:0;height:11px;border-radius:0 4px 4px 0}
+  .gbar .v{position:absolute;top:50%;transform:translateY(-50%);font-size:10.5px;color:var(--mut);white-space:nowrap}
 </style>
 </head>
 <body>
@@ -178,10 +221,13 @@
       <ol style="margin:0; padding-left:20px; color:var(--mut); font-size:13px; line-height:1.8">
         <li>noteにログインし <a href="https://note.com/dashboard" target="_blank" rel="noopener" style="color:var(--accent)">ダッシュボード</a> を開く</li>
         <li>下の「収集スクリプトをコピー」を押す</li>
-        <li>F12でDevToolsを開き、Consoleタブにペースト → Enter</li>
+        <li><b>PC：</b>F12でDevToolsを開き、Consoleタブにペースト → Enter<br>
+            <b>iPhone：</b>ショートカットの「Webページで JavaScript を実行」にそのままペースト（末尾の completion() は同梱済み。編集不要）<br>
+            <b>Android：</b>「ブックマークレットとしてコピー」をブックマークのURLに貼り、noteのページでアドレスバーから起動</li>
         <li>収集完了後にJSONをコピーして、ここに貼り付けるか「Gistに保存」</li>
       </ol>
-      <button class="btn ghost" id="copyCollector" style="margin-top:8px">収集スクリプトをコピー（コンソール貼付用）</button>
+      <button class="btn ghost" id="copyCollector" style="margin-top:8px">収集スクリプトをコピー（PCコンソール／iPhoneショートカット共用）</button>
+      <button class="btn ghost" id="copyBookmarklet" style="margin-top:8px">📱 ブックマークレットとしてコピー（Android用）</button>
       <span id="copyCollectorMsg" class="muted" style="margin-left:8px"></span>
       <p class="desc" style="margin-top:10px">データはこのブラウザ内だけで処理され、どこにも送信されません。<br>※ ダッシュボードで実行するとビュー数も取得できます。プロフィールページではビューなしになります。</p>
     </div>
@@ -293,12 +339,12 @@
       <div class="panel" style="margin-top:8px;font-size:13px;line-height:1.8">
         <strong>■ 一覧表の列（大枠｜内訳｜フラグ）</strong>
         <table style="font-size:13px;margin:8px 0 16px">
-          <tr><th style="text-align:left;white-space:normal">ジャンル<span class="mut">（大枠）</span></th><td style="text-align:left;white-space:normal">技術設計／実験検証／論証／批評／案出し／エッセイ体験。どの物差しで評価したかのレンズ。複合記事は最も支配的なジャンルを表示（区間内訳は詳細ビュー）。</td></tr>
-          <tr><th style="text-align:left;white-space:normal">総合<span class="mut">（大枠）</span></th><td style="text-align:left;white-space:normal">0〜100。ジャンルで有効な内訳観点の平均（偽の発見1件で −35）。エッセイ等で数値観点が無い場合は「—」（不当な0点を出さない）。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">ジャンル<span class="mut">（大枠）</span></th><td style="text-align:left;white-space:normal">技術設計／実験検証／論証／批評／案出し／エッセイ体験。どの物差しで評価したかのレンズ。複合記事は最も支配的なジャンルを表示しつつ、<strong>区間ジャンルの観点も総合に合算</strong>（技術＋エッセイ等で強い側の軸が消えないように。区間は詳細ビューで修正可）。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">総合<span class="mut">（大枠）</span></th><td style="text-align:left;white-space:normal">0〜100。ジャンルで有効な内訳観点の平均（偽の発見1件で−20・最大−40）。<strong>独自構築は加点専用</strong>＝他観点の平均を下回るときは算入しない（「作ったのに下がる」を防ぐ）。エッセイ等で数値観点が無い場合は「—」（不当な0点を出さない）。</td></tr>
           <tr><th style="text-align:left;white-space:normal">構造制御<span class="mut">（内訳）</span></th><td style="text-align:left;white-space:normal">0〜100。<strong>構造的な手筋だけ</strong>（強制/好み/未制御）で算出。報告（体験・引用・ナレーション）は分母から除外。構造的手筋が無い記事は「—」。</td></tr>
           <tr><th style="text-align:left;white-space:normal">推論の質<span class="mut">（内訳）</span></th><td style="text-align:left;white-space:normal">0〜100。結論が強制されているかとは別に、提案・主張が前提から筋が通り・区別が一貫し・反例を処理しているか。案出しやエッセイの論理の良し悪しはここで測る。</td></tr>
           <tr><th style="text-align:left;white-space:normal">接地<span class="mut">（内訳）</span></th><td style="text-align:left;white-space:normal">0〜100%。荷重主張のうち「表れ型」（センスなしで再現可能）の割合＋引用負荷。読者が確かめられる度合い。</td></tr>
-          <tr><th style="text-align:left;white-space:normal">独自構築<span class="mut">（内訳）</span></th><td style="text-align:left;white-space:normal">0〜100。著者が独自に作ったもの（概念定義・実装・設計イテレーション・分野横断接続）の検出数と多様性。エッセイで0でも減点ではない。</td></tr>
+          <tr><th style="text-align:left;white-space:normal">独自構築<span class="mut">（内訳）</span></th><td style="text-align:left;white-space:normal">0〜100。著者が独自に作ったもの（概念定義・実装・設計イテレーション・分野横断接続）の種類×20＋件数×10。<strong>加点専用</strong>＝無くても・少なくても総合を下げない。</td></tr>
           <tr><th style="text-align:left;white-space:normal">偽の発見<span class="mut">（フラグ）</span></th><td style="text-align:left;white-space:normal">構造・本質・等値を主張しているが定義特徴を写像先が満たさない箇所の数。0が正常。軸ではなく赤信号として総合から減点。</td></tr>
         </table>
         <strong>■ 詳細ビュー（各項目はその場で修正可・即マッピング反映）</strong>
@@ -312,7 +358,7 @@
         </table>
         <strong>■ スコアの考え方</strong>
         <div style="margin:8px 0">
-          総合は<strong>ジャンル相応</strong>に作ります。技術設計／実験は構造制御＋接地＋独自構築、論証は推論の質＋構造制御＋接地、<strong>批評は推論の質＋接地（具体性）＋独自構築（構造制御は外す）</strong>、案出しは推論の質＋接地＋独自構築、エッセイは推論の質＋独自構築（構造制御は「—」）。<strong>批評・エッセイ・案出しを構造制御の物差しで0点に沈めない</strong>のが要点です。主軸の観点が抽出できないと「⚠低信頼」を表示します。LLM判定が外れたら詳細ビューで直せば、スコアもマッピングも追従します。
+          総合は<strong>ジャンル相応</strong>に作ります。技術設計／実験は構造制御＋接地＋独自構築、論証は推論の質＋構造制御＋接地、<strong>批評は推論の質＋接地（具体性）＋独自構築（構造制御は外す）</strong>、案出しは推論の質＋接地＋独自構築、エッセイは推論の質＋独自構築（構造制御は「—」）。<strong>批評・エッセイ・案出しを構造制御の物差しで0点に沈めない</strong>のが要点です。独自構築は<strong>加点専用</strong>（他観点の平均を上回るときだけ算入）なので、実装やイテレーションが検出されて総合が下がることはありません。主軸の観点が抽出できない・根拠が1件しかない場合は「⚠低信頼」を表示します。LLM判定が外れたら詳細ビューで直せば、スコアもマッピングも追従します。
         </div>
       </div>
     </details>
@@ -433,6 +479,94 @@ function pct(n,d){if(d==null||!d)return '—'; return (n/d*100).toFixed(1)+'%';}
 function f1(n){return n==null?'—':(Math.round(n*10)/10).toLocaleString('ja-JP');}
 function mean(a){a=a.filter(function(x){return x!=null;}); return a.length?a.reduce(function(s,x){return s+x;},0)/a.length:null;}
 function median(a){a=a.filter(function(x){return x!=null;}).sort(function(x,y){return x-y;}); if(!a.length)return null; var m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2;}
+
+/* ===== 指標レイヤ（MECE） =====
+   軸を混ぜないための唯一の定義。集計は必ずここを通す。
+   - 母集団: 自記事（ARTS）/ 読者記事（collector集計）/ 外部記事（QEXT）
+   - 単位: 記事（タグ集計も記事の集合として扱う）
+   - 成果指標: likes（全母集団で取得可・比較の共通通貨）/ views（自分のみ）/ likeRate=likes÷views（自分のみ。読者はビュー非公開のため定義不能）
+   - 集計: n / med（中央値・既定＝外れ値に頑健）/ avg（平均・参考） */
+function perfSummary(arts){
+  function agg(key){ var vs=arts.map(function(a){return a[key];}).filter(function(v){return v!=null;});
+    return {n:vs.length, med:median(vs), avg:mean(vs)}; }
+  return {n:arts.length, views:agg('views'), likes:agg('likes'), likeRate:agg('likeRate')};
+}
+function pctTxt(v,d){ return v==null?'—':(v*100).toFixed(d==null?1:d)+'%'; }
+/* 読者タグの成績。collectorの読者ごと集計（count・avgLikes・medLikes）から復元できる範囲で厳密に：
+   - avgLikes: Σ(読者ごと平均×記事数)÷Σ記事数 ＝ 記事プールの真の平均（正確）
+   - medOfMedLikes: 読者ごと中央値の中央値（記事単位の中央値は集計から復元不能。近似であることを表示側で明示） */
+function readerTagStats(profiles){
+  var m={};
+  profiles.forEach(function(pr){ (pr.tags||[]).forEach(function(t){
+    if(!m[t.name]) m[t.name]={name:t.name, users:0, arts:0, _sum:0, _sumN:0, _meds:[]};
+    var e=m[t.name]; e.users++; e.arts+=(t.count||0);
+    if(t.avgLikes!=null&&t.count){ e._sum+=t.avgLikes*t.count; e._sumN+=t.count; }
+    if(t.medLikes!=null) e._meds.push(t.medLikes);
+    else if(t.avgLikes!=null) e._meds.push(t.avgLikes); // 旧collectorデータはmedLikes無し→平均で代用
+  }); });
+  return Object.keys(m).map(function(k){ var e=m[k];
+    return {name:e.name, users:e.users, arts:e.arts,
+      avgLikes: e._sumN? e._sum/e._sumN : null,
+      medOfMedLikes: e._meds.length? median(e._meds) : null};
+  });
+}
+/* 相関セル（共有）: 中心0の発散バー（正=青・負=赤）＋数値 */
+function vizRCell(r){
+  if(r==null) return '<span class="mut">—</span>';
+  var half=Math.min(1,Math.abs(r))*50;
+  var col=r>=0?'var(--viz-pos)':'var(--viz-neg)';
+  return '<div class="corr-cell"><div class="corr-track"><div class="mid"></div>'+
+    '<div class="bar'+(r>=0?'':' neg')+'" style="'+(r>=0?'left:50%':'right:50%')+';width:'+half+'%;background:'+col+'"></div></div>'+
+    '<span class="corr-val" style="color:'+(Math.abs(r)>=0.3?'var(--fg)':'var(--mut)')+';font-weight:'+(Math.abs(r)>=0.3?'700':'400')+'">'+r.toFixed(2)+'</span></div>';
+}
+/* ダンベル行（共有）: ●比較対象 —— ●あなた。rows: [{label, you, them, unit, min, max, fmt}] */
+function vizDumbbells(rows){
+  var w=document.createElement('div'); w.className='dumb-wrap';
+  rows.forEach(function(r){
+    if(r.you==null&&r.them==null) return;
+    var row=document.createElement('div'); row.className='dumb-row';
+    var l=document.createElement('div'); l.className='dumb-lbl'; l.textContent=r.label; row.appendChild(l);
+    var tr=document.createElement('div'); tr.className='dumb-track';
+    var rail=document.createElement('div'); rail.className='rail'; tr.appendChild(rail);
+    var lo,hi;
+    if(r.min!=null){ lo=r.min; hi=r.max; }
+    else{
+      lo=Math.min(r.you==null?Infinity:r.you, r.them==null?Infinity:r.them);
+      hi=Math.max(r.you==null?-Infinity:r.you, r.them==null?-Infinity:r.them);
+      if(!(hi>lo)){ lo-=1; hi+=1; }
+      var pad=(hi-lo)*0.22; lo-=pad; hi+=pad; if(lo<0&&r.you>=0&&r.them>=0) lo=0;
+    }
+    function px(v){ return Math.max(2,Math.min(98,(v-lo)/(hi-lo||1)*100)); }
+    if(r.you!=null&&r.them!=null){
+      var a=px(r.them),b=px(r.you);
+      var link=document.createElement('div'); link.className='link';
+      link.style.left=Math.min(a,b)+'%'; link.style.width=Math.max(0.5,Math.abs(b-a))+'%';
+      tr.appendChild(link);
+    }
+    var fmt=r.fmt||function(v){return f1(v)+(r.unit||'');};
+    function dot(v,color,cls){
+      if(v==null) return;
+      var d=document.createElement('div'); d.className='pt'; d.style.left=px(v)+'%'; d.style.background=color; tr.appendChild(d);
+      var t2=document.createElement('div'); t2.className='pv '+cls; t2.textContent=fmt(v);
+      t2.style.left=px(v)+'%'; tr.appendChild(t2);
+    }
+    dot(r.them,'var(--viz-them)','them'); dot(r.you,'var(--viz-you)','you');
+    row.appendChild(tr);
+    w.appendChild(row);
+  });
+  return w;
+}
+/* 凡例チップ（共有・2系列固定） */
+function vizYouThemLegend(themLabel){
+  var lg=document.createElement('div'); lg.className='viz-legend';
+  [['あなた','var(--viz-you)'],[themLabel||'比較対象','var(--viz-them)']].forEach(function(e){
+    var c=document.createElement('span'); c.className='viz-chip'; c.style.cursor='default';
+    var dot=document.createElement('span'); dot.style.cssText='width:9px;height:9px;border-radius:50%;background:'+e[1]+';display:inline-block';
+    c.appendChild(dot); c.appendChild(document.createTextNode(e[0]));
+    lg.appendChild(c);
+  });
+  return lg;
+}
 // 成績はビューとスキを併記（ビューが無ければスキのみ）。表全体で共通利用
 function pairTxt(vv,lv){ return HAS_VIEWS ? (f1(vv)+' <span class="mut">/</span> '+f1(lv)) : f1(lv); }
 function pairHd(lbl){ return HAS_VIEWS ? lbl+'(ビュー/スキ)' : lbl+'(スキ)'; }
@@ -730,11 +864,13 @@ function renderArticles(){
     th.onclick=function(){ if(sortState.key===c.k)sortState.dir*=-1; else {sortState.key=c.k; sortState.dir=-1;} renderArticles(); };
     tr.appendChild(th);
   });
-  var qth=el('th',null,'質'); qth.title='総合スコア＋ジャンル（LLM構造解析・ジャンル相応評価）';
+  var qth=el('th',null,'質'+(sortState.key==='__q'?(sortState.dir<0?' ▼':' ▲'):'')); qth.title='総合スコア＋ジャンル（LLM構造解析・ジャンル相応評価）。タップで並び替え';
+  qth.onclick=function(){ if(sortState.key==='__q')sortState.dir*=-1; else {sortState.key='__q'; sortState.dir=-1;} renderArticles(); };
   tr.appendChild(qth);
   thead.appendChild(tr); t.appendChild(thead);
+  var sortVal=function(a){ return sortState.key==='__q' ? (a.struct?a.struct.score:null) : a[sortState.key]; };
   var rows=ARTS.slice().sort(function(a,b){
-    var x=a[sortState.key], y=b[sortState.key];
+    var x=sortVal(a), y=sortVal(b);
     if(x==null && y==null) return 0;
     if(x==null) return 1;  // nullは常に最後
     if(y==null) return -1;
@@ -850,25 +986,24 @@ function renderGems(){
 function tagAgg(){
   var map={};
   ARTS.forEach(function(a){
-    (a.tags||[]).forEach(function(t){
-      if(!map[t]) map[t]={tag:t,count:0,views:[],likes:[],likeRate:[],perf:[]};
-      map[t].count++;
-      map[t].views.push(a.views);
-      map[t].likes.push(a.likes);
-      map[t].likeRate.push(a.likeRate);
-      map[t].perf.push(a.perf);
-    });
+    (a.tags||[]).forEach(function(t){ (map[t]=map[t]||[]).push(a); });
   });
   var stats=(DATA.meta&&DATA.meta.tagStats)||{};
+  var allMedLikes=median(ARTS.map(function(a){return a.likes;}));
   return Object.keys(map).map(function(t){
-    var m=map[t];
-    var av=mean(m.views); var comp=stats[t]!=null?stats[t]:null;
-    // 効率＝自分の平均ビュー÷競合記事数×1000（競合1000件あたりの自分のビュー）
-    var eff=(av!=null && comp)?Math.round(av/comp*1000):null;
-    return {tag:t, count:m.count, avgViews:av, medViews:median(m.views),
-            avgLikes:mean(m.likes), medLikes:median(m.likes),
-            avgLikeRate:mean(m.likeRate), medLikeRate:median(m.likeRate),
-            avgPerf:mean(m.perf), medPerf:median(m.perf), competition: comp, efficiency: eff};
+    var arts=map[t];
+    var s=perfSummary(arts); // 指標レイヤ経由（views/likes/likeRate × n/med/avg）
+    var comp=stats[t]!=null?stats[t]:null;
+    // リフト＝このタグ記事の中央値スキ÷全記事の中央値スキ。1.0=全体並み。「タグと成績の関係」の記事単位の要約
+    var lift=(s.likes.med!=null && allMedLikes)? s.likes.med/allMedLikes : null;
+    // 効率＝中央値ビュー÷競合記事数×1000（競合1000件あたりのビュー。ビュー収集時のみ）
+    var eff=(s.views.med!=null && comp)?Math.round(s.views.med/comp*1000):null;
+    return {tag:t, count:arts.length, sum:s, lift:lift, competition:comp, efficiency:eff,
+            // フラット参照（表・エクスポート互換）
+            avgViews:s.views.avg, medViews:s.views.med,
+            avgLikes:s.likes.avg, medLikes:s.likes.med,
+            avgLikeRate:s.likeRate.avg, medLikeRate:s.likeRate.med,
+            avgPerf:mean(arts.map(function(a){return a.perf;})), medPerf:median(arts.map(function(a){return a.perf;}))};
   });
 }
 function comboAgg(){
@@ -887,134 +1022,152 @@ function comboAgg(){
 function renderTags(){
   var tags=tagAgg();
   if(!tags.length){ $('#tagWin').innerHTML=''; $('#tagTable').innerHTML='<tbody><tr><td class="empty">タグがありません。</td></tr></tbody>'; return; }
-  // 勝てるタグ：自分の成績(中央値以上) × 競合少(中央値以下)
-  var medPerf=median(tags.map(function(t){return t.avgPerf;}));
+  var win=$('#tagWin');
+  // 基準はすべて中央値で統一（平均は参考表示のみ）。成果の共通通貨はスキ（読者と比較可能）
+  var allMedLikes=median(ARTS.map(function(a){return a.likes;}));
+  var allMedRate=HAS_VIEWS?median(ARTS.map(function(a){return a.likeRate;})):null;
   var comps=tags.map(function(t){return t.competition;}).filter(function(x){return x!=null;});
   var medComp= comps.length?median(comps):null;
-  var win=$('#tagWin');
-  var winners=tags.filter(function(t){ return t.count>=1 && t.avgPerf!=null && t.avgPerf>=medPerf && (medComp==null||t.competition==null||t.competition<=medComp); })
-                  .sort(function(a,b){return (b.medPerf||0)-(a.medPerf||0);}).slice(0,8);
-  var more='';  // 詳細データ（組み合わせ・読者の成績比較・相関）の退避先
+  // 勝てるタグ：リフト≥1（中央値スキが全記事中央値以上）× 競合が中央値以下
+  var winners=tags.filter(function(t){ return t.lift!=null && t.lift>=1 && (medComp==null||t.competition==null||t.competition<=medComp); })
+                  .sort(function(a,b){return (b.lift||0)-(a.lift||0);}).slice(0,8);
+  var more='';  // 詳細データ（組み合わせ・相関）の退避先
   var tkItems=[];
   if(winners.length){
-    tkItems.push('狙い目タグ：'+winners.slice(0,3).map(function(t){return '<b>#'+esc(t.tag)+'</b>（中央値'+pairTxt(t.medViews,t.medLikes)+(t.competition!=null?'・競合'+num(t.competition):'')+'）';}).join('、'));
+    tkItems.push('狙い目タグ：'+winners.slice(0,3).map(function(t){
+      return '<b>#'+esc(t.tag)+'</b>（中央値スキ'+f1(t.medLikes)+'＝全体の'+t.lift.toFixed(1)+'倍'+(t.competition!=null?'・競合'+num(t.competition):'')+'）';
+    }).join('、'));
   } else {
-    tkItems.push('「好成績×競合少」に当てはまるタグはまだ無し。記事が増えると見えてきます。');
+    tkItems.push('「全体以上の成績×競合少」に当てはまるタグはまだ無し。記事が増えると見えてきます。');
   }
-  var h=takeaway(tkItems, '', '🏷 次に狙うタグ（'+PERF_LABEL+'が中央値以上×競合少）'+(HAS_VIEWS?' ※数値=ビュー/スキ':''));
+  tkItems.push('<span class="mut">基準：あなたの全記事の中央値スキ '+f1(allMedLikes)+(allMedRate!=null?'・中央値スキ率 '+pctTxt(allMedRate):'')+'。集計は中央値（外れ値に頑健）で統一、平均は参考。</span>');
+  var h=takeaway(tkItems, '', '🏷 次に狙うタグ（中央値スキが全体以上 × 競合少）');
   if(medComp==null) h+='<p class="muted" style="font-size:11px;margin:-8px 0 12px">※競合度が未取得のため成績のみで選定。</p>';
   if(winners.length){
     h+='<div style="margin-bottom:4px">';
     winners.forEach(function(t){
-      h+='<span class="tag" style="font-size:13px;padding:6px 12px;margin:3px">#'+esc(t.tag)+' '+t.count+'記事 中央値<b>'+pairTxt(t.medViews,t.medLikes)+'</b>'+(t.competition!=null?' / 競合'+num(t.competition):'')+'</span>';
+      h+='<span class="tag" style="font-size:13px;padding:6px 12px;margin:3px">#'+esc(t.tag)+' '+t.count+'記事 中央値スキ<b>'+f1(t.medLikes)+'</b>（×'+t.lift.toFixed(1)+'）'+
+        (t.medLikeRate!=null?' スキ率'+pctTxt(t.medLikeRate):'')+(t.competition!=null?' / 競合'+num(t.competition):'')+'</span>';
     });
     h+='</div>';
   }
-  // タグの組み合わせ別 勝ちパターン（詳細へ）
+  // ── コア読者とのタグ比較 ──
+  // 母集団: あなたの記事 vs コア読者の記事（collector集計）。指標はスキで統一（読者はビュー非公開のためスキ率は定義不能）
+  var readerProfiles=(DATA.meta&&DATA.meta.coreReaderProfiles)||[];
+  var sharedRows=[], sharedDetail=[], unusedList=[];
+  if(readerProfiles.length){
+    var myTagSet={}; tags.forEach(function(t){ myTagSet[t.tag]=t; });
+    var rStats=readerTagStats(readerProfiles).filter(function(t){return t.users>=2;}).sort(function(a,b){return b.users-a.users;});
+    rStats.forEach(function(rt){
+      var mine=myTagSet[rt.name];
+      if(mine){ sharedRows.push({label:'#'+rt.name, you:mine.medLikes, them:rt.medOfMedLikes}); sharedDetail.push({rt:rt,mine:mine}); }
+      else unusedList.push(rt);
+    });
+    if(sharedRows.length){
+      h+='<h2 class="sec" style="margin-top:20px">🤝 共通タグの成績：あなた vs コア読者層（中央値スキ）</h2>';
+      h+='<p class="desc">あなたも読者も使うタグを<b>スキで統一して比較</b>（読者はビュー非公開のためスキ率は自分のみ→下の全タグ表）。全行同じスケール（0〜最大値）。読者側の中央値は<b>読者ごと中央値の中央値</b>（記事単位の中央値は集計から復元不能なための近似）。</p>';
+      h+='<div id="tagDumb"></div>';
+      // 表ビュー（ダンベルの双子・平均も併記）
+      var st='<div class="tablewrap" style="margin-top:6px"><table><thead><tr><th>タグ</th><th>使用読者数</th><th colspan="3" style="border-bottom:1px solid var(--line)">あなた</th><th colspan="3" style="border-bottom:1px solid var(--line)">読者層</th></tr>'+
+        '<tr><th></th><th></th><th>記事数</th><th>中央値スキ</th><th>平均スキ</th><th>記事数</th><th>中央値スキ※</th><th>平均スキ</th></tr></thead><tbody>';
+      sharedDetail.forEach(function(sd){
+        st+='<tr><td>#'+esc(sd.rt.name)+'</td><td>'+sd.rt.users+'人</td>'+
+          '<td>'+num(sd.mine.count)+'</td><td>'+f1(sd.mine.medLikes)+'</td><td>'+f1(sd.mine.avgLikes)+'</td>'+
+          '<td>'+num(sd.rt.arts)+'</td><td>'+(sd.rt.medOfMedLikes!=null?f1(sd.rt.medOfMedLikes):'—')+'</td><td>'+(sd.rt.avgLikes!=null?f1(sd.rt.avgLikes):'—')+'</td></tr>';
+      });
+      st+='</tbody></table></div><p class="muted" style="font-size:11px">※読者ごと中央値の中央値。平均スキは記事プールの真の平均（Σ読者平均×記事数÷Σ記事数）。</p>';
+      h+=detailsBlock('表で見る（記事数・平均つき）', st);
+    }
+    if(unusedList.length){
+      h+='<h2 class="sec" style="margin-top:20px">📣 読者が読みたい＝あなた未使用のタグ</h2>';
+      h+='<p class="desc">コア読者層で人気だが、あなたがまだ書いていないタグ。「次のネタ」候補。</p>';
+      h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>使用読者数</th><th>読者記事数</th><th>読者中央値スキ※</th><th>読者平均スキ</th></tr></thead><tbody>';
+      unusedList.slice(0,15).forEach(function(t){
+        h+='<tr><td>#'+esc(t.name)+'</td><td>'+t.users+'人</td><td>'+num(t.arts)+'</td><td>'+(t.medOfMedLikes!=null?f1(t.medOfMedLikes):'—')+'</td><td>'+(t.avgLikes!=null?f1(t.avgLikes):'—')+'</td></tr>';
+      });
+      h+='</tbody></table></div><p class="muted" style="font-size:11px">※読者ごと中央値の中央値。</p>';
+    }
+  }
+  // ── 詳細：タグの組み合わせ ──
   var combos=comboAgg();
   if(combos.length){
     more+='<h3 style="font-size:14px;margin:0 0 6px">タグの組み合わせ別 勝ちパターン</h3>';
-    more+='<p class="desc">2記事以上で使われた組み合わせを中央値'+PERF_LABEL+'順に。</p>';
-    more+='<div class="tablewrap"><table><thead><tr><th>組み合わせ</th><th>記事数</th><th>'+pairHd('中央値')+'</th><th>'+pairHd('平均')+'</th></tr></thead><tbody>';
-    combos.slice(0,8).forEach(function(c){
-      more+='<tr><td>'+esc(c.combo)+'</td><td>'+num(c.count)+'</td><td>'+pairTxt(c.medViews,c.medLikes)+'</td><td>'+pairTxt(c.avgViews,c.avgLikes)+'</td></tr>';
+    more+='<p class="desc">2記事以上で使われた組み合わせを中央値スキ順に。</p>';
+    more+='<div class="tablewrap"><table><thead><tr><th>組み合わせ</th><th>記事数</th><th>中央値スキ</th><th>平均スキ</th>'+(HAS_VIEWS?'<th>中央値ビュー</th>':'')+'</tr></thead><tbody>';
+    combos.slice().sort(function(a,b){return (b.medLikes||0)-(a.medLikes||0);}).slice(0,8).forEach(function(c){
+      more+='<tr><td>'+esc(c.combo)+'</td><td>'+num(c.count)+'</td><td>'+f1(c.medLikes)+'</td><td>'+f1(c.avgLikes)+'</td>'+(HAS_VIEWS?'<td>'+f1(c.medViews)+'</td>':'')+'</tr>';
     });
     more+='</tbody></table></div>';
   }
-  // コア読者のタグとの比較
-  var readerProfiles=(DATA.meta&&DATA.meta.coreReaderProfiles)||[];
-  if(readerProfiles.length){
-    var myTagSet={};
-    tags.forEach(function(t){ myTagSet[t.tag]=t; });
-    // 読者タグ集計（使用人数＋平均使用回数）
-    var rTagAgg={};
-    readerProfiles.forEach(function(pr){
-      if(!pr.tags) return;
-      var seen={};
-      pr.tags.forEach(function(t){
-        if(!seen[t.name]){
-          if(!rTagAgg[t.name]) rTagAgg[t.name]={name:t.name,users:0,totalCount:0,mine:!!myTagSet[t.name]};
-          rTagAgg[t.name].users++;
-          rTagAgg[t.name].totalCount+=t.count;
-          seen[t.name]=1;
-        }
+  // ── 詳細：タグと成績の相関 ──
+  // ①記事単位（本命）：タグの有無×スキの点双列相関。「このタグが付いた記事は伸びるか」を記事nで直接測る
+  var corrTags=tags.filter(function(t){return t.count>=3;});
+  if(ARTS.length>=6 && corrTags.length){
+    var likesArr=ARTS.map(function(a){return a.likes;});
+    var rateArr=HAS_VIEWS?ARTS.map(function(a){return a.likeRate;}):null;
+    var tagR=corrTags.map(function(t){
+      var ind=ARTS.map(function(a){return (a.tags||[]).indexOf(t.tag)>=0?1:0;});
+      var rL=pearson(ind,likesArr);
+      var rR=null;
+      if(rateArr){ var pairs=ARTS.map(function(a,i){return {i:ind[i],v:rateArr[i]};}).filter(function(p){return p.v!=null;});
+        rR=pairs.length>=3?pearson(pairs.map(function(p){return p.i;}),pairs.map(function(p){return p.v;})):null; }
+      return {tag:t.tag,count:t.count,lift:t.lift,rL:rL,rR:rR};
+    }).filter(function(x){return x.rL!=null;}).sort(function(a,b){return Math.abs(b.rL)-Math.abs(a.rL);});
+    if(tagR.length){
+      more+='<h3 style="font-size:14px;margin:14px 0 6px">タグと成績の相関（記事単位・n='+ARTS.length+'）</h3>';
+      more+='<p class="desc">タグの有無×成績の相関。r&gt;0＝そのタグが付いた記事ほど伸びる。3記事以上のタグのみ。</p>';
+      more+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>記事数</th><th>リフト</th><th>r×スキ</th>'+(HAS_VIEWS?'<th>r×スキ率</th>':'')+'</tr></thead><tbody>';
+      tagR.slice(0,10).forEach(function(x){
+        more+='<tr><td>#'+esc(x.tag)+'</td><td>'+x.count+'</td><td>'+(x.lift!=null?'×'+x.lift.toFixed(1):'—')+'</td><td>'+vizRCell(x.rL)+'</td>'+(HAS_VIEWS?'<td>'+vizRCell(x.rR)+'</td>':'')+'</tr>';
       });
-    });
-    var rTags=Object.keys(rTagAgg).map(function(k){return rTagAgg[k];})
-      .filter(function(t){return t.users>=2;})
-      .sort(function(a,b){return b.users-a.users;});
-    if(rTags.length){
-      var rTagsShared=rTags.filter(function(t){return t.mine;});
-      var rTagsUnused=rTags.filter(function(t){return !t.mine;});
-      // 読者タグの成績集計（共通・未使用の両方で使う）
-      var rTagPerfMap={};
-      readerProfiles.forEach(function(pr){
-        if(!pr.tags) return;
-        pr.tags.forEach(function(t){
-          if(!rTagPerfMap[t.name]) rTagPerfMap[t.name]={likes:[]};
-          if(t.avgLikes!=null) for(var i=0;i<t.count;i++) rTagPerfMap[t.name].likes.push(t.avgLikes);
-        });
-      });
-      if(rTagsUnused.length){
-        h+='<h2 class="sec" style="margin-top:20px">📣 読者が読みたい＝あなた未使用のタグ</h2>';
-        h+='<p class="desc">コア読者層で人気だが、あなたがまだ書いていないタグ。書けば届く可能性が高い「次のネタ」候補。</p>';
-        h+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>使用読者数</th><th>読者記事数</th><th>読者中央値スキ</th><th>読者平均スキ</th></tr></thead><tbody>';
-        rTagsUnused.slice(0,15).forEach(function(t){
-          var rp=rTagPerfMap[t.name];
-          var rCount=rp?rp.likes.length:0;
-          var rAvg=rp&&rp.likes.length?Math.round(rp.likes.reduce(function(s,x){return s+x;},0)/rp.likes.length):null;
-          var rMed=rp?median(rp.likes):null;
-          h+='<tr><td>#'+esc(t.name)+'</td><td>'+t.users+'人</td><td>'+num(rCount)+'</td><td>'+(rMed!=null?f1(rMed):'—')+'</td><td>'+(rAvg!=null?num(rAvg):'—')+'</td></tr>';
-        });
-        h+='</tbody></table></div>';
-      }
-      if(rTagsShared.length){
-        more+='<h3 style="font-size:14px;margin:0 0 6px">読者と共通のタグの成績比較</h3>';
-        more+='<p class="desc">あなたも読者も使っているタグ。<b>読者のビュー数は取得できないため、両者ともスキ数で揃えて比較</b>します。</p>';
-        more+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>使用読者数</th><th>あなた記事数</th><th>あなた中央値スキ</th><th>あなた平均スキ</th><th>読者記事数</th><th>読者中央値スキ</th><th>読者平均スキ</th></tr></thead><tbody>';
-        rTagsShared.forEach(function(t){
-          var myTag=myTagSet[t.name];
-          var rp=rTagPerfMap[t.name];
-          var rCount=rp?rp.likes.length:0;
-          var rAvg=rp&&rp.likes.length?Math.round(rp.likes.reduce(function(s,x){return s+x;},0)/rp.likes.length):null;
-          var rMed=rp?median(rp.likes):null;
-          more+='<tr><td>#'+esc(t.name)+'</td><td>'+t.users+'人</td><td>'+num(myTag.count)+'</td><td>'+f1(myTag.medLikes)+'</td><td>'+f1(myTag.avgLikes)+'</td><td>'+num(rCount)+'</td><td>'+(rMed!=null?f1(rMed):'—')+'</td><td>'+(rAvg!=null?num(rAvg):'—')+'</td></tr>';
-        });
-        more+='</tbody></table></div>';
-      }
+      more+='</tbody></table></div>';
     }
   }
-  // タグ指標の相関（詳細へ）
+  // ②タグ単位（参考・生態学的相関）：タグ集計値どうしの相関。記事単位とは別物なので分けて表示
   if(tags.length>=3){
     var tagCorrs=[
-      {label:'記事数 × 平均'+PERF_LABEL, xs:tags.map(function(t){return t.count;}), ys:tags.map(function(t){return t.avgPerf;})},
-      {label:'競合度 × 平均'+PERF_LABEL, xs:tags.filter(function(t){return t.competition!=null;}).map(function(t){return t.competition;}), ys:tags.filter(function(t){return t.competition!=null;}).map(function(t){return t.avgPerf;})},
-      {label:'効率 × 平均'+PERF_LABEL, xs:tags.filter(function(t){return t.efficiency!=null;}).map(function(t){return t.efficiency;}), ys:tags.filter(function(t){return t.efficiency!=null;}).map(function(t){return t.avgPerf;})}
+      {label:'記事数 × 中央値スキ', xs:tags.map(function(t){return t.count;}), ys:tags.map(function(t){return t.medLikes;})},
+      {label:'競合度 × 中央値スキ', xs:tags.filter(function(t){return t.competition!=null;}).map(function(t){return t.competition;}), ys:tags.filter(function(t){return t.competition!=null;}).map(function(t){return t.medLikes;})}
     ];
-    more+='<h3 style="font-size:14px;margin:0 0 6px">タグ指標の相関</h3>';
-    more+='<div class="tablewrap"><table><thead><tr><th>指標</th><th>相関係数 r</th><th>強さ</th></tr></thead><tbody>';
+    if(HAS_VIEWS) tagCorrs.push({label:'競合度 × 中央値スキ率', xs:tags.filter(function(t){return t.competition!=null&&t.medLikeRate!=null;}).map(function(t){return t.competition;}), ys:tags.filter(function(t){return t.competition!=null&&t.medLikeRate!=null;}).map(function(t){return t.medLikeRate;})});
+    more+='<h3 style="font-size:14px;margin:14px 0 6px">タグ集計値どうしの相関（タグ単位・n='+tags.length+'・参考）</h3>';
+    more+='<p class="desc">タグごとの集計値の相関（生態学的相関）。記事単位の相関とは別物です。</p>';
+    more+='<div class="tablewrap"><table><thead><tr><th>指標ペア</th><th>r</th></tr></thead><tbody>';
     tagCorrs.forEach(function(tc){
       var r=pearson(tc.xs,tc.ys);
-      var strength=r==null?'—':(Math.abs(r)>0.3?'<span class="pill '+(r>0?'good':'bad')+'">'+(r>0?'正':'負')+'の相関</span>':(Math.abs(r)>0.1?'<span class="pill warn">弱い相関</span>':'<span class="pill">無相関</span>'));
-      more+='<tr><td>'+tc.label+'</td><td>'+(r!=null?r.toFixed(3):'—')+'</td><td>'+strength+'</td></tr>';
+      more+='<tr><td>'+tc.label+'</td><td>'+vizRCell(r)+'</td></tr>';
     });
     more+='</tbody></table></div>';
   }
-  h+=detailsBlock('詳細データ（タグの組み合わせ・読者との成績比較・指標の相関）', more);
+  h+=detailsBlock('詳細データ（タグの組み合わせ・タグと成績の相関）', more);
   win.innerHTML=h;
+  // ダンベルはDOMで差し込む（共通タグの中央値スキ比較・全行共通スケール）
+  var td=$('#tagDumb');
+  if(td && sharedRows.length){
+    var maxV=0; sharedRows.forEach(function(r){ maxV=Math.max(maxV, r.you||0, r.them||0); });
+    var rows8=sharedRows.slice(0,10).map(function(r){ return {label:r.label, you:r.you, them:r.them, min:0, max:maxV*1.1||1}; });
+    td.appendChild(vizYouThemLegend('コア読者層'));
+    td.appendChild(vizDumbbells(rows8));
+    if(sharedRows.length>10){ var nt=document.createElement('div'); nt.className='viz-note'; nt.textContent='上位10タグのみ表示（全'+sharedRows.length+'件は「表で見る」へ）'; td.appendChild(nt); }
+  }
 
-  // 全タグ表（ソート可能）
+  // 全タグ表（ソート可能・全量）。列＝成果指標(スキ/スキ率/ビュー)×集計(中央値/平均)＋文脈(リフト/競合/効率)
   var tagCols=[
     {k:'tag',label:'タグ',val:function(r){return r.tag;}},
     {k:'count',label:'記事数',val:function(r){return r.count;}},
-    {k:'avgViews',label:'平均'+PERF_LABEL,val:function(r){return r.avgViews;}},
-    {k:'medViews',label:'中央値'+PERF_LABEL,val:function(r){return r.medViews;}},
-    {k:'avgLikeRate',label:'平均スキ率',val:function(r){return r.avgLikeRate;}},
+    {k:'medLikes',label:'中央値スキ',val:function(r){return r.medLikes;}},
+    {k:'avgLikes',label:'平均スキ',val:function(r){return r.avgLikes;}},
     {k:'medLikeRate',label:'中央値スキ率',val:function(r){return r.medLikeRate;}},
-    {k:'competition',label:'競合度',val:function(r){return r.competition;}},
-    {k:'efficiency',label:'効率',val:function(r){return r.efficiency;}}
+    {k:'avgLikeRate',label:'平均スキ率',val:function(r){return r.avgLikeRate;}},
+    {k:'lift',label:'リフト',val:function(r){return r.lift;}}
   ];
-  if(!tagSortState) tagSortState={key:'avgViews',dir:-1};
+  if(HAS_VIEWS) tagCols.push({k:'medViews',label:'中央値ビュー',val:function(r){return r.medViews;}});
+  tagCols.push({k:'competition',label:'競合度',val:function(r){return r.competition;}});
+  tagCols.push({k:'efficiency',label:'効率',val:function(r){return r.efficiency;}});
+  var tagColTips={count:'このタグが付いた自記事の数', medLikes:'タグ記事のスキの中央値（既定の代表値）', avgLikes:'タグ記事のスキの平均（参考・外れ値に弱い）',
+    medLikeRate:'タグ記事のスキ率（スキ÷ビュー）の中央値。ビュー収集時のみ', avgLikeRate:'タグ記事のスキ率の平均', lift:'中央値スキ÷全記事の中央値スキ。1.0=全体並み・1.5=1.5倍伸びる',
+    medViews:'タグ記事のビューの中央値', competition:'noteでこのタグが付いた記事の総数（競合の多さ）', efficiency:'中央値ビュー÷競合×1000（競合1000件あたりのビュー）'};
+  if(!tagSortState || !tagCols.some(function(c){return c.k===tagSortState.key;})) tagSortState={key:'medLikes',dir:-1};
   var rows=tags.slice().sort(function(a,b){
     var x=tagCols.filter(function(c){return c.k===tagSortState.key;})[0];
     if(!x) return 0;
@@ -1029,22 +1182,25 @@ function renderTags(){
   var thead=el('thead'); var htr=el('tr');
   tagCols.forEach(function(c){
     var th=el('th',null,c.label+(tagSortState.key===c.k?(tagSortState.dir<0?' ▼':' ▲'):''));
+    if(tagColTips[c.k]) th.title=tagColTips[c.k];
     th.onclick=function(){ if(tagSortState.key===c.k)tagSortState.dir*=-1; else {tagSortState.key=c.k; tagSortState.dir=-1;} renderTags(); };
     htr.appendChild(th);
   });
   thead.appendChild(htr); t.innerHTML=''; t.appendChild(thead);
+  var winSet={}; winners.forEach(function(w){ winSet[w.tag]=1; }); // 「勝」の基準はサマリーと同一（リフト≥1×競合少）
   var tb=el('tbody');
   rows.forEach(function(r){
-    var win=r.avgPerf!=null&&r.avgPerf>=medPerf&&(medComp==null||r.competition==null||r.competition<=medComp);
-    tb.appendChild(el('tr',null,
-      '<td>#'+esc(r.tag)+(win?' <span class="pill good">勝</span>':'')+'</td>'+
+    var cells='<td>#'+esc(r.tag)+(winSet[r.tag]?' <span class="pill good">勝</span>':'')+'</td>'+
       '<td>'+num(r.count)+'</td>'+
-      '<td>'+(HAS_VIEWS?f1(r.avgViews):'—')+'</td>'+
-      '<td>'+(HAS_VIEWS&&r.medViews!=null?f1(r.medViews):'—')+'</td>'+
-      '<td>'+(r.avgLikeRate!=null?(r.avgLikeRate*100).toFixed(1)+'%':'—')+'</td>'+
-      '<td>'+(r.medLikeRate!=null?(r.medLikeRate*100).toFixed(1)+'%':'—')+'</td>'+
-      '<td>'+(r.competition!=null?num(r.competition):'—')+'</td>'+
-      '<td>'+(r.efficiency!=null?num(r.efficiency):'—')+'</td>'));
+      '<td>'+f1(r.medLikes)+'</td>'+
+      '<td>'+f1(r.avgLikes)+'</td>'+
+      '<td>'+pctTxt(r.medLikeRate)+'</td>'+
+      '<td>'+pctTxt(r.avgLikeRate)+'</td>'+
+      '<td>'+(r.lift!=null?'×'+r.lift.toFixed(1):'—')+'</td>';
+    if(HAS_VIEWS) cells+='<td>'+f1(r.medViews)+'</td>';
+    cells+='<td>'+(r.competition!=null?num(r.competition):'—')+'</td>'+
+      '<td>'+(r.efficiency!=null?num(r.efficiency):'—')+'</td>';
+    tb.appendChild(el('tr',null,cells));
   });
   t.appendChild(tb);
 }
@@ -1096,7 +1252,7 @@ function renderStylo(){
   styAll.forEach(function(a){ if(!a._stylo) a._stylo=styloMetrics(a.text); });
   var perfCols=[]; if(HAS_VIEWS) perfCols.push({key:'views',label:'ビュー'}); perfCols.push({key:'likes',label:'スキ'});
   function perfVal(a,k){ return k==='likeRate'?a.likeRate:a[k]; }
-  function rCell(r){ if(r==null) return '<span class="mut">—</span>'; var c=Math.abs(r)>0.3?(r>0?'var(--good)':'var(--bad)'):(Math.abs(r)>0.1?'var(--warn)':'var(--mut)'); return '<span style="color:'+c+';font-weight:600">'+r.toFixed(3)+'</span>'; }
+  var rCell=vizRCell; // 共有の発散バーセル（指標レイヤ横で定義）
   var perfHead=perfCols.map(function(pc){return '<th>r×'+pc.label+'</th>';}).join('');
   var h='<strong style="font-size:14px">文体指標（無料・決定的・本文から機械計算）</strong>';
   h+='<div class="muted" style="font-size:12px;margin:4px 0 8px">文の長さ・段落・見出し密度・漢字比率など「書き方の形」。AIのブレと無関係で毎回同じ値。右はビュー/スキとの相関（n='+styAll.length+'）。</div>';
@@ -1631,13 +1787,38 @@ switchTab('data');
 $('#loadBtn').onclick=function(){ tryLoad($('#jsonInput').value); };
 $('#sampleBtn').onclick=function(){ loadData(sampleData()); $('#loadMsg').textContent='サンプル表示中'; $('#loadMsg').style.color='var(--mut)'; };
 $('#fileInput').onchange=function(e){ var f=e.target.files[0]; if(!f)return; var r=new FileReader(); r.onload=function(){ $('#jsonInput').value=r.result; tryLoad(r.result); }; r.readAsText(f); };
+function fetchCollectorSrc(){ return fetch('collector.js?t='+Date.now()).then(function(r){ if(!r.ok)throw new Error(r.status); return r.text(); }); }
 $('#copyCollector').onclick=function(){
   var msg=$('#copyCollectorMsg');
   msg.textContent='取得中…';
-  fetch('collector.js?t='+Date.now()).then(function(r){if(!r.ok)throw new Error(r.status);return r.text();})
-  .then(function(code){
-    return navigator.clipboard.writeText(code).then(function(){
-      msg.textContent='コピーしました ✅ コンソールに貼り付けてEnter';
+  fetchCollectorSrc().then(function(code){
+    // iOSショートカット（Webページで JavaScript を実行）は completion() の呼び出しが必須。
+    // PCコンソールでは completion が未定義なので try で包み、どちらに貼っても動く共用スクリプトにする
+    var universal=code+'\ntry{completion();}catch(e){}\n';
+    return navigator.clipboard.writeText(universal).then(function(){
+      msg.textContent='コピーしました ✅ PCはコンソールに、iPhoneはショートカットにそのまま貼り付け';
+      msg.style.color='var(--good)';
+    });
+  }).catch(function(e){ msg.textContent='失敗: '+e.message; msg.style.color='var(--bad)'; });
+};
+$('#copyBookmarklet').onclick=function(){
+  var msg=$('#copyCollectorMsg');
+  msg.textContent='取得中…';
+  fetchCollectorSrc().then(function(code){
+    // make_bookmarklet.js と同じ保守的圧縮（コメント行・空行のみ除去）で javascript: URL を生成
+    var kept=[], inBlock=false;
+    code.split('\n').forEach(function(line){
+      var t=line.trim();
+      if(inBlock){ if(t.slice(-2)==='*/') inBlock=false; return; }
+      if(t.indexOf('/*')===0 && t.indexOf('*/')<0){ inBlock=true; return; }
+      if(t.indexOf('/*')===0 && t.slice(-2)==='*/') return;
+      if(t.indexOf('//')===0) return;
+      if(!t) return;
+      kept.push(t);
+    });
+    var bm='javascript:'+encodeURIComponent(kept.join('\n'));
+    return navigator.clipboard.writeText(bm).then(function(){
+      msg.textContent='コピーしました ✅ ブックマークのURL欄に貼り付け（'+Math.round(bm.length/1024)+'KB）。noteのページでアドレスバーから起動';
       msg.style.color='var(--good)';
     });
   }).catch(function(e){ msg.textContent='失敗: '+e.message; msg.style.color='var(--bad)'; });
@@ -1992,19 +2173,22 @@ var Q_SYSTEM=[
 '',
 '# 推論の質（reasoning）',
 '荷重を担う主張・提案について、「結論が強制されているか」とは別に、推論として筋が通っているかを評価する。論証・批評・案出し・エッセイで特に重要。',
-'**重要：論証・批評・案出しでは、記事の荷重を担う主張/批判を必ず reasoning に1件以上入れること（空にしない）。** moves は「論の運び（どんなステップを踏んだか）」、reasoning は「その論が妥当か」。批評記事なら個々の批判（例：語法の誤り指摘・代入による矛盾導出・含意論証）を reasoning に入れて評価する。',
+'**一貫性ルール：reasoning に入れるのは荷重主張のみ。** 締め・余談・問いかけ・修辞的な一言など「崩れても記事の主結論が崩れない」非荷重の主張は reasoning に入れない（偽の発見検査の荷重判定と同じ基準を使う。非荷重の一般化が気になる場合は moves の未制御/報告として記録するにとどめ、スコア対象の reasoning には含めない）。',
+'**重要：論証・批評・案出し・エッセイ体験では、記事の荷重を担う主張/批判/洞察を必ず reasoning に1件以上入れること（空にしない）。** moves は「論の運び（どんなステップを踏んだか）」、reasoning は「その論が妥当か」。批評記事なら個々の批判（例：語法の誤り指摘・代入による矛盾導出・含意論証）を、エッセイなら体験から引き出した洞察・指摘を reasoning に入れて評価する。',
 '各主張/提案について次の観点をチェックし、verdict（高/中/低）を出す：',
 '- 前提からの帰結 … 提案/結論が、述べられた問題設定・前提から実際に導かれているか。',
 '- 区別の一貫性 … 持ち出した区別・分類が一貫し、恣意的でないか。',
 '- 反例処理 … 明らかな反例・反論・例外を想定し処理しているか。',
 '- 無矛盾 … 記事内で自己矛盾していないか。',
-'- 定義の一貫 … 鍵概念を定義し、最後まで同じ意味で使っているか。',
+'- 定義の一貫 … 鍵概念を定義し、最後まで同じ意味で使っているか。**「正体はXだ」と断言した後で成分を後出しで増やす（実はX＋Yだった、等）のは定義のすり替えであり不満足とする。複数成分の合成を主張するなら、なぜその組み合わせなのか・各成分が独立に何を説明するのかの説明が要る（反例が出るたびに成分を足すアドホックな補修は反例処理も不満足）。ただしこれは世界についての説明的主張への検査であり、設計・実装記事で自作の指標・仕様に補正項や変更を加えること自体は、課題と理由が記録されていれば定義のすり替えではなく設計イテレーション（独自構築として加点対象）。**',
 '- 非自明性（だから何） … その区別/結論が、当たり前の言い換えでなく、決定・説明・予測を変える内容を持つか。**否定テスト：その主張の「逆」を、事情を知る人が本気で主張しうるか。逆が成立しない・誰も主張しない自明な主張（例「やりたい人と実行できる人は違う」＝逆は誰も言わない）は、論理がいくら整っていても verdict を中以下にする。逆が論じうる非自明な主張（とくに具体的根拠を伴う反直観的な観察。例「良作は提示可能なのにそのAIは良作の決定に関心が薄いのではないか」＝逆も普通に主張しうる）は高に値する。**',
 'verdictの目安：5観点（前提帰結〜定義の一貫）が妥当でも非自明性が無ければ「中」止まり。妥当かつ非自明（とくに具体に接地した反直観的な指摘）なら「高」。妥当性に穴があれば「低」。',
 '',
 '# 偽の発見（pseudo-structure）検査',
 '**前提：偽の発見は「記事の結論・主要な論証がその等値/本質視の正しさに依存している荷重主張」に限って検査する。** 記事がそこに寄りかかっていない一言は、たとえ等値を述べていても対象外。まず「この主張が崩れたら記事の主結論は崩れるか？」を問い、崩れない（非荷重）なら検査せず smuggled=false。',
 '荷重主張のうち「本質は〜」「つまり〜と同じ」など構造・本質・等値を真剣に主張する箇所について、1) 主張された構造の定義特徴を挙げ、2) 写像先がそれを満たすか各々検査、3) 欠けていれば smuggled=true。',
+'**循環検査（言い換えの検出）：**「〜の正体は〜」「〜とは要するに〜」型の等値・還元の主張では、定義特徴に「説明項が被説明項と独立に定義・観測できるか」を必ず含めて検査する。説明項の存在根拠が被説明項そのものしかない場合（例：「速いのは蓄積が多いからだ」と言うが、蓄積の証拠は速さだけ）、それは説明ではなくリブランドであり、記事の中心主張として荷重しているなら、私見ヘッジ（〜と思う）が付いていても smuggled=true とする。**ヘッジによる免除は、記事がその等値に寄りかかっていない周辺的な主張に限る。**',
+'**方法看板検査：**タイトル・冒頭で「科学する」「検証する」「実験した」「データで見る」等の方法論的看板を掲げる記事は、その方法の定義特徴（測定・データ・対立仮説の検討・再現可能な手続き・反証可能性など）を本文がどの程度満たすかを structure_claims で検査する。**判定は程度問題：不完全でも測定・検証の試みが部分的にあれば偽の発見にはせず、足りない要素は推論の質・接地の評価に反映する。本文に方法の要素が全く無い（全編が私見・体験談で、測定も検証もゼロ）場合に限り、看板は実態と乖離した等値主張として、私見ヘッジがあっても smuggled=true とする。**看板が比喩・自嘲として明示されている場合は免除。',
 '偽の発見にしないもの：**記事の締め・余談・問いかけ・修辞的な一言など、本論の結論がそれに依存していない非荷重の主張**（仮に等値や断定を述べていても、記事の価値はその一言ではなく本体の手続き・論証にある場合）／比喩・アナロジー（「〜みたいな」）／既存名を借りつつ独自定義を明示した新指標（造語・パロディ名でも計算式・定義が厳密なら成立）／謙遜・自嘲（「ジョーク指標」等）でも定義・計算が厳密な場合／修辞的・文学的な援用（小説や作品を引いた比喩）。疑わしければ・著者自身が比喩的/境界的/私見と認めている場合は smuggled=false。偽の発見は「記事が荷重している主張で、本気で構造的等値を主張し、かつ定義特徴を満たさない」場合に限る。',
 '',
 '# 引用負荷テスト',
@@ -2014,7 +2198,11 @@ var Q_SYSTEM=[
 '荷重を担う指示・主張ごとに、センスや判断力なしで実行できるかを判定。',
 '- 表れ型 … 「センス/IQの無い人」が手順通り実行して同じ結果に至れる。明確な操作・閾値・手続きがある。',
 '- 抽象型 … 実行に判断・センス・目利きが必要。原則・対応・言い換えに留まる。',
+'**実演要件：**表れ型と判定するには、(a) 閾値・操作が結果と独立に記述されている（「3回断られるまで続ける」のような、数えれば実行できる規則。数式・アルゴリズム・論理導出が本文で完全に実行され読者が同じ計算・推論を再現できる場合も含む）、または (b) 記事内に**実在の材料への適用実演**（実際の文・実際の事例に手順を適用し結果を見せる箇所）があること。手順の一般的記述や、仮想例（「たとえば〜だとします」の作り話）だけが付いた助言は、それらしく具体的に見えても抽象型とする。作り話は手順の実行可能性を証明しない。**ただしこの除外は「手順の代わりに作り話を置く助言」への規定であり、思考実験・フィクション分析・数学的導出のように手順そのものが本文で実行されている場合は、題材や数値が仮想でも (a) により表れ型たりうる。**',
+'**助言の循環検査：**指示が「望ましい結果を出せ」の言い換えになっていないか検査する（例：「相手が納得する論法を与えよ」は、その論法を生成できるセンスを前提にしており「うまく説得しろ」の言い換え）。手順の成功基準が結果そのものを参照している助言は抽象型。',
+'**網羅ルール：verifiability は荷重主張を網羅的に拾うこと（記事に多数ある場合は最低5〜8件）。** とくに「引用→検査→修正案」のような同型の事例を多数並べる記事では、代表2〜3件で済ませず各事例を1件ずつ拾う（それぞれが独立に検証可能な主張のため）。少数サンプルだと接地スコアが記事の実態から大きくブレる。**逆に、締め・余談の私見（記事の主結論が依存しない一言）は荷重主張ではないので verifiability の分母に入れない**（エッセイ的な締めを持つ技術記事の接地が不当に薄まるのを防ぐ）。',
 '案出し記事でも、併載された具体的な実践例（実際にやって見せた箇所）は表れ型として拾うこと。本編の提案が抽象的でも、実践部分は別に評価する。',
+'**自己例示も実演として拾う：**提案した規範を記事自身が実践している箇所（例：「発信は削除せず補足せよ」という規範に従い、実際に過去の表現を削除せず補足している／「批判は具体でしろ」の実践として実在の記事への逐語批判を併載している）は、その規範の適用実演＝表れ型として verifiability に拾う。規範記事の接地は「手順の抽象度」だけでなく「記事自身が規範を守って見せているか」で測れる。',
 '',
 '# 独自構築の検出（正のシグナル）',
 '著者が独自に構築したものを検出する（構造の穴ではなく強さの証拠）。',
@@ -2101,7 +2289,8 @@ function analyzeText(text, model, calib){
 // ② ユーザー較正：確定済み（手で修正した）自記事を few-shot 例として基準に与える
 function buildCalibration(excludeKey){
   if($('#qCalib') && !$('#qCalib').checked) return '';
-  var ex=(ARTS||[]).filter(function(a){ return a.struct && a.struct.raw && a.struct._calibrated && a.text && aid(a)!==excludeKey; }).slice(0,2);
+  var ex=(ARTS||[]).filter(function(a){ return a.struct && a.struct.raw && a.struct._calibrated && a.text && aid(a)!==excludeKey; })
+    .sort(function(a,b){ return (b.struct._calibratedAt||0)-(a.struct._calibratedAt||0); }).slice(0,2); // 直近に手で確定した例を優先
   if(!ex.length) return '';
   var blocks=ex.map(function(a){
     var r=a.struct.raw;
@@ -2171,13 +2360,18 @@ function analyzeAndScore(text, model, excludeKey){
     if(!runs.length) throw new Error('全サンプル失敗');
     var scored=runs.map(function(r){ return {raw:r, q:qualityScore(r)}; });
     var nums=scored.map(function(s){return s.q.score;}).filter(function(v){return v!=null;});
-    var canonical=scored[0];
-    if(nums.length){
-      var sorted=nums.slice().sort(function(a,b){return a-b;}); var med=sorted[Math.floor((sorted.length-1)/2)];
-      var best=Infinity; scored.forEach(function(s){ if(s.q.score!=null){ var d=Math.abs(s.q.score-med); if(d<best){best=d;canonical=s;} } });
-    }
     var genres={}; scored.forEach(function(s){ var g=s.q.genre||'?'; genres[g]=(genres[g]||0)+1; });
     var topG=Object.keys(genres).sort(function(a,b){return genres[b]-genres[a];})[0];
+    // 代表は多数派ジャンルの run に限って medoid を選ぶ
+    //（表示ジャンルが少数派になり「一致度 ○○67%」と食い違うのを防ぐ）
+    var pool=scored.filter(function(s){ return (s.q.genre||'?')===topG && s.q.score!=null; });
+    if(!pool.length) pool=scored.filter(function(s){ return s.q.score!=null; });
+    var canonical=scored[0];
+    if(pool.length){
+      var pnums=pool.map(function(s){return s.q.score;});
+      var sorted=pnums.slice().sort(function(a,b){return a-b;}); var med=sorted[Math.floor((sorted.length-1)/2)];
+      var best=Infinity; pool.forEach(function(s){ var d=Math.abs(s.q.score-med); if(d<best){best=d;canonical=s;} });
+    }
     var st=Object.assign(canonical.q,{raw:canonical.raw, model:model});
     st.ensemble={ n:scored.length, genreAgree:Math.round(100*genres[topG]/scored.length), topGenre:topG,
       spread:(nums.length?Math.max.apply(null,nums)-Math.min.apply(null,nums):null), scores:scored.map(function(s){return s.q.score;}) };
@@ -2237,18 +2431,41 @@ function qualityScore(r){
   var cons=(r.constructions||[]).filter(function(x){ return !x._excluded; });
   var conTypes={}; cons.forEach(function(co){ conTypes[co.type]=1; });
   var uniqueTypes=Object.keys(conTypes).length;
-  var buildScore=cons.length? Math.min(100, Math.round(uniqueTypes*25 + Math.min(cons.length-uniqueTypes,4)*5)) : null;
+  // 種類の多様性＋件数（深さ）の両方を評価（旧式は単一種類を深く作り込んでも45点が天井だった）
+  var buildScore=cons.length? Math.min(100, Math.round(uniqueTypes*20 + Math.min(cons.length,6)*10)) : null;
   // フラグ：偽の発見
   var pseudo=(r.structure_claims||[]).filter(function(s){ return s.smuggled && !s._excluded; }).length;
   // ジャンル別ヘッドライン（有効観点の平均・nullは除外・偽の発見でペナルティ）
   var self={ctrlScore:ctrlScore, reasonScore:reasonScore, groundScore:groundScore, buildScore:buildScore};
-  var active=genreAxes(genre);
-  var used=active.map(function(k){ return self[k]; }).filter(function(v){ return v!=null; });
+  var active=genreAxes(genre).slice();
+  // 複合記事：区間（sections）に別ジャンルがあれば、その観点も合算する。
+  // 主ジャンルの物差しだけだと、技術＋エッセイ等の複合構成で強い側の軸
+  // （構造制御・接地）が総合から消えてしまうため。主軸（active[0]）は主ジャンルのまま
+  (r.sections||[]).forEach(function(sec){
+    var g=sec&&sec.genre;
+    if(!g || Q_GENRES.indexOf(g)<0 || g===genre) return;
+    genreAxes(g).forEach(function(k){
+      // 構造制御だけは、主ジャンルが批評・案出しなら合算しない：
+      // 提案・美的判断が「好み」として分母に入るのがこれらのジャンルの正常な姿であり、
+      // 区間の物差しを記事全体の手筋に当てると主ジャンルの性質でctrlが沈み、
+      // 「批評・案出しを構造制御で0点に沈めない」原則が崩れるため
+      if(k==='ctrlScore' && (genre==='批評'||genre==='案出し')) return;
+      if(active.indexOf(k)<0) active.push(k);
+    });
+  });
+  // 独自構築は加点専用：他の有効観点の平均を下回るときは総合に算入しない。
+  // 「無い＝null＝平均から除外」なのに「1件検出＝低スコアで平均に参入」だと、
+  // 何か作った記事の方が何も作っていない記事より低く出る逆転が起きるため。
+  var core=active.filter(function(k){ return k!=='buildScore'; }).map(function(k){ return self[k]; }).filter(function(v){ return v!=null; });
+  var coreAvg=core.length? core.reduce(function(s,v){return s+v;},0)/core.length : null;
+  var used=core.slice();
+  if(active.indexOf('buildScore')>=0 && buildScore!=null && (coreAvg==null || buildScore>=coreAvg)) used.push(buildScore);
   var score=used.length? Math.round(used.reduce(function(s,v){return s+v;},0)/used.length) : null;
   // 偽の発見ペナルティは比率化＋上限（1件の境界事例で総合が0に潰れないように）
   if(score!=null) score=Math.max(0,Math.min(100, score - Math.min(40, 20*pseudo)));
-  // 低信頼：そのジャンルの主軸（先頭の観点）が抽出できていない＝評価が不安定
-  var lowConf = (self[active[0]]==null) || (!genre);
+  // 低信頼：主軸（先頭の観点）が抽出できていない／主軸の根拠が1件しかなく不安定
+  var axisN={ctrlScore:structuralN, reasonScore:rvals.length, groundScore:vf.length, buildScore:cons.length};
+  var lowConf = (self[active[0]]==null) || (!genre) || ((axisN[active[0]]||0)<2);
   return {
     genre:genre, score:score, lowConf:lowConf,
     ctrlScore:ctrlScore, reasonScore:reasonScore, groundScore:groundScore, buildScore:buildScore,
@@ -2309,7 +2526,7 @@ function renderCorr(){
   var perfCols=[{key:'likes',label:'スキ'}];
   if(HAS_VIEWS){ perfCols.push({key:'likeRate',label:'スキ率'}); perfCols.push({key:'views',label:'ビュー'}); }
   function perfVal(a,k){ return k==='likeRate'?a.likeRate:a[k]; }
-  function rCell(r){ if(r==null) return '<span class="mut">—</span>'; var c=Math.abs(r)>0.3?(r>0?'var(--good)':'var(--bad)'):(Math.abs(r)>0.1?'var(--warn)':'var(--mut)'); return '<span style="color:'+c+';font-weight:600">'+r.toFixed(3)+'</span>'; }
+  var rCell=vizRCell; // 共有の発散バーセル（指標レイヤ横で定義）
   function corrRow(label, getVal, pool){
     var cells=perfCols.map(function(pc){
       var rows=pool.filter(function(a){ return getVal(a)!=null && perfVal(a,pc.key)!=null; });
@@ -2353,7 +2570,7 @@ function renderCorr(){
   var more='';
   var modeMap={};
   own.forEach(function(a){
-    var m=a.struct.mode||'不明';
+    var m=a.struct.genre||a.struct.mode||'不明'; // 偽の発見ありでもジャンルで集計（modeは「偽の発見」に化けるため）
     if(!modeMap[m]) modeMap[m]={perfs:[],count:0};
     modeMap[m].perfs.push(a.perf); modeMap[m].count++;
   });
@@ -2415,7 +2632,7 @@ function bindQuality(){
     $('#runAll').disabled=true; $('#cancelAll').style.display=''; $('#runAllMsg').textContent='解析中 0/'+all.length;
     runPool(all, function(a){
       return analyzeAndScore(a.text, model, aid(a)).then(function(st){ a.struct=st; autoSaveToGist(true); renderArticles(); })
-        .catch(function(e){ if(!a.struct || a.struct.mode==='失敗'){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; } });
+        .catch(function(e){ if(!a.struct || a.struct.mode==='失敗'){ a.struct={score:null,mode:'失敗',pseudo:0,err:String(e.message||e)}; } });
     }, 2, function(d,t){ $('#runAllMsg').textContent='解析中 '+d+'/'+t; naGistMsg('解析中 '+d+'/'+all.length); }).then(function(){
       $('#runAll').disabled=false; $('#cancelAll').style.display='none';
       $('#runAllMsg').textContent=_poolCancel?'中断しました':'完了（'+all.length+'件）';
@@ -2430,7 +2647,7 @@ function bindQuality(){
     var model=$('#qModel').value; $('#runStruct').disabled=true; qmsg('解析中 0/'+sel.length); naGistMsg('解析中 0/'+sel.length);
     runPool(sel, function(a){
       return analyzeAndScore(a.text, model, aid(a)).then(function(st){ a.struct=st; autoSaveToGist(true); renderArticles(); })
-        .catch(function(e){ if(!a.struct || a.struct.mode==='失敗'){ a.struct={score:0,mode:'失敗',pseudo:0,err:String(e.message||e)}; } });
+        .catch(function(e){ if(!a.struct || a.struct.mode==='失敗'){ a.struct={score:null,mode:'失敗',pseudo:0,err:String(e.message||e)}; } });
     }, 2, function(d,t){ qmsg('解析中 '+d+'/'+t); naGistMsg('解析中 '+d+'/'+sel.length); }).then(function(){
       $('#runStruct').disabled=false; qmsg('完了'); renderArticles(); renderQuality(); renderCorr(); switchTab('quality');
       autoSaveToGist();
@@ -2451,8 +2668,63 @@ function bindQuality(){
   };
 }
 
-var GENRE_COLORS={'技術設計':'#60a5fa','実験検証':'#34d399','論証':'#a78bfa','批評':'#fb923c','案出し':'#fbbf24','エッセイ体験':'#f472b6'};
-var QPLOT={x:'ctrlScore', y:'likes'};
+/* ジャンル配色: ダーク面(#0d1117)で全ペアCVD検証済み（worst ΔE 10.3＝フロア帯）。
+   フロア帯のためマーカー形状との複合エンコーディング必須（GENRE_SHAPES）。旧配色は青×紫が deutan ΔE 0.3 で判別不能だった */
+var GENRE_COLORS={'技術設計':'#3987e5','実験検証':'#c98500','論証':'#008300','批評':'#e66767','案出し':'#d55181','エッセイ体験':'#d95926'};
+var GENRE_SHAPES={'技術設計':'circle','実験検証':'square','論証':'triangle','批評':'diamond','案出し':'plus','エッセイ体験':'tridown'};
+var QPLOT={x:'score', y:'likes', hide:{}};
+
+/* ===== 可視化ヘルパー ===== */
+function svgEl(tag,attrs,txt){ var n=document.createElementNS('http://www.w3.org/2000/svg',tag); if(attrs)for(var k in attrs)n.setAttribute(k,attrs[k]); if(txt!=null)n.textContent=txt; return n; }
+// 共有ツールチップ（値が主役・ラベルは従。ラベルはtextContentで挿入＝XSS安全）
+var _vizTip=null;
+function vizTipEl(){ if(!_vizTip){ _vizTip=document.createElement('div'); _vizTip.className='viz-tip'; document.body.appendChild(_vizTip); } return _vizTip; }
+function vizTipShow(cx,cy,title,rows){
+  var t=vizTipEl(); t.textContent='';
+  if(title){ var h=document.createElement('div'); h.className='tt-title'; h.textContent=title; t.appendChild(h); }
+  (rows||[]).forEach(function(r){ // r=[label, value, color?]
+    var d=document.createElement('div'); d.className='tt-row';
+    var l=document.createElement('span');
+    if(r[2]){ var key=document.createElement('span'); key.style.cssText='display:inline-block;width:10px;height:3px;border-radius:2px;background:'+r[2]+';margin-right:5px;vertical-align:middle'; l.appendChild(key); }
+    l.appendChild(document.createTextNode(r[0])); d.appendChild(l);
+    var v=document.createElement('b'); v.textContent=r[1]; d.appendChild(v);
+    t.appendChild(d);
+  });
+  t.style.display='block';
+  var w=t.offsetWidth,h2=t.offsetHeight;
+  var x=cx+14, y=cy+14;
+  if(x+w>window.innerWidth-8) x=cx-w-14;
+  if(y+h2>window.innerHeight-8) y=cy-h2-14;
+  t.style.left=Math.max(4,x)+'px'; t.style.top=Math.max(4,y)+'px';
+}
+function vizTipHide(){ if(_vizTip)_vizTip.style.display='none'; }
+// きれいな目盛り（0起点）
+function niceTicks(max){
+  if(!(max>0)) return [0,1];
+  var raw=max/4, mag=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)), n=raw/mag;
+  var step=(n<=1?1:n<=2?2:n<=5?5:10)*mag;
+  var ticks=[]; for(var v=0;v<=max+step*0.001;v+=step) ticks.push(Math.round(v*1000)/1000);
+  return ticks;
+}
+// ジャンル別マーカー（形状＝色の副チャネル）。2pxの表面色リングで重なりでも判読可能
+function vizMark(shape,cx,cy,r,fill){
+  var s;
+  if(shape==='square') s=svgEl('rect',{x:cx-r,y:cy-r,width:r*2,height:r*2,rx:1.5});
+  else if(shape==='triangle') s=svgEl('polygon',{points:cx+','+(cy-r*1.2)+' '+(cx-r*1.15)+','+(cy+r*0.9)+' '+(cx+r*1.15)+','+(cy+r*0.9)});
+  else if(shape==='tridown') s=svgEl('polygon',{points:cx+','+(cy+r*1.2)+' '+(cx-r*1.15)+','+(cy-r*0.9)+' '+(cx+r*1.15)+','+(cy-r*0.9)});
+  else if(shape==='diamond') s=svgEl('polygon',{points:cx+','+(cy-r*1.3)+' '+(cx+r*1.3)+','+cy+' '+cx+','+(cy+r*1.3)+' '+(cx-r*1.3)+','+cy});
+  else if(shape==='plus'){ var a=r*0.45,b=r*1.25; s=svgEl('path',{d:'M'+(cx-a)+' '+(cy-b)+'h'+(a*2)+'v'+(b-a)+'h'+(b-a)+'v'+(a*2)+'h-'+(b-a)+'v'+(b-a)+'h-'+(a*2)+'v-'+(b-a)+'h-'+(b-a)+'v-'+(a*2)+'h'+(b-a)+'z'}); }
+  else s=svgEl('circle',{cx:cx,cy:cy,r:r});
+  s.setAttribute('fill',fill);
+  s.setAttribute('stroke','var(--viz-surface)'); s.setAttribute('stroke-width','2'); // 表面色リング
+  return s;
+}
+function vizAxisVal(key,v){
+  if(v==null) return '—';
+  if(key==='likeRate') return (v*100).toFixed(1)+'%';
+  if(key==='views'||key==='likes'||key==='reach') return num(Math.round(v));
+  return String(Math.round(v));
+}
 function qPlotAxes(){
   var ax=[
     {key:'score',label:'総合'},{key:'ctrlScore',label:'構造制御'},{key:'reasonScore',label:'推論の質'},
@@ -2467,8 +2739,13 @@ function qIsPerfAxis(k){ return k==='views'||k==='likes'||k==='likeRate'||k==='r
 
 function renderQuality(){
   var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, reach:a.perf, views:a.views, likes:a.likes, likeRate:a.likeRate, ext:false, struct:a.struct, text:a.text, url:a.url, tags:a.tags, publishAt:a.publishAt, charCount:a.charCount, comments:a.comments, ageDays:a.ageDays}; });
-  var ext=QEXT.map(function(e){ return {label:e.label, reach:e.reach, views:null, likes:e.reach, likeRate:null, ext:true, struct:e.struct, text:e.text||null, url:e.url, tags:null, publishAt:null, charCount:null, comments:null, ageDays:null}; });
-  var pts=own.concat(ext);
+  var ext=QEXT.map(function(e){ return {label:e.label, reach:e.reach, views:null, likes:e.reach, likeRate:null, ext:true, _src:e, struct:e.struct, text:e.text||null, url:e.url, tags:null, publishAt:null, charCount:null, comments:null, ageDays:null}; });
+  // 読者記事（コア読者タブでLLM解析済みのもの）も同じ一覧・散布図・分布に並べる
+  var rdr=(typeof QREADER!=='undefined'?QREADER:[]).filter(function(r){return r.struct;}).map(function(r){ return {label:r.label, reach:r.likes, views:null, likes:r.likes, likeRate:null, ext:false, reader:true, _src:r, struct:r.struct, text:null, url:r.url, tags:null, publishAt:null, charCount:null, comments:null, ageDays:null}; });
+  // 母集団ごとに凡例チップで表示/非表示（非表示でも相関・打ち手は元々自記事のみで計算）
+  var pts=own.slice();
+  if(!QPLOT.hideExt) pts=pts.concat(ext);
+  if(!QPLOT.hideRdr) pts=pts.concat(rdr);
   drawQ(pts);
   var t=$('#qTable'); if(!t) return; t.innerHTML='';
   // 既存の平均サマリを除去（再描画時の重複防止）
@@ -2483,19 +2760,46 @@ function renderQuality(){
     '<th rowspan="2">偽の発見</th></tr>'+
     '<tr><th>ジャンル</th><th>総合</th><th>構造制御</th><th>推論の質</th><th>接地</th><th>独自構築</th></tr>';
   t.appendChild(thead);
-  // グループ別平均（自/外、nullは除外）
-  if(own.length && ext.length){
-    var oS=own.map(function(p){return p.struct.score;}).filter(function(v){return v!=null;});
-    var eS=ext.map(function(p){return p.struct.score;}).filter(function(v){return v!=null;});
-    var summary=el('div',{class:'q-avg-summary',style:'font-size:13px;padding:10px 12px;color:var(--mut)'},
-      '自記事 平均総合：<strong style="color:var(--fg)">'+(oS.length?Math.round(mean(oS)):'—')+'</strong>　外部記事 平均総合：<strong style="color:var(--fg)">'+(eS.length?Math.round(mean(eS)):'—')+'</strong>');
-    t.parentNode.insertBefore(summary,t);
+  // 総合スコア分布ストリップ（自 vs 外部）：全記事を点で・中央値を縦線で。点タップで詳細
+  var prevStrip=t.parentNode.querySelector('.q-strip'); if(prevStrip)prevStrip.remove();
+  function stripRow(list,color,label){
+    var scored2=list.filter(function(p){return p.struct && p.struct.score!=null;});
+    var row=document.createElement('div'); row.className='gbar-row';
+    var med=scored2.length?median(scored2.map(function(p){return p.struct.score;})):null;
+    var lab=document.createElement('div'); lab.className='gbar-lbl';
+    lab.textContent=label+'（n='+scored2.length+(med!=null?'・中央値'+Math.round(med):'')+'）';
+    row.appendChild(lab);
+    var tr2=document.createElement('div'); tr2.className='strip-wrap';
+    var rail=document.createElement('div'); rail.className='rail'; tr2.appendChild(rail);
+    scored2.forEach(function(p,i){
+      var d=document.createElement('div'); d.className='pt';
+      d.style.left=p.struct.score+'%'; d.style.background=color;
+      d.style.marginTop=((i%3)-1)*7+'px'; // 決定的ジッタ：同スコアの重なりを軽減
+      d.onpointermove=function(ev){ vizTipShow(ev.clientX,ev.clientY,p.label,[['総合',String(p.struct.score)],['ジャンル',p.struct.genre||'—']]); };
+      d.onpointerleave=vizTipHide;
+      if(p.struct.raw){ d.onclick=function(){ vizTipHide(); showDetail(p.struct,p.label,p.text,p); }; }
+      tr2.appendChild(d);
+    });
+    if(med!=null){ var m=document.createElement('div'); m.className='med'; m.style.left=med+'%'; m.style.background='var(--fg)'; m.title='中央値 '+Math.round(med); tr2.appendChild(m); }
+    row.appendChild(tr2);
+    return row;
+  }
+  if(own.length){
+    var strip=document.createElement('div'); strip.className='q-strip'; strip.style.cssText='padding:8px 12px 2px';
+    var cap=document.createElement('div'); cap.style.cssText='font-size:12.5px;color:var(--mut);margin-bottom:2px';
+    cap.textContent='総合スコア分布（左0〜右100・点＝記事・縦線＝中央値。点をタップで詳細）';
+    strip.appendChild(cap);
+    strip.appendChild(stripRow(own,'var(--viz-you)','自記事'));
+    if(ext.length && !QPLOT.hideExt) strip.appendChild(stripRow(ext,'var(--viz-them)','外部記事'));
+    if(rdr.length && !QPLOT.hideRdr) strip.appendChild(stripRow(rdr,'var(--viz-them)','読者記事'));
+    t.parentNode.insertBefore(strip,t);
   }
   var fmt=function(v,suf){ return v==null?'—':(v+(suf||'')); };
   var tb=el('tbody');
   pts.slice().sort(function(a,b){ var x=a.struct.score, y=b.struct.score; if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1; return y-x; }).forEach(function(p){
     var s=p.struct; var r=el('tr');
-    r.innerHTML='<td style="text-align:left">'+(p.ext?'🔗 ':'')+esc(p.label)+'</td>'+
+    var delBtn=p.ext&&p._src?'<button class="qext-del btn ghost" style="padding:0 7px;font-size:11px;margin-right:5px" title="この外部記事を削除">✕</button>':'';
+    r.innerHTML='<td style="text-align:left">'+delBtn+(p.ext?'🔗 ':'')+(p.reader?'👥 ':'')+esc(p.label)+'</td>'+
       '<td>'+(s.genre?esc(s.genre):(s.mode==='失敗'?'<span class="mut">失敗</span>':'—'))+'</td>'+
       '<td>'+qBadge({score:s.score,pseudo:s.pseudo,mode:s.mode})+'</td>'+
       '<td>'+fmt(s.ctrlScore)+'</td>'+
@@ -2505,52 +2809,177 @@ function renderQuality(){
       '<td>'+(p.reach==null?'—':num(p.reach))+'</td>'+
       '<td'+(s.pseudo?' style="color:#f87171"':'')+'>'+(s.pseudo||0)+'</td>';
     if(s.raw){ r.style.cursor='pointer'; r.title='クリックで詳細・項目修正'; (function(pp){r.onclick=function(){showDetail(pp.struct,pp.label,pp.text,pp);};})(p); }
+    var del=r.querySelector('.qext-del');
+    if(del){ (function(pp){ del.onclick=function(ev){ ev.stopPropagation();
+      var i=QEXT.indexOf(pp._src); if(i>=0){ QEXT.splice(i,1); renderQuality(); renderCorr(); if(typeof autoSaveToGist==='function') autoSaveToGist(true); }
+    }; })(p); }
     tb.appendChild(r);
   });
   t.appendChild(tb);
 }
 function drawQ(pts){
   var host=$('#qChart'); if(!host) return; host.innerHTML='';
-  // 軸セレクタ（X/Y を選べる）
-  var bar=document.createElement('div'); bar.className='row'; bar.style.cssText='gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px';
+  // ── プリセット（意味のあるペアに1タップ）＋自由軸セレクタ：1行にまとめてチャート群の上に置く ──
+  var bar=document.createElement('div'); bar.className='row'; bar.style.cssText='gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px';
+  var presets=[{x:'score',y:'likes',l:'総合×スキ'}];
+  if(HAS_VIEWS){ presets.push({x:'score',y:'likeRate',l:'総合×スキ率'}); presets.push({x:'score',y:'views',l:'総合×ビュー'}); }
+  presets.push({x:'reasonScore',y:'likes',l:'推論×スキ'});
+  presets.forEach(function(pr){
+    var b=document.createElement('button'); b.className='btn ghost'; b.textContent=pr.l;
+    var act=(QPLOT.x===pr.x&&QPLOT.y===pr.y);
+    b.style.cssText='padding:3px 10px;font-size:12px'+(act?';border-color:var(--accent);color:var(--accent)':'');
+    b.onclick=function(){ QPLOT.x=pr.x; QPLOT.y=pr.y; drawQ(pts); };
+    bar.appendChild(b);
+  });
   function mkSel(cur,onch){ var sel=document.createElement('select'); sel.className='ctrl';
+    sel.style.cssText='width:auto;max-width:160px;padding:4px 8px;font-size:13px'; // グローバルの width:100% を打ち消す
     qPlotAxes().forEach(function(a){ var o=document.createElement('option'); o.value=a.key; o.textContent=a.label; if(a.key===cur)o.selected=true; sel.appendChild(o); });
     sel.onchange=function(){ onch(sel.value); drawQ(pts); }; return sel; }
-  var xlab=document.createElement('span'); xlab.className='mut'; xlab.textContent='X軸';
-  var ylab=document.createElement('span'); ylab.className='mut'; ylab.textContent='Y軸';
+  var xlab=document.createElement('span'); xlab.className='mut'; xlab.style.fontSize='12px'; xlab.textContent='X';
+  var ylab=document.createElement('span'); ylab.className='mut'; ylab.style.fontSize='12px'; ylab.textContent='Y';
   bar.appendChild(xlab); bar.appendChild(mkSel(QPLOT.x,function(v){QPLOT.x=v;}));
   bar.appendChild(ylab); bar.appendChild(mkSel(QPLOT.y,function(v){QPLOT.y=v;}));
   host.appendChild(bar);
-  var cv=document.createElement('canvas'); cv.width=900; cv.height=360;
-  cv.style.cssText='width:100%;height:auto;background:#0d1117;border:1px solid #30363d;border-radius:10px';
-  host.appendChild(cv);
-  var x=cv.getContext('2d'); var W=cv.width,H=cv.height,L=58,R=W-20,T=18,B=H-34;
-  x.clearRect(0,0,W,H);
-  x.strokeStyle='#30363d'; x.beginPath(); x.moveTo(L,T); x.lineTo(L,B); x.lineTo(R,B); x.stroke();
-  x.fillStyle='#8b97a5'; x.font='12px sans-serif';
-  var xa=qAxisLabel(QPLOT.x), ya=qAxisLabel(QPLOT.y);
-  x.fillText(xa+' 低',L-2,B+16); x.fillText(xa+' 高',R-46,B+16); x.fillText(ya+' 高',4,T+8); x.fillText(ya+' 低',4,B-2);
-  // 成績軸（ビュー/スキ/スキ率）は各軸の最大値で正規化
-  function axMax(key){ return Math.max(1,Math.max.apply(null,pts.map(function(p){var v=p[key]; return v==null?0:v;}))); }
-  var maxOf={views:axMax('views'),likes:axMax('likes'),likeRate:axMax('likeRate'),reach:axMax('reach')};
-  function norm(p,key){
-    if(qIsPerfAxis(key)){ var v=p[key]; if(v==null)return null; return v/maxOf[key]; }
-    var sv=p.struct?p.struct[key]:null; if(sv==null)return null; return Math.max(0,Math.min(100,sv))/100;
-  }
-  var dropped=0;
-  pts.forEach(function(p){
-    var nx=norm(p,QPLOT.x), ny=norm(p,QPLOT.y);
-    if(nx==null||ny==null){ dropped++; return; }
-    var px=L+(R-L)*nx, py=B-(B-T)*ny;
-    var col=GENRE_COLORS[p.struct.genre]||'#8b97a5';
-    x.fillStyle=col; x.beginPath(); x.arc(px,py,6,0,7); x.fill();
-    if(p.struct.pseudo){ x.strokeStyle='#f87171'; x.lineWidth=2; x.beginPath(); x.arc(px,py,9,0,7); x.stroke(); }
-    if(p.ext){ x.strokeStyle='#c084fc'; x.lineWidth=2.5; x.beginPath(); x.arc(px,py,11,0,7); x.stroke(); }
+  // ── 凡例（ジャンル＝色×形状。タップで表示/非表示。色はエンティティ固定＝フィルタしても残りの色は変えない）──
+  var genresPresent={}; pts.forEach(function(p){ if(p.struct&&p.struct.genre) genresPresent[p.struct.genre]=1; });
+  var leg=document.createElement('div'); leg.className='viz-legend';
+  Q_GENRES.filter(function(g){return genresPresent[g];}).forEach(function(g){
+    var chip=document.createElement('span'); chip.className='viz-chip'+(QPLOT.hide[g]?' off':''); chip.title='タップで表示/非表示';
+    var sv=svgEl('svg',{width:14,height:14,viewBox:'0 0 14 14'}); sv.appendChild(vizMark(GENRE_SHAPES[g],7,7,4.5,GENRE_COLORS[g]));
+    chip.appendChild(sv); chip.appendChild(document.createTextNode(g));
+    chip.onclick=function(){ QPLOT.hide[g]=!QPLOT.hide[g]; drawQ(pts); };
+    leg.appendChild(chip);
   });
-  // 凡例：ジャンル別
-  x.font='11px sans-serif'; var lx=L+4;
-  Q_GENRES.forEach(function(g){ x.fillStyle=GENRE_COLORS[g]; x.beginPath(); x.arc(lx+5,T+6,5,0,7); x.fill(); x.fillStyle='#8b97a5'; x.fillText(g,lx+14,T+10); lx+=x.measureText(g).width+34; });
-  if(dropped){ x.fillStyle='#8b97a5'; x.fillText('（軸の値が無い'+dropped+'件は非表示）',L+4,T+26); }
+  // 外部記事チップ：タップで一覧・散布図・分布から表示/非表示（相関等の判断系は元々自記事のみ）
+  if(QEXT.length){
+    var extChip=document.createElement('span'); extChip.className='viz-chip'+(QPLOT.hideExt?' off':''); extChip.title='タップで外部記事の表示/非表示';
+    var ring=document.createElement('span'); ring.style.cssText='width:9px;height:9px;border-radius:50%;border:1.5px solid #e6edf3;display:inline-block';
+    extChip.appendChild(ring); extChip.appendChild(document.createTextNode('外部記事('+QEXT.length+')'));
+    extChip.onclick=function(){ QPLOT.hideExt=!QPLOT.hideExt; renderQuality(); };
+    leg.appendChild(extChip);
+  }
+  // 読者記事チップ：コア読者タブで解析済みの記事を並べる/隠す
+  var rdrN=(typeof QREADER!=='undefined'?QREADER:[]).filter(function(r){return r.struct;}).length;
+  if(rdrN){
+    var rdrChip=document.createElement('span'); rdrChip.className='viz-chip'+(QPLOT.hideRdr?' off':''); rdrChip.title='タップで読者記事の表示/非表示';
+    var ring2=document.createElement('span'); ring2.style.cssText='width:9px;height:9px;border-radius:50%;border:1.5px solid #8b97a5;display:inline-block';
+    rdrChip.appendChild(ring2); rdrChip.appendChild(document.createTextNode('読者記事('+rdrN+')'));
+    rdrChip.onclick=function(){ QPLOT.hideRdr=!QPLOT.hideRdr; renderQuality(); };
+    leg.appendChild(rdrChip);
+  }
+  var noteExt=document.createElement('span'); noteExt.className='viz-note'; noteExt.textContent='◯白リング＝外部記事・灰リング＝読者記事・赤リング＝偽の発見あり';
+  leg.appendChild(noteExt);
+  host.appendChild(leg);
+  // ── データ整形 ──
+  function val(p,key){ if(qIsPerfAxis(key)) return p[key]; return p.struct?p.struct[key]:null; }
+  var shown=pts.filter(function(p){ return !(p.struct&&p.struct.genre&&QPLOT.hide[p.struct.genre]); });
+  var data=shown.map(function(p){ return {p:p, x:val(p,QPLOT.x), y:val(p,QPLOT.y)}; }).filter(function(d){ return d.x!=null&&d.y!=null; });
+  var dropped=shown.length-data.length;
+  var W=900,H=400,L=64,Rr=W-16,T=30,B=H-46;
+  var svg=svgEl('svg',{viewBox:'0 0 '+W+' '+H,width:'100%',role:'img'});
+  svg.style.cssText='display:block;background:var(--viz-surface);border:1px solid #30363d;border-radius:10px;touch-action:pan-y';
+  host.appendChild(svg);
+  if(!data.length){
+    svg.appendChild(svgEl('text',{x:W/2,y:H/2,'text-anchor':'middle',fill:'#8b97a5','font-size':13},'この軸の組み合わせで表示できる点がありません'));
+    return;
+  }
+  // 軸ドメインと目盛り（成績軸は実数値の目盛り・質軸は0〜100固定）
+  function axisDef(key,vals){
+    if(qIsPerfAxis(key)){ var mx=Math.max.apply(null,vals); var tk=niceTicks(mx*1.02); return {min:0,max:tk[tk.length-1],ticks:tk}; }
+    return {min:0,max:100,ticks:[0,25,50,75,100]};
+  }
+  var ax=axisDef(QPLOT.x,data.map(function(d){return d.x;}));
+  var ay=axisDef(QPLOT.y,data.map(function(d){return d.y;}));
+  function sx(v){ return L+(Rr-L)*(v-ax.min)/(ax.max-ax.min||1); }
+  function sy(v){ return B-(B-T)*(v-ay.min)/(ay.max-ay.min||1); }
+  // グリッド：ヘアライン・実線・控えめ
+  ay.ticks.forEach(function(tv){
+    var y2=sy(tv);
+    svg.appendChild(svgEl('line',{x1:L,y1:y2,x2:Rr,y2:y2,stroke:(tv===ay.min?'var(--viz-axis)':'var(--viz-grid)'),'stroke-width':1}));
+    svg.appendChild(svgEl('text',{x:L-8,y:y2+4,'text-anchor':'end',fill:'#8b97a5','font-size':11,style:'font-variant-numeric:tabular-nums'},vizAxisVal(QPLOT.y,tv)));
+  });
+  ax.ticks.forEach(function(tv){
+    var x2=sx(tv);
+    svg.appendChild(svgEl('line',{x1:x2,y1:B,x2:x2,y2:B+4,stroke:'var(--viz-axis)','stroke-width':1}));
+    svg.appendChild(svgEl('text',{x:x2,y:B+18,'text-anchor':'middle',fill:'#8b97a5','font-size':11,style:'font-variant-numeric:tabular-nums'},vizAxisVal(QPLOT.x,tv)));
+  });
+  svg.appendChild(svgEl('line',{x1:L,y1:T,x2:L,y2:B,stroke:'var(--viz-axis)','stroke-width':1}));
+  // 軸タイトル（テキストはテキスト色・データ色は着せない）
+  svg.appendChild(svgEl('text',{x:8,y:16,fill:'#8b97a5','font-size':12},qAxisLabel(QPLOT.y)+' ↑'));
+  svg.appendChild(svgEl('text',{x:Rr,y:H-8,'text-anchor':'end',fill:'#8b97a5','font-size':12},qAxisLabel(QPLOT.x)+' →'));
+  // トレンド線＋r（この軸ペアの相関を図の中で読めるように）
+  var xs=data.map(function(d){return d.x;}), ys=data.map(function(d){return d.y;});
+  var r=pearson(xs,ys);
+  if(r!=null){
+    var n=xs.length, mx2=xs.reduce(function(s,v){return s+v;},0)/n, my2=ys.reduce(function(s,v){return s+v;},0)/n;
+    var cov=0,vx=0; for(var i2=0;i2<n;i2++){ cov+=(xs[i2]-mx2)*(ys[i2]-my2); vx+=(xs[i2]-mx2)*(xs[i2]-mx2); }
+    if(vx>0){
+      var b1=cov/vx, b0=my2-b1*mx2;
+      var clip2=svgEl('clipPath',{id:'qplotclip'}); clip2.appendChild(svgEl('rect',{x:L,y:T,width:Rr-L,height:B-T}));
+      var defs=svgEl('defs'); defs.appendChild(clip2); svg.appendChild(defs);
+      var g=svgEl('g',{'clip-path':'url(#qplotclip)'});
+      g.appendChild(svgEl('line',{x1:sx(ax.min),y1:sy(b0+b1*ax.min),x2:sx(ax.max),y2:sy(b0+b1*ax.max),stroke:'#566472','stroke-width':2,'stroke-linecap':'round'}));
+      svg.appendChild(g);
+    }
+    svg.appendChild(svgEl('text',{x:Rr,y:T-8,'text-anchor':'end',fill:'#8b97a5','font-size':12,style:'font-variant-numeric:tabular-nums'},'相関 r='+r.toFixed(2)+'（n='+data.length+'）'));
+  }
+  // ── 点（ジャンル＝色×形状・外部＝白リング・偽の発見＝赤リング）──
+  var ptsXY=[];
+  data.forEach(function(d){
+    var px=sx(d.x), py=sy(d.y), s=d.p.struct;
+    if(s.pseudo) svg.appendChild(svgEl('circle',{cx:px,cy:py,r:11,fill:'none',stroke:'#f87171','stroke-width':2}));
+    if(d.p.ext||d.p.reader) svg.appendChild(svgEl('circle',{cx:px,cy:py,r:s.pseudo?14:11,fill:'none',stroke:d.p.ext?'#e6edf3':'#8b97a5','stroke-width':1.5,opacity:.85}));
+    svg.appendChild(vizMark(GENRE_SHAPES[s.genre]||'circle',px,py,6,GENRE_COLORS[s.genre]||'#8b97a5'));
+    ptsXY.push({x:px,y:py,d:d});
+  });
+  // 選択的直接ラベル：Y最上位2件＋X最上位1件のみ（全点ラベルはノイズ）
+  var labeled={}, placed=[];
+  var cand=data.slice().sort(function(a,b){return b.y-a.y;}).slice(0,2);
+  var topX=data.slice().sort(function(a,b){return b.x-a.x;})[0];
+  if(topX&&cand.indexOf(topX)<0) cand.push(topX);
+  cand.forEach(function(d){
+    var key2=d.p.label; if(labeled[key2])return; labeled[key2]=1;
+    var px=sx(d.x),py=sy(d.y);
+    // 既存ラベルや他の点と重なるならスキップ（ラベルは補助・ツールチップと表が本体）
+    var collides=placed.some(function(q){ return Math.abs(q.y-py)<15 && Math.abs(q.x-px)<180; }) ||
+      ptsXY.some(function(q){ return q.d!==d && Math.abs(q.y-py)<10 && q.x>px+8 && q.x<px+180; });
+    if(collides) return;
+    placed.push({x:px,y:py});
+    var right=px>W-190;
+    svg.appendChild(svgEl('text',{x:right?px-12:px+12,y:py+4,'text-anchor':right?'end':'start',fill:'#8b97a5','font-size':11},clip(d.p.label,16)));
+  });
+  // ── ホバー／タップ：最近傍点（≦28px）にツールチップ＋強調リング。クリックで詳細 ──
+  var hoverRing=svgEl('circle',{r:11,fill:'none',stroke:'#e6edf3','stroke-width':1.5,visibility:'hidden','pointer-events':'none'});
+  svg.appendChild(hoverRing);
+  function nearest(ev){
+    var rect=svg.getBoundingClientRect();
+    var mx3=(ev.clientX-rect.left)*(W/rect.width), my3=(ev.clientY-rect.top)*(H/rect.height);
+    var best=null,bd=Infinity;
+    ptsXY.forEach(function(q){ var dd=(q.x-mx3)*(q.x-mx3)+(q.y-my3)*(q.y-my3); if(dd<bd){bd=dd;best=q;} });
+    return (best&&bd<=28*28)?best:null;
+  }
+  svg.onpointermove=function(ev){
+    var q=nearest(ev);
+    if(!q){ hoverRing.setAttribute('visibility','hidden'); vizTipHide(); svg.style.cursor='default'; return; }
+    hoverRing.setAttribute('cx',q.x); hoverRing.setAttribute('cy',q.y); hoverRing.setAttribute('visibility','visible');
+    var p=q.d.p, s=p.struct;
+    var rows=[['ジャンル',(s.genre||'—')+(p.ext?'・外部':'')+(p.reader?'・読者':''),GENRE_COLORS[s.genre]||'#8b97a5'],
+      [qAxisLabel(QPLOT.x),vizAxisVal(QPLOT.x,q.d.x)],[qAxisLabel(QPLOT.y),vizAxisVal(QPLOT.y,q.d.y)]];
+    if(QPLOT.x!=='score'&&QPLOT.y!=='score') rows.push(['総合',s.score==null?'—':String(s.score)]);
+    if(s.pseudo) rows.push(['偽の発見',String(s.pseudo)]);
+    vizTipShow(ev.clientX,ev.clientY,p.label,rows);
+    svg.style.cursor=s.raw?'pointer':'default';
+  };
+  svg.onpointerleave=function(){ hoverRing.setAttribute('visibility','hidden'); vizTipHide(); };
+  svg.onclick=function(ev){
+    var q=nearest(ev);
+    if(q&&q.d.p.struct&&q.d.p.struct.raw){ vizTipHide(); showDetail(q.d.p.struct,q.d.p.label,q.d.p.text,q.d.p); }
+  };
+  if(dropped){
+    var dn=document.createElement('div'); dn.className='viz-note'; dn.style.marginTop='4px';
+    dn.textContent='軸の値が無い'+dropped+'件は非表示（下の一覧表にはすべて載っています）';
+    host.appendChild(dn);
+  }
 }
 /* ====================== noteサンプリング ====================== */
 function bindSampling(){
@@ -2666,34 +3095,96 @@ function bindReaderCompare(){
 function renderReaderCompare(){
   var box=$('#rdCompare'); if(!box) return;
   if(!QREADER.length){ box.innerHTML=''; return; }
+  box.textContent='';
   var ownStylo=(ARTS||[]).filter(function(a){return a.text;}).map(function(a){return styloMetrics(a.text);}).filter(Boolean);
   var rdStylo=QREADER.map(function(r){return r.stylo;}).filter(Boolean);
-  var h='<div style="margin-top:10px"><strong style="font-size:13px">文体指標 中央値：あなた（n='+ownStylo.length+'） vs コア読者層（n='+rdStylo.length+'）</strong>';
-  h+='<div class="tablewrap" style="margin-top:6px"><table><thead><tr><th>指標</th><th>あなた</th><th>読者層</th><th>差</th></tr></thead><tbody>';
-  STYLO_FIELDS.forEach(function(f){
-    var o=median(ownStylo.map(function(s){return s[f.key];}).filter(function(v){return v!=null;}));
-    var r=median(rdStylo.map(function(s){return s[f.key];}).filter(function(v){return v!=null;}));
-    var diff=(o!=null&&r!=null)?(o-r):null;
-    h+='<tr><td>'+f.label+'</td><td>'+(o!=null?f1(o)+f.unit:'—')+'</td><td>'+(r!=null?f1(r)+f.unit:'—')+'</td><td>'+(diff!=null?((diff>0?'+':'')+f1(diff)):'—')+'</td></tr>';
-  });
-  h+='</tbody></table></div></div>';
-  var rdStruct=QREADER.filter(function(r){return r.struct;});
-  var ownStruct=(ARTS||[]).filter(function(a){return a.struct;});
-  if(rdStruct.length){
-    h+='<div style="margin-top:14px"><strong style="font-size:13px">LLM構造指標 中央値：あなた（n='+ownStruct.length+'） vs 読者層（n='+rdStruct.length+'）</strong>';
-    h+='<div class="tablewrap" style="margin-top:6px"><table><thead><tr><th>指標</th><th>あなた</th><th>読者層</th></tr></thead><tbody>';
-    [['総合','score'],['構造制御','ctrlScore'],['推論の質','reasonScore'],['接地','groundScore'],['独自構築','buildScore']].forEach(function(m){
-      var o=median(ownStruct.map(function(a){return a.struct[m[1]];}).filter(function(v){return v!=null;}));
-      var r=median(rdStruct.map(function(a){return a.struct[m[1]];}).filter(function(v){return v!=null;}));
-      h+='<tr><td>'+m[0]+'</td><td>'+(o!=null?f1(o):'—')+'</td><td>'+(r!=null?f1(r):'—')+'</td></tr>';
+  // 凡例・ダンベルは共有ヘルパー（指標レイヤ横で定義）を使用
+  function legend(){ return vizYouThemLegend('コア読者層'); }
+  function head(txt){ var h=document.createElement('div'); h.style.cssText='font-size:13px;font-weight:700;margin-top:14px'; h.textContent=txt; return h; }
+  function note(txt){ var n=document.createElement('div'); n.className='viz-note'; n.textContent=txt; return n; }
+  var dumbbells=vizDumbbells;
+  // ── 文体指標（各行はその指標の範囲でスケール）──
+  if(ownStylo.length||rdStylo.length){
+    box.appendChild(head('文体指標 中央値：あなた（n='+ownStylo.length+'） vs コア読者層（n='+rdStylo.length+'）'));
+    box.appendChild(legend());
+    var styloRows=STYLO_FIELDS.map(function(f){
+      return {label:f.label, unit:f.unit,
+        you:median(ownStylo.map(function(s){return s[f.key];}).filter(function(v){return v!=null;})),
+        them:median(rdStylo.map(function(s){return s[f.key];}).filter(function(v){return v!=null;}))};
     });
-    h+='</tbody></table></div>';
+    box.appendChild(dumbbells(styloRows));
+    box.appendChild(note('各行はその指標の範囲でスケール（行同士の横位置は比較しない）。上の値＝あなた・下の値＝読者層'));
+    // 表ビュー（差の数値つき・チャートの双子）
+    var th='<div class="tablewrap" style="margin-top:6px"><table><thead><tr><th>指標</th><th>あなた</th><th>読者層</th><th>差</th></tr></thead><tbody>';
+    styloRows.forEach(function(r){
+      var diff=(r.you!=null&&r.them!=null)?(r.you-r.them):null;
+      th+='<tr><td>'+esc(r.label)+'</td><td>'+(r.you!=null?f1(r.you)+r.unit:'—')+'</td><td>'+(r.them!=null?f1(r.them)+r.unit:'—')+'</td><td>'+(diff!=null?((diff>0?'+':'')+f1(diff)):'—')+'</td></tr>';
+    });
+    th+='</tbody></table></div>';
+    box.insertAdjacentHTML('beforeend', detailsBlock('表で見る（差の数値）', th));
+  }
+  // ── LLM構造指標（0〜100固定スケール）──
+  var rdStruct=QREADER.filter(function(r){return r.struct && r.struct.score!=null;});
+  var ownStruct=(ARTS||[]).filter(function(a){return a.struct && a.struct.score!=null;});
+  if(rdStruct.length){
+    box.appendChild(head('LLM構造指標 中央値（0〜100）：あなた（n='+ownStruct.length+'） vs 読者層（n='+rdStruct.length+'）'));
+    box.appendChild(legend());
+    var structRows=[['総合','score'],['構造制御','ctrlScore'],['推論の質','reasonScore'],['接地','groundScore'],['独自構築','buildScore']].map(function(m){
+      return {label:m[0], min:0, max:100,
+        you:median(ownStruct.map(function(a){return a.struct[m[1]];}).filter(function(v){return v!=null;})),
+        them:median(rdStruct.map(function(a){return a.struct[m[1]];}).filter(function(v){return v!=null;}))};
+    });
+    box.appendChild(dumbbells(structRows));
+    // ── 読者記事の解析結果一覧（記事単位・スコア順・クリックで詳細修正可）──
+    box.appendChild(head('読者記事の解析結果（記事単位・'+rdStruct.length+'件・クリックで詳細）'));
+    var tw=document.createElement('div'); tw.className='tablewrap'; tw.style.marginTop='6px';
+    var tbl=document.createElement('table');
+    tbl.innerHTML='<thead><tr><th style="text-align:left">記事</th><th style="text-align:left">読者</th><th>総合</th><th>構造制御</th><th>推論の質</th><th>接地</th><th>独自構築</th><th>スキ</th></tr></thead>';
+    var rtb=document.createElement('tbody');
+    rdStruct.slice().sort(function(a,b){return (b.struct.score||0)-(a.struct.score||0);}).forEach(function(rr){
+      var s=rr.struct; var tr2=document.createElement('tr');
+      var fmt2=function(v,suf){return v==null?'—':v+(suf||'');};
+      tr2.innerHTML='<td style="text-align:left">'+(rr.url?'<a href="'+esc(rr.url)+'" target="_blank" rel="noopener">'+esc(clip(rr.label,32))+'</a>':esc(clip(rr.label,32)))+'</td>'+
+        '<td style="text-align:left">'+esc(rr.reader||'—')+'</td>'+
+        '<td>'+qBadge(s)+'</td>'+
+        '<td>'+fmt2(s.ctrlScore)+'</td><td>'+fmt2(s.reasonScore)+'</td><td>'+fmt2(s.groundScore,'%')+'</td><td>'+fmt2(s.buildScore)+'</td>'+
+        '<td>'+(rr.likes!=null?num(rr.likes):'—')+'</td>';
+      if(s.raw){ tr2.style.cursor='pointer'; tr2.title='クリックで詳細・項目修正';
+        tr2.onclick=function(ev){ if(ev.target.tagName==='A')return; showDetail(s, rr.label, null, {url:rr.url, likes:rr.likes, ext:true}); }; }
+      rtb.appendChild(tr2);
+    });
+    tbl.appendChild(rtb); tw.appendChild(tbl); box.appendChild(tw);
+    var llmFail=QREADER.filter(function(r){return r.structErr;}).length;
+    if(llmFail) box.appendChild(note('LLM解析失敗 '+llmFail+'件は一覧に含まれません（再実行で解析されます）'));
+    // ── ジャンル分布（割合の対バー：記事数が違っても比べられる）──
     function dist(list){ var d={}; list.forEach(function(s){ var g=s.genre||'?'; d[g]=(d[g]||0)+1; }); return d; }
     var od=dist(ownStruct.map(function(a){return a.struct;})), rdd=dist(rdStruct.map(function(a){return a.struct;}));
-    var gs={}; Object.keys(od).concat(Object.keys(rdd)).forEach(function(g){gs[g]=1;});
-    h+='<div class="muted" style="font-size:12px;margin-top:6px">ジャンル分布（あなた / 読者層）：'+Object.keys(gs).map(function(g){return esc(g)+' '+(od[g]||0)+'/'+(rdd[g]||0);}).join('・')+'</div></div>';
+    var gs=Q_GENRES.filter(function(g){return od[g]||rdd[g];});
+    Object.keys(od).concat(Object.keys(rdd)).forEach(function(g){ if(gs.indexOf(g)<0) gs.push(g); }); // 想定外ジャンルも漏らさない
+    if(gs.length){
+      box.appendChild(head('ジャンル分布（各グループ内の割合）'));
+      box.appendChild(legend());
+      var rows2=gs.map(function(g){
+        return {g:g, a:100*(od[g]||0)/ownStruct.length, b:100*(rdd[g]||0)/rdStruct.length};
+      });
+      rows2.forEach(function(rw){
+        var row=document.createElement('div'); row.className='gbar-row';
+        var l=document.createElement('div'); l.className='gbar-lbl'; l.textContent=rw.g; row.appendChild(l);
+        var tr=document.createElement('div'); tr.className='gbar-track';
+        [[rw.a,'var(--viz-you)',od[rw.g]||0],[rw.b,'var(--viz-them)',rdd[rw.g]||0]].forEach(function(e){
+          var g2=document.createElement('div'); g2.className='gbar';
+          var wpct=e[0]; // 絶対スケール（0〜100%）：バーの長さ＝割合そのもの
+          var f=document.createElement('div'); f.className='fill'; f.style.width=wpct+'%'; f.style.background=e[1]; g2.appendChild(f);
+          var v=document.createElement('div'); v.className='v'; v.textContent=e[0].toFixed(0)+'%（'+e[2]+'件）';
+          if(wpct>72){ v.style.left='calc('+wpct+'% - 6px)'; v.style.transform='translate(-100%,-50%)'; v.style.color='#fff'; } // 長いバーは内側ラベル
+          else v.style.left='calc('+wpct+'% + 6px)';
+          g2.appendChild(v); tr.appendChild(g2);
+        });
+        row.appendChild(tr);
+        box.appendChild(row);
+      });
+    }
   }
-  box.innerHTML=h;
 }
 bindReaderCompare();
 
@@ -2718,13 +3209,14 @@ function buildEvalExport(){
   var scores={ジャンル:q.genre, 総合:q.score, 構造制御:q.ctrlScore, 推論の質:q.reasonScore, 接地:q.groundScore, 独自構築:q.buildScore, 偽の発見:q.pseudo, 手筋内訳:q.counts};
   var logic=[
     '# このツールの評価ロジック（前提）',
-    '- ジャンル判定: 技術設計/実験検証/論証/案出し/エッセイ体験。ジャンルで物差しを変える。',
+    '- ジャンル判定: 技術設計/実験検証/論証/批評/案出し/エッセイ体験。ジャンルで物差しを変える。',
     '- 手筋の制御度: 強制(データ/論理/公平機構で結論が決まる)/好み(理由なき決め打ち)/未制御(無根拠に開く)/報告(体験・引用・ナレーション＝中立で減点しない)。',
-    '- 構造制御スコア = 報告を除く構造的手筋で 100×強制率 − 40×好み率 − 75×未制御率(0〜100)。',
-    '- 推論の質 = 各提案/主張の「前提からの帰結・区別の一貫・反例処理・無矛盾・定義の一貫」を 高/中/低 で評価し平均。',
+    '- 構造制御スコア = 報告を除く構造的手筋で 100×強制率 − 40×好み率 − 75×未制御率（0〜100に丸め）。',
+    '- 推論の質 = 各提案/主張の「前提からの帰結・区別の一貫・反例処理・無矛盾・定義の一貫・非自明性」を 高(100)/中(55)/低(15) で評価し平均。',
     '- 接地 = 荷重主張のうち表れ型(センスなしで再現可能)の割合。',
-    '- 独自構築 = original_concept/implementation/iteration/cross_domain の数と多様性。',
-    '- 総合 = そのジャンルで有効な観点(構造制御/推論の質/接地/独自構築)の平均 − 35×偽の発見。エッセイ体験は構造制御を出さない。'
+    '- 独自構築 = original_concept/implementation/iteration/cross_domain の種類×20＋件数×10（上限100）。加点専用＝他観点の平均を下回る場合は総合に算入しない（無くても・低くても減点しない）。',
+    '- 総合 = ジャンルで有効な観点の平均 − min(40, 20×偽の発見件数)。技術設計/実験=構造制御+接地+独自構築、論証=推論+構造制御+接地、批評=推論+接地+独自構築、案出し=推論+接地+独自構築、エッセイ体験=推論+独自構築（批評・エッセイ体験は構造制御を総合に入れない）。',
+    '- 複合記事（sectionsに主ジャンルと異なる区間がある場合）は区間ジャンルの有効観点も合算する。ただし主ジャンルが批評・案出しの場合、構造制御は合算しない（提案・美的判断が好みとして数えられるのが正常なジャンルのため）。'
   ].join('\n');
   var m=DETAIL_STATE.meta||{};
   var parts=[
@@ -2742,6 +3234,7 @@ function buildEvalExport(){
   if(m.charCount!=null) parts.push('- 本文文字数: '+num(m.charCount)+'字');
   parts.push('- 解析モデル: '+((DETAIL_STATE.struct&&DETAIL_STATE.struct.model)?DETAIL_STATE.struct.model:'未記録（この解析より前のデータ）'));
   if(m.ext) parts.push('- ※外部記事（他者の記事。スキ数のみ・ビュー等は取得不可）');
+  if(m.reader) parts.push('- ※コア読者の記事（他者の記事。スキ数のみ・ビュー等は取得不可）');
   parts.push('- 注意: 反応値は公開からの経過日数に依存します。質と反応の食い違いを論じる際は経過日数も考慮してください。');
   if(DETAIL_STATE.text){
     var full=String(DETAIL_STATE.text);
@@ -2788,8 +3281,15 @@ function renderDetailGenre(){
   host.appendChild(lab);
   host.appendChild(mkSelect(Q_GENRES, d.primary_genre, function(v){ d.primary_genre=v; recomputeDetail(true); }));
   if((d.sections||[]).length){
-    var s=document.createElement('div'); s.className='muted'; s.style.cssText='font-size:12px;margin-top:6px';
-    s.innerHTML='区間：'+d.sections.map(function(x){ return esc(x.genre||'?')+'（'+esc(x.summary||'')+'）'; }).join(' ／ ');
+    var s=document.createElement('div'); s.className='muted'; s.style.cssText='font-size:12px;margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center';
+    s.appendChild(document.createTextNode('区間（複合記事は区間ジャンルの観点も総合に合算・修正可）：'));
+    d.sections.forEach(function(x){
+      var w=document.createElement('span'); w.style.cssText='display:inline-flex;align-items:center;gap:4px';
+      var opts=Q_GENRES.slice(); if(x.genre&&opts.indexOf(x.genre)<0)opts.unshift(x.genre);
+      w.appendChild(mkSelect(opts, x.genre, function(v){ x.genre=v; recomputeDetail(true); }));
+      var t=document.createElement('span'); t.textContent='（'+(x.summary||'')+'）'; w.appendChild(t);
+      s.appendChild(w);
+    });
     host.appendChild(s);
   }
 }
@@ -2914,7 +3414,7 @@ function recomputeDetail(isEdit){
   var d=DETAIL_STATE.result; if(!d) return;
   var q=qualityScore(d);
   var ens=DETAIL_STATE.struct&&DETAIL_STATE.struct.ensemble; // 旧アンサンブルメタを保持
-  if(DETAIL_STATE.struct){ Object.assign(DETAIL_STATE.struct,q); if(ens)DETAIL_STATE.struct.ensemble=ens; if(isEdit)DETAIL_STATE.struct._calibrated=true; }
+  if(DETAIL_STATE.struct){ Object.assign(DETAIL_STATE.struct,q); if(ens)DETAIL_STATE.struct.ensemble=ens; if(isEdit){ DETAIL_STATE.struct._calibrated=true; DETAIL_STATE.struct._calibratedAt=Date.now(); } }
   var c=q.counts||{強制:0,好み:0,未制御:0,報告:0};
   var col = q.pseudo? 'var(--bad)' : (q.score==null?'var(--mut)':(q.score>=70?'var(--good)':(q.score>=40?'var(--warn)':'var(--bad)')));
   var ensHtml = ens? '<span class="muted" style="font-size:12px;margin-left:8px">一致度 ジャンル'+ens.genreAgree+'%'+(ens.spread!=null?' ・スコア幅±'+Math.round(ens.spread/2):'')+'（'+ens.n+'回）</span>' : '';
@@ -2977,7 +3477,7 @@ function drawDetailMap(moves){
   x.fillText('射程 低',xs['低']-18,B+18); x.fillText('中',xs['中']-6,B+18); x.fillText('高（非自明）',xs['高']-24,B+18);
   var seen={};
   moves.forEach(function(m){
-    var k0=normControl(m.control)||'好み';
+    var k0=normControl(m.control); if(!k0) return; // 表記ゆれで正規化できない手筋はスコア同様スキップ
     var px=xs[m.reach]||xs['中'], py=ys[k0]||ys['好み'];
     var k=Math.round(px)+'_'+Math.round(py); var off=seen[k]||0; seen[k]=off+1;
     px+=(off%3)*16-16; py+=Math.floor(off/3)*16;
