@@ -2295,7 +2295,8 @@ var Q_SYSTEM=[
 '- 論証 … 主張を根拠・論理で支える記事。',
 '- 批評 … 作品・主張・文章を具体的に検討して是非を論じる記事（書評・論評・添削）。本体は「批判の筋が通っているか」。',
 '- 案出し … 規範・アイデア・提案・助言を出す記事。結論が強制されないのが規範。ただし提案の論理の良し悪し（推論の質）と、提案に具体的な実行手順があるか（接地）を評価する。**体験談・逸話を交えていても、記事の主目的が助言・提案・教訓の提示なら案出しに分類する（エッセイ体験ではない）。** 抽象的な心構えだけで具体手順が無い助言は接地が低く出る。',
-'- エッセイ体験 … 個人の体験・回想・対話そのものが目的の記事（助言・提案が主目的なら案出しに回す）。',
+'- エッセイ体験 … 個人の体験・回想・対話そのものが目的の記事（助言・提案が主目的なら案出しに回す。創作作品はフィクションへ）。',
+'- フィクション … 小説・掌編・詩・シナリオなどの創作作品。物語ること自体が目的（実体験ベースの随筆はエッセイ体験）。寓意・仕掛けの解釈は reasoning で評価してよいが、この指標（構造の質）の主対象外であり総合スコアは上限付きの参考値になる。',
 '重要：ジャンルで当てる物差しが違う。構造制御（強制/好み/未制御）の物差しは、技術設計・実験・論証の構造主張にのみ当てる。',
 '批評では、個々の美的判断（読みやすい/くどい等）が主観的なのは当然であり、それ自体を構造の穴（好み/未制御）として重く扱わない。批評の評価軸は「推論の質（批判が筋として通るか）」と「接地（逐語引用・修正案・代入など具体で検証可能か）」。',
 'エッセイの体験報告・引用・ナレーションには構造制御を当てない（→制御度は「報告」）。',
@@ -2312,6 +2313,7 @@ var Q_SYSTEM=[
 '荷重を担う主張・提案について、「結論が強制されているか」とは別に、推論として筋が通っているかを評価する。論証・批評・案出し・エッセイで特に重要。',
 '**一貫性ルール：reasoning に入れるのは荷重主張のみ。** 締め・余談・問いかけ・修辞的な一言など「崩れても記事の主結論が崩れない」非荷重の主張は reasoning に入れない（偽の発見検査の荷重判定と同じ基準を使う。非荷重の一般化が気になる場合は moves の未制御/報告として記録するにとどめ、スコア対象の reasoning には含めない）。',
 '**重要：論証・批評・案出し・エッセイ体験では、記事の荷重を担う主張/批判/洞察を必ず reasoning に1件以上入れること（空にしない）。** moves は「論の運び（どんなステップを踏んだか）」、reasoning は「その論が妥当か」。批評記事なら個々の批判（例：語法の誤り指摘・代入による矛盾導出・含意論証）を、エッセイなら体験から引き出した洞察・指摘を reasoning に入れて評価する。',
+'**主結論必須ルール：実験検証・批評では、記事の主結論（実験・データが支持した結論、中心的な批判）を必ず reasoning に含めること。** reasoning に入れる荷重主張の選定は、verifiability で拾った荷重主張と整合させる（同じ「荷重」判定基準を使う）。背景・動機部の周辺主張だけを reasoning に選んで主結論を落とすのは誤り。',
 '各主張/提案について次の観点をチェックし、verdict（高/中/低）を出す：',
 '- 前提からの帰結 … 提案/結論が、述べられた問題設定・前提から実際に導かれているか。',
 '- 区別の一貫性 … 持ち出した区別・分類が一貫し、恣意的でないか。',
@@ -2486,13 +2488,22 @@ function styloMetrics(text){
 
 // ① 自己一貫性：N回サンプリングし、総合スコアの中央値に最も近い run を代表（medoid）に、
 //   ジャンル一致率とスコアの広がりを ensemble メタとして付与する
+// 出力ルール検査つき抽出：reasoning必須ジャンルで空が返ったら1回だけ再抽出する
+function analyzeTextChecked(text,model,calib){
+  return analyzeText(text,model,calib).then(function(r){
+    var g=(r&&r.primary_genre)||'';
+    var needs=['論証','批評','案出し','エッセイ体験','フィクション'].indexOf(g)>=0;
+    if(needs && !((r.reasoning||[]).length)) return analyzeText(text,model,calib);
+    return r;
+  });
+}
 function analyzeAndScore(text, model, excludeKey){
   var calib=buildCalibration(excludeKey);
   var n=qSamplesGet();
-  if(n<=1) return analyzeText(text,model,calib).then(function(r){ return Object.assign(qualityScore(r),{raw:r, model:model}); });
+  if(n<=1) return analyzeTextChecked(text,model,calib).then(function(r){ return Object.assign(qualityScore(r),{raw:r, model:model}); });
   var runs=[];
   var chain=Promise.resolve();
-  for(var i=0;i<n;i++){ chain=chain.then(function(){ return analyzeText(text,model,calib).then(function(r){ runs.push(r); }).catch(function(){}); }); }
+  for(var i=0;i<n;i++){ chain=chain.then(function(){ return analyzeTextChecked(text,model,calib).then(function(r){ runs.push(r); }).catch(function(){}); }); }
   return chain.then(function(){
     if(!runs.length) throw new Error('全サンプル失敗');
     var scored=runs.map(function(r){ return {raw:r, q:qualityScore(r)}; });
@@ -2512,10 +2523,12 @@ function analyzeAndScore(text, model, excludeKey){
     var st=Object.assign(canonical.q,{raw:canonical.raw, model:model});
     st.ensemble={ n:scored.length, genreAgree:Math.round(100*genres[topG]/scored.length), topGenre:topG,
       spread:(nums.length?Math.max.apply(null,nums)-Math.min.apply(null,nums):null), scores:scored.map(function(s){return s.q.score;}) };
+    // 試行間のスコアが大きく割れている（±30以上）＝抽出のサンプリング運でスコアが動く状態は低信頼
+    if(st.ensemble.spread!=null && st.ensemble.spread>=30) st.lowConf=true;
     return st;
   });
 }
-var Q_GENRES=['技術設計','実験検証','論証','批評','案出し','エッセイ体験'];
+var Q_GENRES=['技術設計','実験検証','論証','批評','案出し','エッセイ体験','フィクション'];
 // 内訳観点（大枠＝ジャンル＋総合、内訳＝この4観点、フラグ＝偽の発見）
 var Q_AXES=[
   {key:'ctrlScore',  label:'構造制御'},
@@ -2529,7 +2542,7 @@ function genreAxes(g){
   if(g==='論証') return ['reasonScore','ctrlScore','groundScore'];
   if(g==='批評') return ['reasonScore','groundScore','buildScore']; // 批評は推論の質＋接地（具体性）主軸。構造制御は外す
   if(g==='案出し') return ['reasonScore','groundScore','buildScore'];
-  if(g==='エッセイ体験') return ['reasonScore','buildScore'];
+  if(g==='エッセイ体験'||g==='フィクション') return ['reasonScore','buildScore'];
   // 不明・空ジャンルは構造制御を主軸にしない（誤適用で潰さないため）
   return ['reasonScore','groundScore','buildScore'];
 }
@@ -2590,18 +2603,28 @@ function qualityScore(r){
       if(active.indexOf(k)<0) active.push(k);
     });
   });
+  // 軸ごとの根拠件数。分母1件の軸は重みを半減し、少数サンプルの0/100が総合を支配しないようにする
+  var axisN={ctrlScore:structuralN, reasonScore:rvals.length, groundScore:vf.length, buildScore:cons.length};
+  function axisW(k){ return Math.min(1,(axisN[k]||0)/2); }
   // 独自構築は加点専用：他の有効観点の平均を下回るときは総合に算入しない。
   // 「無い＝null＝平均から除外」なのに「1件検出＝低スコアで平均に参入」だと、
   // 何か作った記事の方が何も作っていない記事より低く出る逆転が起きるため。
-  var core=active.filter(function(k){ return k!=='buildScore'; }).map(function(k){ return self[k]; }).filter(function(v){ return v!=null; });
-  var coreAvg=core.length? core.reduce(function(s,v){return s+v;},0)/core.length : null;
+  var core=active.filter(function(k){ return k!=='buildScore' && self[k]!=null; });
+  var coreW=core.reduce(function(s,k){return s+axisW(k);},0);
+  var coreAvg=coreW>0? core.reduce(function(s,k){return s+self[k]*axisW(k);},0)/coreW : null;
   var used=core.slice();
-  if(active.indexOf('buildScore')>=0 && buildScore!=null && (coreAvg==null || buildScore>=coreAvg)) used.push(buildScore);
-  var score=used.length? Math.round(used.reduce(function(s,v){return s+v;},0)/used.length) : null;
+  if(active.indexOf('buildScore')>=0 && buildScore!=null && (coreAvg==null || buildScore>=coreAvg)) used.push('buildScore');
+  var totW=used.reduce(function(s,k){return s+axisW(k);},0);
+  var score=totW>0? Math.round(used.reduce(function(s,k){return s+self[k]*axisW(k);},0)/totW) : null;
   // 偽の発見ペナルティは比率化＋上限（1件の境界事例で総合が0に潰れないように）
   if(score!=null) score=Math.max(0,Math.min(100, score - Math.min(40, 20*pseudo)));
+  if(score!=null){
+    // 主軸の根拠が1件以下なら上限75（1件の「高」で満点に飽和する事故の防止）
+    if((axisN[active[0]]||0)<2) score=Math.min(score,75);
+    // フィクションはこの指標の主対象外：総合は上限75の参考値
+    if(genre==='フィクション') score=Math.min(score,75);
+  }
   // 低信頼：主軸（先頭の観点）が抽出できていない／主軸の根拠が1件しかなく不安定
-  var axisN={ctrlScore:structuralN, reasonScore:rvals.length, groundScore:vf.length, buildScore:cons.length};
   var lowConf = (self[active[0]]==null) || (!genre) || ((axisN[active[0]]||0)<2);
   return {
     genre:genre, score:score, lowConf:lowConf,
