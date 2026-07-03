@@ -1957,7 +1957,7 @@ function ensureDataBranch(slug){
 }
 // 保存の共通実装（ボタンと自動保存の両方から使う）。dataブランチ確保→sha取得→PUT
 var _dataBranchOk=''; // ensureDataBranch済みのslugをキャッシュ（自動保存のAPI呼び出し削減）
-var _lastSavedPayload=null; // 直前に保存した内容（同一内容の空コミットを防ぐ）
+var _lastSavedKey=null; // 直前に保存した「保存先+内容」（同一内容の空コミットを防ぐ。保存先が変わったら再保存する）
 function naRepoSha(slug){
   // 親ディレクトリ一覧からshaを取る。GET /contents/<file> はファイルが約1MBを超えると
   // 失敗する（sha無しPUT→422事故の原因になる）ため、サイズに影響されない一覧方式を使う
@@ -1972,7 +1972,7 @@ function naRepoSha(slug){
 function naRepoSave(slug, silent){
   syncStructToData();
   var payload=JSON.stringify(DATA,null,2);
-  if(payload===_lastSavedPayload){ if(!silent) naSyncMsg('☁️ 変更なし'); return Promise.resolve(false); }
+  if(slug+'\n'+payload===_lastSavedKey){ if(!silent) naSyncMsg('☁️ 変更なし'); return Promise.resolve(false); }
   var ensure=(_dataBranchOk===slug)? Promise.resolve(true) : ensureDataBranch(slug).then(function(){ _dataBranchOk=slug; return true; });
   function put(sha){
     var body={message:'note-analyzer data update ('+((DATA.meta&&DATA.meta.count)||'?')+'記事)', content:b64EncodeUnicode(payload), branch:NA_REPO.branch};
@@ -1987,7 +1987,7 @@ function naRepoSave(slug, silent){
     return r;
   }).then(function(r){
     if(!r.ok) return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,100));});
-    _lastSavedPayload=payload;
+    _lastSavedKey=slug+'\n'+payload;
     if(!silent) naSyncMsg('☁️ 保存');
     return true;
   });
