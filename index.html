@@ -121,11 +121,6 @@
   #qDetailMoves td:nth-child(2){text-align:left;white-space:normal;min-width:200px}
   #qDetailMoves td:nth-child(5){text-align:left;white-space:normal;max-width:260px}
   select.ctrl2{background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px}
-  /* セグメントボタン（少数選択肢のプルダウン代替。画面下部のselectはOSピッカーが見切れるため） */
-  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-  .seg button{background:var(--panel);color:var(--mut);border:none;padding:6px 10px;font-size:13px;cursor:pointer;font-family:inherit}
-  .seg button+button{border-left:1px solid var(--line)}
-  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
   /* 記事カード（スマホ用） */
   #artCards{padding:0 0 8px}
   .art-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start}
@@ -343,10 +338,11 @@
       <strong style="font-size:14px">コア読者の構造・文体比較（自分 vs 読者層）</strong>
       <p class="mut" style="margin:6px 0">コア読者が自分で書いた人気記事を取得し、<strong>文体指標（無料・決定的）</strong>と任意で<strong>LLM構造指標</strong>を、あなたの記事と比較します（公開記事のみ・r.jina.ai経由。読者記事URLはv0.6.0以降のcollectorで収集されます）。モデル・サンプル数は「構造の質」タブの設定を使います。</p>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
-        <span class="mut" style="font-size:12px">読者:</span>
-        <span class="seg" id="rdReaders" data-value="10"><button data-v="5">上位5人</button><button data-v="10" class="on">上位10人</button><button data-v="999">全員</button></span>
-        <span class="mut" style="font-size:12px">記事:</span>
-        <span class="seg" id="rdPerReader" data-value="3"><button data-v="1">各1</button><button data-v="2">各2</button><button data-v="3" class="on">各3</button><button data-v="5">各5</button></span>
+        <label class="mut" style="font-size:13px;display:flex;align-items:center;gap:4px">上位
+          <input type="number" id="rdReaders" value="10" min="1" step="1" style="width:64px;font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px">人</label>
+        <label class="mut" style="font-size:13px;display:flex;align-items:center;gap:4px">×各
+          <input type="number" id="rdPerReader" value="3" min="1" max="5" step="1" style="width:52px;font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px">記事</label>
+        <span class="mut" style="font-size:11px">（記事は各読者の人気上位・最大5）</span>
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
         <button class="btn" id="rdRun" title="文体指標のみ（無料・決定的）">読者を解析（文体・無料）</button>
@@ -3616,25 +3612,8 @@ bindQuality();
 
 /* ====================== コア読者の構造・文体比較（自分 vs 読者層） ====================== */
 var QREADER=[]; // [{label, reader, url, likes, stylo, struct?}]
-// セグメントボタン（プルダウン代替。少数選択肢はその場でタップ選択できる方が
-// モバイルで確実——画面下部のselectはOSピッカーが見切れる報告があったため）
-function bindSeg(id){
-  var seg=$('#'+id); if(!seg) return;
-  $all('button',seg).forEach(function(b){
-    b.onclick=function(){
-      $all('button',seg).forEach(function(x){ x.classList.remove('on'); });
-      b.classList.add('on');
-      seg.dataset.value=b.dataset.v;
-    };
-  });
-}
-function segValue(id, fallback){
-  var seg=$('#'+id);
-  return parseInt((seg&&seg.dataset.value)||'',10)||fallback;
-}
 function bindReaderCompare(){
   var btn=$('#rdRun'); if(!btn) return;
-  bindSeg('rdReaders'); bindSeg('rdPerReader');
   var cancel=$('#rdCancel'); if(cancel) cancel.onclick=function(){ cancelPool(); $('#rdMsg').textContent='中断中…'; };
   var btnLLM=$('#rdRunLLM');
   btn.onclick=function(){ runReaderCompare(false); };
@@ -3644,8 +3623,8 @@ function bindReaderCompare(){
     if(!profiles.length){ $('#rdMsg').textContent='コア読者プロフィールがありません（collectorで収集してください）'; return; }
     var withArts=profiles.filter(function(p){ return p.topArticles && p.topArticles.length; });
     if(!withArts.length){ $('#rdMsg').textContent='読者記事URLがありません。collector v0.6.0以降で再収集してください'; return; }
-    var nReaders=segValue('rdReaders',10);
-    var perReader=segValue('rdPerReader',3);
+    var nReaders=Math.max(1, parseInt($('#rdReaders').value,10)||10);
+    var perReader=Math.min(5, Math.max(1, parseInt($('#rdPerReader').value,10)||3));
     if(useLLM && !ensureKey()) return;
     var seen={}, targets=[];
     withArts.slice(0,nReaders).forEach(function(p){
