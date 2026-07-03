@@ -121,6 +121,11 @@
   #qDetailMoves td:nth-child(2){text-align:left;white-space:normal;min-width:200px}
   #qDetailMoves td:nth-child(5){text-align:left;white-space:normal;max-width:260px}
   select.ctrl2{background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px}
+  /* セグメントボタン（少数選択肢のプルダウン代替。画面下部のselectはOSピッカーが見切れるため） */
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{background:var(--panel);color:var(--mut);border:none;padding:6px 10px;font-size:13px;cursor:pointer;font-family:inherit}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
   /* 記事カード（スマホ用） */
   #artCards{padding:0 0 8px}
   .art-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start}
@@ -337,11 +342,15 @@
     <div class="panel">
       <strong style="font-size:14px">コア読者の構造・文体比較（自分 vs 読者層）</strong>
       <p class="mut" style="margin:6px 0">コア読者が自分で書いた人気記事を取得し、<strong>文体指標（無料・決定的）</strong>と任意で<strong>LLM構造指標</strong>を、あなたの記事と比較します（公開記事のみ・r.jina.ai経由。読者記事URLはv0.6.0以降のcollectorで収集されます）。モデル・サンプル数は「構造の質」タブの設定を使います。</p>
-      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
-        <select id="rdReaders" class="ctrl"><option value="5">上位5人</option><option value="10" selected>上位10人</option><option value="999">全コア読者</option></select>
-        <select id="rdPerReader" class="ctrl"><option value="1">各1記事</option><option value="2">各2記事</option><option value="3" selected>各3記事</option><option value="5">各5記事</option></select>
-        <label class="mut" style="display:flex;align-items:center;gap:4px;font-size:13px" title="文体指標は常に無料。ONにすると読者記事にもLLM構造解析を実行（API課金）"><input type="checkbox" id="rdLLM"> LLM構造解析も</label>
-        <button class="btn" id="rdRun">読者を解析</button>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
+        <span class="mut" style="font-size:12px">読者:</span>
+        <span class="seg" id="rdReaders" data-value="10"><button data-v="5">上位5人</button><button data-v="10" class="on">上位10人</button><button data-v="999">全員</button></span>
+        <span class="mut" style="font-size:12px">記事:</span>
+        <span class="seg" id="rdPerReader" data-value="3"><button data-v="1">各1</button><button data-v="2">各2</button><button data-v="3" class="on">各3</button><button data-v="5">各5</button></span>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
+        <button class="btn" id="rdRun" title="文体指標のみ（無料・決定的）">読者を解析（文体・無料）</button>
+        <button class="btn ghost" id="rdRunLLM" title="読者記事にLLM構造解析も実行（API課金）">構造解析実施（LLM・課金）</button>
         <button class="btn ghost" id="rdCancel" style="display:none">⏹ 中断</button>
         <span class="mut" id="rdMsg"></span>
       </div>
@@ -2715,6 +2724,7 @@ var Q_SYSTEM=[
 '',
 '# 偽の発見（pseudo-structure）検査',
 '**前提：偽の発見は「記事の結論・主要な論証がその等値/本質視の正しさに依存している荷重主張」に限って検査する。** 記事がそこに寄りかかっていない一言は、たとえ等値を述べていても対象外。まず「この主張が崩れたら記事の主結論は崩れるか？」を問い、崩れない（非荷重）なら検査せず smuggled=false。',
+'**荷重判定の目安：**本体が添削・実験・逐語検査など独立に検証可能な手続きの集積で構成されている記事では、締めや余談の一般化（「つまり〜だ」「〜はYesだ」等）は、それが崩れても個々の手続きの成果が独立に残るため原則として非荷重（smuggled=false）。その一般化の質が気になる場合は reasoning の低として1箇所でのみ評価し、偽の発見と二重に数えない。',
 '荷重主張のうち「本質は〜」「つまり〜と同じ」など構造・本質・等値を真剣に主張する箇所について、1) 主張された構造の定義特徴を挙げ、2) 写像先がそれを満たすか各々検査、3) 欠けていれば smuggled=true。',
 '**循環検査（言い換えの検出）：**「〜の正体は〜」「〜とは要するに〜」型の等値・還元の主張では、定義特徴に「説明項が被説明項と独立に定義・観測できるか」を必ず含めて検査する。説明項の存在根拠が被説明項そのものしかない場合（例：「速いのは蓄積が多いからだ」と言うが、蓄積の証拠は速さだけ）、それは説明ではなくリブランドであり、記事の中心主張として荷重しているなら、私見ヘッジ（〜と思う）が付いていても smuggled=true とする。**ヘッジによる免除は、記事がその等値に寄りかかっていない周辺的な主張に限る。**',
 '**方法看板検査：**タイトル・冒頭で「科学する」「検証する」「実験した」「データで見る」等の方法論的看板を掲げる記事は、その方法の定義特徴（測定・データ・対立仮説の検討・再現可能な手続き・反証可能性など）を本文がどの程度満たすかを structure_claims で検査する。**判定は程度問題：不完全でも測定・検証の試みが部分的にあれば偽の発見にはせず、足りない要素は推論の質・接地の評価に反映する。本文に方法の要素が全く無い（全編が私見・体験談で、測定も検証もゼロ）場合に限り、看板は実態と乖離した等値主張として、私見ヘッジがあっても smuggled=true とする。**看板が比喩・自嘲として明示されている場合は免除。',
@@ -2745,6 +2755,10 @@ var Q_SYSTEM=[
 '',
 '# 判定の原則（どの記事にも一般に適用する。特定の記事・指標名を前提にしない）',
 '- 設計記事でパラメータ・係数・補正値・閾値を選んでいる箇所：その値を選んだ理由・解決しようとした課題・調整の経緯が記事内で説明されていれば「好み」ではなく設計判断（強制）。説明なく置いた値だけが「好み」。自嘲・砕けたトーンは判断材料にしない。',
+'- 実験・検証・批評記事で、筆者が評価基準・正解・除外（悪問扱い等）を自分で定義している箇所：基準の定義を明示し、限界（筆者判断であること等）を自己申告し、判定材料を記事内に全公開して読者が再検証できるようにしていれば、「好み」ではなく設計判断（強制）。除外・再集計も、除外基準を明示し除外前後の両方を提示していれば強制。説明も材料公開もない恣意的な取捨選択だけが「好み」。',
+'- 方法・サンプル範囲の限定（対象を太字に限る・特定範囲に絞る等）：恣意性の回避・比較可能性・検証可能性などの理由が記事内に明記されていれば設計判断（強制）であり「好み」ではない。',
+'- 「もし〜が事実なら」と前提を明示した条件付きの懸念・将来リスクの提示：記事内の観察・データに接地していれば無根拠の一般化ではないので「未制御」にしない（報告）。その懸念の妥当性・非自明性は reasoning で評価する。',
+'- **同一の弱点を複数箇所で数えない：**同じ主張・同じ穴を、moves の未制御/好み・reasoning の低・structure_claims の smuggled のうち複数で同時に減点しない。最も適切な1箇所（論の運びの穴なら moves、荷重主張の質なら reasoning、等値の偽装なら structure_claims）だけで評価する。',
 '- 既存の名称を借りた造語の指標・概念：独自の定義（計算式・判定手続き・適用範囲）を与えていれば、名前を借りただけでは偽の発見にしない。借用元の定義特徴を実際に満たすかで判断する。',
 '- 案出し・規範提案の記事：本編の提案は推論の質（区別の一貫・反例処理・前提からの帰結）で評価する。提案が抽象的でも「結論が開いている＝0点」にはしない（案出しは結論が強制されないのが規範）。併載された具体的な実践例があれば、その部分は表れ型・強制として別に拾う。',
 '- エッセイ・体験記で、具体的なやり取り・観察・引用を根拠に述べる洞察：著者の好みや無根拠の一般化ではなく「報告」。',
@@ -3602,17 +3616,36 @@ bindQuality();
 
 /* ====================== コア読者の構造・文体比較（自分 vs 読者層） ====================== */
 var QREADER=[]; // [{label, reader, url, likes, stylo, struct?}]
+// セグメントボタン（プルダウン代替。少数選択肢はその場でタップ選択できる方が
+// モバイルで確実——画面下部のselectはOSピッカーが見切れる報告があったため）
+function bindSeg(id){
+  var seg=$('#'+id); if(!seg) return;
+  $all('button',seg).forEach(function(b){
+    b.onclick=function(){
+      $all('button',seg).forEach(function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      seg.dataset.value=b.dataset.v;
+    };
+  });
+}
+function segValue(id, fallback){
+  var seg=$('#'+id);
+  return parseInt((seg&&seg.dataset.value)||'',10)||fallback;
+}
 function bindReaderCompare(){
   var btn=$('#rdRun'); if(!btn) return;
+  bindSeg('rdReaders'); bindSeg('rdPerReader');
   var cancel=$('#rdCancel'); if(cancel) cancel.onclick=function(){ cancelPool(); $('#rdMsg').textContent='中断中…'; };
-  btn.onclick=function(){
+  var btnLLM=$('#rdRunLLM');
+  btn.onclick=function(){ runReaderCompare(false); };
+  if(btnLLM) btnLLM.onclick=function(){ runReaderCompare(true); };
+  function runReaderCompare(useLLM){
     var profiles=(typeof DATA!=='undefined'&&DATA.meta&&DATA.meta.coreReaderProfiles)||[];
     if(!profiles.length){ $('#rdMsg').textContent='コア読者プロフィールがありません（collectorで収集してください）'; return; }
     var withArts=profiles.filter(function(p){ return p.topArticles && p.topArticles.length; });
     if(!withArts.length){ $('#rdMsg').textContent='読者記事URLがありません。collector v0.6.0以降で再収集してください'; return; }
-    var nReaders=parseInt($('#rdReaders').value,10)||10;
-    var perReader=parseInt($('#rdPerReader').value,10)||3;
-    var useLLM=$('#rdLLM').checked;
+    var nReaders=segValue('rdReaders',10);
+    var perReader=segValue('rdPerReader',3);
     if(useLLM && !ensureKey()) return;
     var seen={}, targets=[];
     withArts.slice(0,nReaders).forEach(function(p){
@@ -3622,7 +3655,7 @@ function bindReaderCompare(){
     });
     if(!targets.length){ $('#rdMsg').textContent='対象記事がありません'; return; }
     QREADER=[]; var model=$('#qModel').value;
-    btn.disabled=true; if(cancel)cancel.style.display=''; $('#rdMsg').textContent='取得・解析中 0/'+targets.length;
+    btn.disabled=true; if(btnLLM)btnLLM.disabled=true; if(cancel)cancel.style.display=''; $('#rdMsg').textContent='取得・解析中 0/'+targets.length;
     var done=0;
     var llmErr=null, fetchFail=0;
     runPool(targets, function(tg){
@@ -3633,7 +3666,7 @@ function bindReaderCompare(){
         return p.then(function(){ QREADER.push(rec); done++; $('#rdMsg').textContent='解析中 '+done+'/'+targets.length; });
       }).catch(function(){ fetchFail++; done++; }); // 取得失敗はスキップ
     }, 2, null).then(function(){
-      btn.disabled=false; if(cancel)cancel.style.display='none';
+      btn.disabled=false; if(btnLLM)btnLLM.disabled=false; if(cancel)cancel.style.display='none';
       var okStruct=QREADER.filter(function(r){return r.struct;}).length;
       var msg=_poolCancel?('中断（'+QREADER.length+'件取得）'):('完了（'+QREADER.length+'件）');
       if(fetchFail) msg+=' / 取得失敗'+fetchFail;
@@ -3642,7 +3675,7 @@ function bindReaderCompare(){
       renderReaderCompare();
       if(typeof autoSaveToRepo==='function') autoSaveToRepo(true);
     });
-  };
+  }
 }
 function renderReaderCompare(){
   var box=$('#rdCompare'); if(!box) return;
