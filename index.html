@@ -2909,10 +2909,11 @@ function analyzeAndScore(text, model, excludeKey){
   var n=qSamplesGet();
   if(n<=1) return analyzeTextChecked(text,model,calib).then(function(r){ return Object.assign(qualityScore(r),{raw:r, model:model}); });
   var runs=[];
+  var lastErr=null; // 全滅時に原因を報告できるよう、個々の失敗理由を保持する
   var chain=Promise.resolve();
-  for(var i=0;i<n;i++){ chain=chain.then(function(){ return analyzeTextChecked(text,model,calib).then(function(r){ runs.push(r); }).catch(function(){}); }); }
+  for(var i=0;i<n;i++){ chain=chain.then(function(){ return analyzeTextChecked(text,model,calib).then(function(r){ runs.push(r); }).catch(function(e){ lastErr=String(e&&e.message||e); }); }); }
   return chain.then(function(){
-    if(!runs.length) throw new Error('全サンプル失敗');
+    if(!runs.length) throw new Error('全サンプル失敗'+(lastErr?('｜原因: '+lastErr.slice(0,140)):''));
     var scored=runs.map(function(r){ return {raw:r, q:qualityScore(r)}; });
     var nums=scored.map(function(s){return s.q.score;}).filter(function(v){return v!=null;});
     var genres={}; scored.forEach(function(s){ var g=s.q.genre||'?'; genres[g]=(genres[g]||0)+1; });
