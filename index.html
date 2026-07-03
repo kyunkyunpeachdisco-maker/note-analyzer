@@ -223,6 +223,7 @@
           <li>上の入力欄に <code>自分のID/リポジトリ名</code> を入れて「📦 Claude用にリポジトリへ保存」を押す</li>
         </ol>
         <p class="mut" style="font-size:13px;margin:8px 0 0">使うとき：<a href="https://claude.ai/code" target="_blank" rel="noopener" style="color:var(--accent)">claude.ai/code</a> で手順1のリポジトリを選んでセッションを開始し、「dataブランチの評価データを見て」と頼むだけ。エクスポートの貼り付けは不要になります。</p>
+        <p class="mut" style="font-size:13px;margin:8px 0 0">※初回保存時、Claude Codeがデータの在り処を見つけられるよう、案内ファイル（CLAUDE.md）をリポジトリに自動作成します（既にCLAUDE.mdがある場合は何もしません）。</p>
       </details>
       <span class="mut" id="gistMsg" style="margin-top:6px;display:block"></span>
     </div>
@@ -2008,10 +2009,33 @@ $('#saveRepo').onclick=function(){
     return fetch(naRepoApi(slug,'/contents/'+NA_REPO.path),{method:'PUT',headers:naGistHeaders(),body:JSON.stringify(body)});
   }).then(function(r){
     if(!r.ok) return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,100));});
-    naGistMsg('📦 '+slug+' に保存しました ✅ Claude Codeが直接参照できます');
+    return ensureRepoGuide(slug);
+  }).then(function(guideCreated){
+    naGistMsg('📦 '+slug+' に保存しました ✅ Claude Codeが直接参照できます'+(guideCreated?'（案内ファイル CLAUDE.md を作成しました）':''));
     btn.disabled=false;
   }).catch(function(e){ naGistMsg('⚠️ リポジトリ保存失敗: '+(e.message||e)); btn.disabled=false; });
 };
+
+// デフォルトブランチに案内ファイルを一度だけ置く（Claude Codeがデータの在り処を見つけられるように）。
+// 既にCLAUDE.mdがあるリポジトリ（devリポジトリ等）には絶対に書かない。失敗しても保存自体は成功扱い。
+function ensureRepoGuide(slug){
+  return fetch(naRepoApi(slug,'/contents/CLAUDE.md'),{headers:naGistHeaders()}).then(function(r){
+    if(r.ok) return false; // 既存なら何もしない
+    if(r.status!==404) return false;
+    var guide='# note-analyzer データリポジトリ\n\n'
+      +'評価データは **`data` ブランチの `data/note-analyzer.json`** にあります（note-analyzerアプリが更新）。\n\n'
+      +'```bash\ngit fetch origin data && git show origin/data:data/note-analyzer.json\n```\n\n'
+      +'中身の構造：\n'
+      +'- `articles[]` … 記事（title, url, views, likes, tags, text, …）。解析済みは `struct`（構造評価）を持つ\n'
+      +'- `_qext[]` … URL追加した外部記事の評価\n'
+      +'- `_qreader[]` … コア読者記事の評価\n'
+      +'- `meta` … 収集メタ（tagStats, coreReaderProfiles）\n\n'
+      +'このファイルは note-analyzer の初回保存時に自動作成されました。\n';
+    return fetch(naRepoApi(slug,'/contents/CLAUDE.md'),{method:'PUT',headers:naGistHeaders(),
+      body:JSON.stringify({message:'note-analyzer: データの在り処の案内ファイルを追加', content:b64EncodeUnicode(guide)})
+    }).then(function(r2){ return r2.ok; }).catch(function(){ return false; });
+  }).catch(function(){ return false; });
+}
 
 $('#loadGist').onclick=function(){
   var url=($('#gistUrl').value||'').trim();
