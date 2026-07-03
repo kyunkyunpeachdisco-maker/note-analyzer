@@ -200,32 +200,30 @@
   <!-- データ -->
   <section class="tab" data-tab="data">
     <h2 class="sec">データを読み込む</h2>
-    <p class="desc">ブックマークレットで出力したJSONを貼り付けるか、ファイルを選択してください。スマホからはGist URLで読み込めます。</p>
+    <p class="desc">ブックマークレットで出力したJSONを貼り付けるか、ファイルを選択してください。スマホからはリポジトリ同期で読み込めます。</p>
     <div class="panel">
-      <strong style="font-size:14px">☁️ データ同期（Gist / Claude連携リポジトリ）</strong>
-      <p class="mut" style="margin:6px 0">端末間の同期はGist（PCで「Gistに保存」→スマホで「Gistから読み込み」）。Claude Codeに評価データを直接読ませるなら📦リポジトリ保存。初回はGitHub PATを設定してください。</p>
+      <strong style="font-size:14px">☁️ データ同期（GitHubリポジトリ）</strong>
+      <p class="mut" style="margin:6px 0">自分のプライベートリポジトリに保存して端末間で同期します（PCで収集→自動保存→スマホで「↓読み込み」）。Claude Codeも同じリポジトリから評価データを直接参照できます。初回は下のセットアップ（3ステップ）を済ませてください。</p>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
-        <button class="btn ghost" id="gistSettings">⚙️ GitHub PAT設定</button>
-        <button class="btn" id="saveGist">↑ Gistに保存</button>
-        <button class="btn ghost" id="loadGist">↓ Gistから読み込み</button>
-        <button class="btn ghost" id="saveRepo" title="下で指定した自分のリポジトリのdataブランチ（data/note-analyzer.json）に保存。Claude Codeのセッションをそのリポジトリで開くと評価データを直接参照できる（要: そのリポジトリのContents書き込み権限つきPAT）">📦 Claude用にリポジトリへ保存</button>
+        <button class="btn ghost" id="patSettings">⚙️ GitHub PAT設定</button>
+        <button class="btn" id="saveRepo" title="下で指定した自分のリポジトリのdataブランチ（data/note-analyzer.json）に保存">↑ リポジトリに保存</button>
+        <button class="btn ghost" id="loadRepo">↓ リポジトリから読み込み</button>
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
-        <input id="gistUrl" placeholder="GistのURL（↓読み込み時に自動入力）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
-        <input id="repoSlug" placeholder="📦の保存先 例: yourname/note-analyzer-data（URL貼り付けも可）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
+        <input id="repoSlug" placeholder="保存先 例: yourname/note-analyzer-data（URL貼り付けも可）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
       </div>
       <details style="margin-top:8px">
-        <summary style="cursor:pointer;color:var(--mut);font-size:13px">📦 Claude連携のセットアップ（リンク付き・3ステップ）</summary>
+        <summary style="cursor:pointer;color:var(--mut);font-size:13px">☁️ セットアップ（リンク付き・3ステップ）</summary>
         <ol style="margin:8px 0 0;padding-left:20px;color:var(--mut);font-size:13px;line-height:1.9">
-          <li><a href="https://github.com/new?name=note-analyzer-data&visibility=private&description=note-analyzer%20data%20for%20Claude" target="_blank" rel="noopener" style="color:var(--accent)">データ置き場リポジトリを作る</a>（リンクを開くと名前と非公開が入力済み。そのまま「Create repository」を押すだけ）</li>
-          <li><a href="https://github.com/settings/personal-access-tokens/new?name=note-analyzer" target="_blank" rel="noopener" style="color:var(--accent)">PAT（fine-grained）を発行</a>：Token nameは例: <b>note-analyzer</b>（リンクから開けば入力済み）／Expirationは<b>90 days</b>か Custom で1年後／Repository access→<b>Only select repositories</b>→手順1のリポジトリ（既存のリポジトリでも可）を選択／Permissions→<b>Contents: Read and write</b>（Gist保存も同じトークンで行うなら Account permissions→<b>Gists: Read and write</b> も）→ 発行された <code>github_pat_…</code> を上の「⚙️ GitHub PAT設定」に貼る（<b>画面を閉じると二度と表示されません</b>）<br>
-          <span style="font-size:12px">お手軽版：<a href="https://github.com/settings/tokens/new?scopes=gist,repo&description=note-analyzer" target="_blank" rel="noopener" style="color:var(--accent)">クラシックトークン（スコープ設定済みリンク）</a>でも可。ただし全リポジトリに効く強い権限なので fine-grained 推奨</span></li>
-          <li>上の入力欄に <code>自分のID/リポジトリ名</code> を入れて「📦 Claude用にリポジトリへ保存」を押す</li>
+          <li><a href="https://github.com/new?name=note-analyzer-data&visibility=private&description=note-analyzer%20data%20for%20Claude" target="_blank" rel="noopener" style="color:var(--accent)">データ置き場リポジトリを作る</a>（リンクを開くと名前と非公開が入力済み。そのまま「Create repository」を押すだけ。既存のリポジトリを使う場合はこの手順は不要）</li>
+          <li><a href="https://github.com/settings/personal-access-tokens/new?name=note-analyzer" target="_blank" rel="noopener" style="color:var(--accent)">PAT（fine-grained）を発行</a>：Token nameは例: <b>note-analyzer</b>（リンクから開けば入力済み）／Expirationは<b>90 days</b>か Custom で1年後／Repository access→<b>Only select repositories</b>→手順1のリポジトリ（既存のリポジトリでも可）を選択／Permissions→<b>Contents: Read and write</b> のみ→ 発行された <code>github_pat_…</code> を上の「⚙️ GitHub PAT設定」に貼る（<b>画面を閉じると二度と表示されません</b>）</li>
+          <li>上の入力欄に <code>自分のID/リポジトリ名</code> を入れて「↑ リポジトリに保存」を押す</li>
         </ol>
         <p class="mut" style="font-size:13px;margin:8px 0 0">使うとき：<a href="https://claude.ai/code" target="_blank" rel="noopener" style="color:var(--accent)">claude.ai/code</a> で手順1のリポジトリを選んでセッションを開始し、「dataブランチの評価データを見て」と頼むだけ。エクスポートの貼り付けは不要になります。</p>
         <p class="mut" style="font-size:13px;margin:8px 0 0">※初回保存時、Claude Codeがデータの在り処を見つけられるよう、案内ファイル（CLAUDE.md）をリポジトリに自動作成します（既にCLAUDE.mdがある場合は何もしません）。</p>
+        <p class="mut" style="font-size:13px;margin:8px 0 0">※以前の「Gist同期」は廃止しました。Gistにデータが残っている場合は、GistのRawを開いてJSONをコピーし、下の「📋 JSONを直接貼り付け」から読み込んで「↑ リポジトリに保存」してください。</p>
       </details>
-      <span class="mut" id="gistMsg" style="margin-top:6px;display:block"></span>
+      <span class="mut" id="syncMsg" style="margin-top:6px;display:block"></span>
     </div>
     <div class="panel">
       <strong style="font-size:14px">📋 JSONを直接貼り付け / ファイル選択</strong>
@@ -245,7 +243,7 @@
         <li><b>PC：</b>F12でDevToolsを開き、Consoleタブにペースト → Enter<br>
             <b>スマホ（iPhone/Android）：</b>「ブックマークレットとしてコピー」をブックマークのURL欄に貼って保存（先頭が JavaScript: のまま残っているか確認）。noteのページを開いて、iPhoneはブックマークメニューから、Androidはアドレスバーにブックマーク名を入力してタップで起動<br>
             <span class="mut">※iPhoneはショートカットの「Webページで JavaScript を実行」でも可（上の共用スクリプトをペースト）だが、iOSのバージョンによっては動かないためブックマークレット推奨</span></li>
-        <li>収集完了後にJSONをコピーして、ここに貼り付けるか「Gistに保存」</li>
+        <li>収集完了後にJSONをコピーして、ここに貼り付けるか「↑ リポジトリに保存」</li>
       </ol>
       <button class="btn ghost" id="copyCollector" style="margin-top:8px">収集スクリプトをコピー（PCコンソール／iPhoneショートカット共用）</button>
       <button class="btn ghost" id="copyBookmarklet" style="margin-top:8px">📱 ブックマークレットとしてコピー（iPhone/Android用）</button>
@@ -483,11 +481,12 @@
 /* ====================== 状態・ユーティリティ ====================== */
 var DATA = null;       // {meta, articles}
 var ARTS = [];         // 派生指標を付与した記事配列
-/* Gist同期 */
+/* リポジトリ同期 */
 var naGhPat   = localStorage.getItem('note-analyzer-github-pat')||'';
-var naGistId  = localStorage.getItem('note-analyzer-gist-id')||'';
-var naGistUrl = localStorage.getItem('note-analyzer-gist-url')||'';
-var naRepoSlug = localStorage.getItem('note-analyzer-repo-slug')||''; // 📦の保存先（owner/repo・各ユーザーが自分のリポジトリを指定）
+var naRepoSlug = localStorage.getItem('note-analyzer-repo-slug')||''; // 保存先（owner/repo・各ユーザーが自分のリポジトリを指定）
+var NA_REPO={branch:'data', path:'data/note-analyzer.json'}; // 保存先のブランチとパス（起動時の自動読み込みでも使うためここで定義）
+// Gist同期は廃止（v1.0.11）。旧キーを掃除する
+try{ localStorage.removeItem('note-analyzer-gist-id'); localStorage.removeItem('note-analyzer-gist-url'); }catch(e){}
 var HAS_VIEWS = false;
 var PERF_KEY = 'views';   // 主指標（ビューが無ければスキ）
 var PERF_LABEL = 'ビュー';
@@ -637,7 +636,7 @@ function loadData(obj){
       nSelf:a.noteLinksSelf||0, nOther:a.noteLinksOther||0
     });
   });
-  // Gistから外部記事・コア読者比較結果を復元
+  // 保存データから外部記事・コア読者比較結果を復元
   if(obj._qext && Array.isArray(obj._qext)) QEXT=obj._qext;
   if(obj._qreader && Array.isArray(obj._qreader) && typeof QREADER!=='undefined') QREADER=obj._qreader;
   refreshPerfSelector();
@@ -645,7 +644,7 @@ function loadData(obj){
   var asof = obj.meta && obj.meta.exportedAt ? fmtDateTime(obj.meta.exportedAt) : null;
   $('#metaInfo').textContent = obj.meta ? (obj.meta.count+'記事 / '+(HAS_VIEWS?'ビューあり':'ビューなし')+(asof?' / '+asof+'時点':'')) : '';
   switchTab('overview');
-  autoSaveToGist(true);
+  autoSaveToRepo(true);
 }
 // 成績指標（ビュー/スキ/スキ率）の切り替え。a.perf を組み替えて全再描画
 function setPerfMetric(key){
@@ -1801,23 +1800,20 @@ function sampleData(){
 window.addEventListener('resize', function(){ if(ARTS.length) renderArticles(); });
 buildTabs();
 switchTab('data');
-// 保存済みGist URLを復元して自動読み込み
+// 保存済みリポジトリ設定を復元して自動読み込み
 (function(){
-  if(naGistUrl) $('#gistUrl').value=naGistUrl;
   if(naRepoSlug && $('#repoSlug')) $('#repoSlug').value=naRepoSlug;
-  if(!naGistId) return;
-  naGistMsg('読み込み中…');
-  var headers=naGhPat?naGistHeaders():{'Accept':'application/vnd.github+json'};
-  fetch('https://api.github.com/gists/'+naGistId,{headers:headers})
-  .then(function(r){if(!r.ok)throw new Error('Gist '+r.status+' — publicに設定されているか確認');return r.json();})
-  .then(function(meta){
-    var files=meta.files;
-    var key=Object.keys(files).find(function(f){return f.endsWith('.json');});
-    if(!key)throw new Error('JSONファイルが見つかりません');
-    return fetch(files[key].raw_url).then(function(r){return r.text();});
+  if(!naRepoSlug || !naGhPat) return;
+  naSyncMsg('読み込み中…');
+  fetch(naRepoApi(naRepoSlug,'/contents/'+NA_REPO.path+'?ref='+NA_REPO.branch),
+    {headers:{'Authorization':'Bearer '+naGhPat,'Accept':'application/vnd.github.raw','X-GitHub-Api-Version':'2022-11-28'}})
+  .then(function(r){
+    if(r.status===404) throw new Error('リポジトリにまだデータがありません（「↑ リポジトリに保存」で作成されます）');
+    if(!r.ok) throw new Error('GitHub API '+r.status+'（owner/repoの綴りとPATの権限を確認）');
+    return r.text();
   }).then(function(text){
-    tryLoad(text); naGistMsg('読み込みました ✅');
-  }).catch(function(e){ naGistMsg('⚠️ '+e.message); });
+    tryLoad(text); naSyncMsg('読み込みました ✅');
+  }).catch(function(e){ naSyncMsg('⚠️ '+e.message); });
 })();
 $('#loadBtn').onclick=function(){ tryLoad($('#jsonInput').value); };
 $('#sampleBtn').onclick=function(){ loadData(sampleData()); $('#loadMsg').textContent='サンプル表示中'; $('#loadMsg').style.color='var(--mut)'; };
@@ -1890,79 +1886,48 @@ $('#copyBookmarklet').onclick=function(){
 };
 fetchCollectorSrc().catch(function(){}); // 事前フェッチ：クリック時にはキャッシュ済みでコピーが同期に近くなる
 $('#shareBtn').onclick=makeShareImage;
-function naGistHeaders(){ return {'Authorization':'Bearer '+naGhPat,'Accept':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'}; }
+function naGhHeaders(){ return {'Authorization':'Bearer '+naGhPat,'Accept':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'}; }
 // ARTSのstruct結果をDATA.articlesに書き戻す
 function syncStructToData(){
   var map={}; ARTS.forEach(function(a){ if(a.struct) map[aid(a)]=a.struct; });
   (DATA.articles||[]).forEach(function(a){ if(map[aid(a)]) a.struct=map[aid(a)]; });
-  DATA._qext=QEXT; // 外部記事もGistに保存
+  DATA._qext=QEXT; // 外部記事も保存対象に含める
   if(typeof QREADER!=='undefined') DATA._qreader=QREADER; // コア読者比較の結果も保存
 }
-var _gistSaving=false, _gistPending=false, _gistPendingLoud=false, _gistPatWarned=false;
-function autoSaveToGist(silent){
-  if(!naGistId||!naGhPat){
-    // Gist連携済みなのにPATが無い＝「保存されているつもり」事故を防ぐため一度だけ知らせる
-    if(naGistId && !naGhPat && !_gistPatWarned){ _gistPatWarned=true; naGistMsg('ℹ️ PAT未設定のためGist保存はスキップ中（読み込みは可・変更はこの端末の画面にのみ反映）'); }
+var _repoSaving=false, _repoPending=false, _repoPendingLoud=false, _repoPatWarned=false;
+function autoSaveToRepo(silent){
+  if(!naRepoSlug||!naGhPat){
+    // 保存先設定済みなのにPATが無い＝「保存されているつもり」事故を防ぐため一度だけ知らせる
+    if(naRepoSlug && !naGhPat && !_repoPatWarned){ _repoPatWarned=true; naSyncMsg('ℹ️ PAT未設定のためリポジトリ保存はスキップ中（変更はこの端末の画面にのみ反映）'); }
     return;
   }
   // 進行中なら最新状態での追従保存を1回だけ予約（取りこぼし防止＝中断してもやったところまで残す）
-  if(_gistSaving){ _gistPending=true; if(!silent) _gistPendingLoud=true; return; }
-  _gistSaving=true; _gistPending=false;
-  syncStructToData();
-  var payload=JSON.stringify(DATA, null, 2);
-  var body=JSON.stringify({files:{'note-analyzer.json':{content:payload}}});
-  fetch('https://api.github.com/gists/'+naGistId,{method:'PATCH',headers:naGistHeaders(),body:body})
-  .then(function(r){if(!r.ok)throw new Error(r.status); if(!silent)naGistMsg('☁️ 保存');})
-  .catch(function(e){ naGistMsg('⚠️ Gist保存失敗: '+(e.message||e)); })
-  .then(function(){ _gistSaving=false; if(_gistPending){ var loud=_gistPendingLoud; _gistPendingLoud=false; autoSaveToGist(!loud); } });
+  if(_repoSaving){ _repoPending=true; if(!silent) _repoPendingLoud=true; return; }
+  _repoSaving=true; _repoPending=false;
+  naRepoSave(naRepoSlug, silent)
+  .catch(function(e){ naSyncMsg('⚠️ リポジトリ保存失敗: '+(e.message||e)); })
+  .then(function(){ _repoSaving=false; if(_repoPending){ var loud=_repoPendingLoud; _repoPendingLoud=false; autoSaveToRepo(!loud); } });
 }
 var _naToastTimer;
-function naGistMsg(s){
-  $('#gistMsg').textContent=s;
+function naSyncMsg(s){
+  $('#syncMsg').textContent=s;
   var t=$('#naToast'); t.textContent=s; t.classList.add('show');
   clearTimeout(_naToastTimer);
   _naToastTimer=setTimeout(function(){ t.classList.remove('show'); }, s.indexOf('⚠️')>=0?6000:3000);
 }
 
-$('#gistSettings').onclick=function(){
-  var pat=prompt('GitHub Personal Access Token（Gist保存とリポジトリ保存の共通トークン）', naGhPat);
+$('#patSettings').onclick=function(){
+  var pat=prompt('GitHub Personal Access Token（リポジトリ保存・読み込み用）', naGhPat);
   if(pat==null) return;
   naGhPat=pat.trim(); localStorage.setItem('note-analyzer-github-pat', naGhPat);
-  naGistMsg('PAT設定済み');
+  naSyncMsg('PAT設定済み');
 };
 
-$('#saveGist').onclick=function(){
-  if(!naGhPat){ alert('先に「⚙️ GitHub PAT設定」でGitHub PATを入力してください'); $('#gistSettings').click(); return; }
-  if(!DATA){ alert('先にデータを読み込んでください'); return; }
-  // URL欄を空にして保存すると既存Gistを切り離し、新規Gistを作成する（公開→シークレットの移行用。
-  // 起動時にURL欄は自動復元されるため、空＝ユーザーが意図的に消した場合のみ）
-  var gid=($('#gistUrl').value||'').trim()===''? '' : naGistId;
-  naGistMsg('アップロード中…'); $('#saveGist').disabled=true;
-  syncStructToData(); // 解析結果・外部記事・読者記事をDATAに反映してから保存（自動保存と同じ経路）
-  var payload=JSON.stringify(DATA, null, 2);
-  // public:false＝シークレットGist（プロフィールの一覧に載らず、URLを知る人だけが読める。
-  // 無認証での読み込みは引き続き可能なので、PAT無し端末からの「Gistから読み込み」も動く）
-  var body=JSON.stringify({description:'note-analyzer data',public:false,files:{'note-analyzer.json':{content:payload}}});
-  fetch(gid?'https://api.github.com/gists/'+gid:'https://api.github.com/gists',
-    {method:gid?'PATCH':'POST',headers:naGistHeaders(),body:body})
-  .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,80));});return r.json();})
-  .then(function(j){
-    if(!gid){naGistId=j.id; localStorage.setItem('note-analyzer-gist-id',naGistId);}
-    var url='https://gist.github.com/'+j.owner.login+'/'+j.id;
-    naGistUrl=url; localStorage.setItem('note-analyzer-gist-url',url);
-    $('#gistUrl').value=url;
-    naGistMsg('保存しました ✅  '+url);
-    $('#saveGist').disabled=false;
-  }).catch(function(e){ naGistMsg('エラー: '+(e.message||e)); $('#saveGist').disabled=false; });
-};
-
-/* ===== リポジトリ保存（Claude Code連携用） =====
-   Claude Codeのセッションは設定したリポジトリのみ参照できる（Gistは不可）。
+/* ===== リポジトリ同期（端末間同期＋Claude Code連携） =====
    各自が指定したリポジトリ（owner/repo・非公開推奨）の data ブランチの
-   data/note-analyzer.json にデータを置くことで、そのリポジトリで開いた
-   セッションから評価データを直接読めるようにする。PATは「⚙️ GitHub PAT設定」の共通欄
-   （指定リポジトリの Contents 読み書き権限が必要。fine-grained推奨） */
-var NA_REPO={branch:'data', path:'data/note-analyzer.json'};
+   data/note-analyzer.json にデータを保存する。端末間の同期（PC収集→スマホ閲覧）と、
+   そのリポジトリで開いたClaude Codeセッションからの直接参照を兼ねる。
+   PATは「⚙️ GitHub PAT設定」（指定リポジトリの Contents 読み書き権限が必要。fine-grained推奨） */
 function b64EncodeUnicode(str){
   var bytes=new TextEncoder().encode(str); var bin=''; var CH=0x8000;
   for(var i=0;i<bytes.length;i+=CH){ bin+=String.fromCharCode.apply(null, bytes.subarray(i,i+CH)); }
@@ -1979,47 +1944,75 @@ function naRepoTarget(){
 }
 function naRepoApi(slug,p){ return 'https://api.github.com/repos/'+slug+p; }
 function ensureDataBranch(slug){
-  return fetch(naRepoApi(slug,'/branches/'+NA_REPO.branch),{headers:naGistHeaders()}).then(function(r){
+  return fetch(naRepoApi(slug,'/branches/'+NA_REPO.branch),{headers:naGhHeaders()}).then(function(r){
     if(r.ok) return true;
     // 無ければ既定ブランチの先頭から作成
-    return fetch(naRepoApi(slug,''),{headers:naGistHeaders()})
+    return fetch(naRepoApi(slug,''),{headers:naGhHeaders()})
       .then(function(r0){ if(!r0.ok) throw new Error('リポジトリ参照 '+r0.status+'（owner/repoの綴りとPATの権限を確認）'); return r0.json(); })
-      .then(function(meta){ return fetch(naRepoApi(slug,'/git/ref/heads/'+meta.default_branch),{headers:naGistHeaders()}); })
+      .then(function(meta){ return fetch(naRepoApi(slug,'/git/ref/heads/'+meta.default_branch),{headers:naGhHeaders()}); })
       .then(function(r1){ if(!r1.ok) throw new Error('既定ブランチ参照 '+r1.status); return r1.json(); })
-      .then(function(j){ return fetch(naRepoApi(slug,'/git/refs'),{method:'POST',headers:naGistHeaders(),body:JSON.stringify({ref:'refs/heads/'+NA_REPO.branch, sha:j.object.sha})}); })
+      .then(function(j){ return fetch(naRepoApi(slug,'/git/refs'),{method:'POST',headers:naGhHeaders(),body:JSON.stringify({ref:'refs/heads/'+NA_REPO.branch, sha:j.object.sha})}); })
       .then(function(r2){ if(!r2.ok) throw new Error('dataブランチ作成失敗 '+r2.status); return true; });
+  });
+}
+// 保存の共通実装（ボタンと自動保存の両方から使う）。dataブランチ確保→sha取得→PUT
+var _dataBranchOk=''; // ensureDataBranch済みのslugをキャッシュ（自動保存のAPI呼び出し削減）
+function naRepoSave(slug, silent){
+  syncStructToData();
+  var payload=JSON.stringify(DATA,null,2);
+  var ensure=(_dataBranchOk===slug)? Promise.resolve(true) : ensureDataBranch(slug).then(function(){ _dataBranchOk=slug; return true; });
+  return ensure.then(function(){
+    // 既存ファイルのsha取得（初回は404で新規作成）
+    return fetch(naRepoApi(slug,'/contents/'+NA_REPO.path+'?ref='+NA_REPO.branch),{headers:naGhHeaders()})
+      .then(function(r){ return r.ok? r.json().then(function(j){return j.sha;}) : null; }).catch(function(){ return null; });
+  }).then(function(sha){
+    var body={message:'note-analyzer data update ('+((DATA.meta&&DATA.meta.count)||'?')+'記事)', content:b64EncodeUnicode(payload), branch:NA_REPO.branch};
+    if(sha) body.sha=sha;
+    return fetch(naRepoApi(slug,'/contents/'+NA_REPO.path),{method:'PUT',headers:naGhHeaders(),body:JSON.stringify(body)});
+  }).then(function(r){
+    if(!r.ok) return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,100));});
+    if(!silent) naSyncMsg('☁️ 保存');
+    return true;
   });
 }
 $('#saveRepo').onclick=function(){
   var slug=naRepoTarget();
-  if(!slug){ alert('保存先リポジトリを「owner/repo」形式で入力してください（例: yourname/my-note-data）。\n非公開リポジトリ推奨。Claude Codeでそのリポジトリを開くと評価データを直接参照できます'); var f=$('#repoSlug'); if(f)f.focus(); return; }
+  if(!slug){ alert('保存先リポジトリを「owner/repo」形式で入力してください（例: yourname/note-analyzer-data）。\n非公開リポジトリ推奨。Claude Codeでそのリポジトリを開くと評価データを直接参照できます'); var f=$('#repoSlug'); if(f)f.focus(); return; }
   naRepoSlug=slug; localStorage.setItem('note-analyzer-repo-slug', slug); // 形式が正しければ即保存（PAT未設定でも設定は残す）
-  if(!naGhPat){ alert('先に「⚙️ GitHub PAT設定」でPATを入力してください。\nリポジトリ保存には '+slug+' の Contents 読み書き権限が必要です（fine-grained PAT推奨。gistスコープのみのPATでは403になります）'); return; }
+  if(!naGhPat){ alert('先に「⚙️ GitHub PAT設定」でPATを入力してください。\nリポジトリ保存には '+slug+' の Contents 読み書き権限が必要です（fine-grained PAT推奨）'); return; }
   if(!DATA){ alert('先にデータを読み込んでください'); return; }
   var btn=$('#saveRepo'); btn.disabled=true;
-  syncStructToData();
-  naGistMsg('📦 '+slug+' へ保存中…');
-  ensureDataBranch(slug).then(function(){
-    // 既存ファイルのsha取得（初回は404で新規作成）
-    return fetch(naRepoApi(slug,'/contents/'+NA_REPO.path+'?ref='+NA_REPO.branch),{headers:naGistHeaders()})
-      .then(function(r){ return r.ok? r.json().then(function(j){return j.sha;}) : null; }).catch(function(){ return null; });
-  }).then(function(sha){
-    var body={message:'note-analyzer data update ('+((DATA.meta&&DATA.meta.count)||'?')+'記事)', content:b64EncodeUnicode(JSON.stringify(DATA,null,2)), branch:NA_REPO.branch};
-    if(sha) body.sha=sha;
-    return fetch(naRepoApi(slug,'/contents/'+NA_REPO.path),{method:'PUT',headers:naGistHeaders(),body:JSON.stringify(body)});
-  }).then(function(r){
-    if(!r.ok) return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,100));});
+  naSyncMsg('☁️ '+slug+' へ保存中…');
+  naRepoSave(slug, true).then(function(){
     return ensureRepoGuide(slug);
   }).then(function(guideCreated){
-    naGistMsg('📦 '+slug+' に保存しました ✅ Claude Codeが直接参照できます'+(guideCreated?'（案内ファイル CLAUDE.md を作成しました）':''));
+    naSyncMsg('☁️ '+slug+' に保存しました ✅'+(guideCreated?'（案内ファイル CLAUDE.md を作成しました）':''));
     btn.disabled=false;
-  }).catch(function(e){ naGistMsg('⚠️ リポジトリ保存失敗: '+(e.message||e)); btn.disabled=false; });
+  }).catch(function(e){ naSyncMsg('⚠️ リポジトリ保存失敗: '+(e.message||e)); btn.disabled=false; });
+};
+$('#loadRepo').onclick=function(){
+  var slug=naRepoTarget();
+  if(!slug){ alert('読み込み元リポジトリを「owner/repo」形式で入力してください（例: yourname/note-analyzer-data）'); var f=$('#repoSlug'); if(f)f.focus(); return; }
+  if(!naGhPat){ alert('先に「⚙️ GitHub PAT設定」でPATを入力してください。\n読み込みには '+slug+' の Contents 読み取り権限が必要です'); return; }
+  var btn=$('#loadRepo'); btn.disabled=true;
+  naSyncMsg('📥 '+slug+' から読み込み中…');
+  fetch(naRepoApi(slug,'/contents/'+NA_REPO.path+'?ref='+NA_REPO.branch),
+    {headers:{'Authorization':'Bearer '+naGhPat,'Accept':'application/vnd.github.raw','X-GitHub-Api-Version':'2022-11-28'}})
+  .then(function(r){
+    if(r.status===404) throw new Error('データが見つかりません（先に「↑ リポジトリに保存」するか、owner/repoの綴りとPATの権限を確認）');
+    if(!r.ok) throw new Error('GitHub API '+r.status);
+    return r.text();
+  }).then(function(text){
+    naRepoSlug=slug; localStorage.setItem('note-analyzer-repo-slug', slug);
+    tryLoad(text);
+    naSyncMsg('読み込みました ✅'); btn.disabled=false;
+  }).catch(function(e){ naSyncMsg('⚠️ '+(e.message||e)); btn.disabled=false; });
 };
 
 // デフォルトブランチに案内ファイルを一度だけ置く（Claude Codeがデータの在り処を見つけられるように）。
 // 既にCLAUDE.mdがあるリポジトリ（devリポジトリ等）には絶対に書かない。失敗しても保存自体は成功扱い。
 function ensureRepoGuide(slug){
-  return fetch(naRepoApi(slug,'/contents/CLAUDE.md'),{headers:naGistHeaders()}).then(function(r){
+  return fetch(naRepoApi(slug,'/contents/CLAUDE.md'),{headers:naGhHeaders()}).then(function(r){
     if(r.ok) return false; // 既存なら何もしない
     if(r.status!==404) return false;
     var guide='# note-analyzer データリポジトリ\n\n'
@@ -2031,41 +2024,11 @@ function ensureRepoGuide(slug){
       +'- `_qreader[]` … コア読者記事の評価\n'
       +'- `meta` … 収集メタ（tagStats, coreReaderProfiles）\n\n'
       +'このファイルは note-analyzer の初回保存時に自動作成されました。\n';
-    return fetch(naRepoApi(slug,'/contents/CLAUDE.md'),{method:'PUT',headers:naGistHeaders(),
+    return fetch(naRepoApi(slug,'/contents/CLAUDE.md'),{method:'PUT',headers:naGhHeaders(),
       body:JSON.stringify({message:'note-analyzer: データの在り処の案内ファイルを追加', content:b64EncodeUnicode(guide)})
     }).then(function(r2){ return r2.ok; }).catch(function(){ return false; });
   }).catch(function(){ return false; });
 }
-
-$('#loadGist').onclick=function(){
-  var url=($('#gistUrl').value||'').trim();
-  var gid=naGistId;
-  // URLからgist IDを抽出
-  if(url && /gist\.github\.com\/[^/]+\/[a-f0-9]+/.test(url)){
-    gid=url.replace(/\?.*$/,'').split('/').filter(Boolean).pop();
-  } else if(!gid && !url){
-    naGistMsg('Gist URLを入力するか、先に「Gistに保存」してください'); return;
-  }
-  if(!gid && url){ naGistMsg('URLからGist IDを解析できませんでした'); return; }
-  var headers=naGhPat?naGistHeaders():{'Accept':'application/vnd.github+json'};
-  naGistMsg('読み込み中…'); $('#loadGist').disabled=true;
-  fetch('https://api.github.com/gists/'+gid,{headers:headers})
-  .then(function(r){if(!r.ok)throw new Error('Gist API '+r.status);return r.json();})
-  .then(function(meta){
-    var files=meta.files;
-    var key=Object.keys(files).find(function(f){return f.endsWith('.json');});
-    if(!key)throw new Error('JSONファイルがGistに見つかりません');
-    // GistIDとURLをlocalStorageに保存（次回起動時の自動読み込みに使用）
-    if(gid!==naGistId){ naGistId=gid; localStorage.setItem('note-analyzer-gist-id',naGistId); }
-    var loadedUrl='https://gist.github.com/'+meta.owner.login+'/'+gid;
-    naGistUrl=loadedUrl; localStorage.setItem('note-analyzer-gist-url',loadedUrl);
-    $('#gistUrl').value=loadedUrl;
-    return fetch(files[key].raw_url).then(function(r){return r.text();});
-  }).then(function(text){
-    tryLoad(text);
-    naGistMsg('読み込みました ✅'); $('#loadGist').disabled=false;
-  }).catch(function(e){ naGistMsg('エラー: '+(e.message||e)); $('#loadGist').disabled=false; });
-};
 
 /* ====================== KaTeX出力（note本文に貼る用） ====================== */
 // noteは数式記法(KaTeX)対応。HTML不可・表はarrayで作る。display数式は $$ … $$。
@@ -2761,7 +2724,7 @@ function updateKeyBtn(){
 function bindQuality(){
   $('#qKey').onclick=function(){ if(isGeminiModel($('#qModel').value)) gemKeyPrompt(); else qKeyPrompt(); };
   $('#qModel').onchange=updateKeyBtn; updateKeyBtn();
-  $('#cancelAll').onclick=function(){ cancelPool(); naGistMsg('中断中…'); };
+  $('#cancelAll').onclick=function(){ cancelPool(); naSyncMsg('中断中…'); };
   $('#selAll').onclick=function(){
     var visible=ARTS.filter(artFilterFn);
     var any=visible.some(function(a){return a.text && !SELECTED[aid(a)];});
@@ -2788,26 +2751,26 @@ function bindQuality(){
     var model=$('#qModel').value;
     $('#runAll').disabled=true; $('#cancelAll').style.display=''; $('#runAllMsg').textContent='解析中 0/'+all.length;
     runPool(all, function(a){
-      return analyzeAndScore(a.text, model, aid(a)).then(function(st){ a.struct=st; autoSaveToGist(true); renderArticles(); })
+      return analyzeAndScore(a.text, model, aid(a)).then(function(st){ a.struct=st; autoSaveToRepo(true); renderArticles(); })
         .catch(function(e){ if(!a.struct || a.struct.mode==='失敗'){ a.struct={score:null,mode:'失敗',pseudo:0,err:String(e.message||e)}; } });
-    }, 2, function(d,t){ $('#runAllMsg').textContent='解析中 '+d+'/'+t; naGistMsg('解析中 '+d+'/'+all.length); }).then(function(){
+    }, 2, function(d,t){ $('#runAllMsg').textContent='解析中 '+d+'/'+t; naSyncMsg('解析中 '+d+'/'+all.length); }).then(function(){
       $('#runAll').disabled=false; $('#cancelAll').style.display='none';
       $('#runAllMsg').textContent=_poolCancel?'中断しました':'完了（'+all.length+'件）';
       renderArticles(); renderQuality(); renderCorr();
-      autoSaveToGist();
+      autoSaveToRepo();
     });
   };
   $('#runStruct').onclick=function(){
     if(!ensureKey())return;
     var sel=ARTS.filter(function(a){ return SELECTED[aid(a)] && a.text; });
     if(!sel.length){ qmsg('本文のある記事を選んでください（本文未収集の記事はチェック不可）'); return; }
-    var model=$('#qModel').value; $('#runStruct').disabled=true; qmsg('解析中 0/'+sel.length); naGistMsg('解析中 0/'+sel.length);
+    var model=$('#qModel').value; $('#runStruct').disabled=true; qmsg('解析中 0/'+sel.length); naSyncMsg('解析中 0/'+sel.length);
     runPool(sel, function(a){
-      return analyzeAndScore(a.text, model, aid(a)).then(function(st){ a.struct=st; autoSaveToGist(true); renderArticles(); })
+      return analyzeAndScore(a.text, model, aid(a)).then(function(st){ a.struct=st; autoSaveToRepo(true); renderArticles(); })
         .catch(function(e){ if(!a.struct || a.struct.mode==='失敗'){ a.struct={score:null,mode:'失敗',pseudo:0,err:String(e.message||e)}; } });
-    }, 2, function(d,t){ qmsg('解析中 '+d+'/'+t); naGistMsg('解析中 '+d+'/'+sel.length); }).then(function(){
+    }, 2, function(d,t){ qmsg('解析中 '+d+'/'+t); naSyncMsg('解析中 '+d+'/'+sel.length); }).then(function(){
       $('#runStruct').disabled=false; qmsg('完了'); renderArticles(); renderQuality(); renderCorr(); switchTab('quality');
-      autoSaveToGist();
+      autoSaveToRepo();
     });
   };
   $('#qAdd').onclick=function(){
@@ -2820,7 +2783,7 @@ function bindQuality(){
     $('#qAdd').disabled=true; qext('取得・解析中…');
     getText.then(function(text){ return analyzeAndScore(String(text), model); })
       .then(function(st){ QEXT.push({label:label,url:url,reach:reach,external:true,struct:st});
-        autoSaveToGist(true); $('#qAdd').disabled=false; qext('追加しました'); $('#qText').value=''; $('#qUrl').value=''; $('#qLabel').value=''; $('#qReach').value=''; renderQuality(); renderCorr(); })
+        autoSaveToRepo(true); $('#qAdd').disabled=false; qext('追加しました'); $('#qText').value=''; $('#qUrl').value=''; $('#qLabel').value=''; $('#qReach').value=''; renderQuality(); renderCorr(); })
       .catch(function(e){ $('#qAdd').disabled=false; qext('失敗: '+(e.message||e)+'（取得不可なら本文を直接貼ってください）'); });
   };
 }
@@ -2968,7 +2931,7 @@ function renderQuality(){
     if(s.raw){ r.style.cursor='pointer'; r.title='クリックで詳細・項目修正'; (function(pp){r.onclick=function(){showDetail(pp.struct,pp.label,pp.text,pp);};})(p); }
     var del=r.querySelector('.qext-del');
     if(del){ (function(pp){ del.onclick=function(ev){ ev.stopPropagation();
-      var i=QEXT.indexOf(pp._src); if(i>=0){ QEXT.splice(i,1); renderQuality(); renderCorr(); if(typeof autoSaveToGist==='function') autoSaveToGist(true); }
+      var i=QEXT.indexOf(pp._src); if(i>=0){ QEXT.splice(i,1); renderQuality(); renderCorr(); if(typeof autoSaveToRepo==='function') autoSaveToRepo(true); }
     }; })(p); }
     tb.appendChild(r);
   });
@@ -3189,13 +3152,13 @@ function bindSampling(){
               return analyzeAndScore(String(text), model).then(function(st){
                 QEXT.push({label:label,url:url,reach:null,external:true,struct:st});
                 done++; $('#sampleMsg').textContent='解析中 '+done+'/'+urls.length;
-                autoSaveToGist(true);
+                autoSaveToRepo(true);
               });
             })
             .catch(function(){}); // 取得失敗はスキップ
         }, 2, null).then(function(){
           $('#runSample').disabled=false; $('#sampleMsg').textContent='完了（'+done+'件解析）';
-          renderQuality(); renderCorr(); autoSaveToGist(true);
+          renderQuality(); renderCorr(); autoSaveToRepo(true);
         });
       })
       .catch(function(e){ $('#runSample').disabled=false; $('#sampleMsg').textContent='失敗: '+e.message; });
@@ -3245,7 +3208,7 @@ function bindReaderCompare(){
       if(useLLM){ msg+=' / LLM構造 成功'+okStruct; var llmFail=QREADER.length-okStruct; if(llmFail){ msg+='・失敗'+llmFail+(llmErr?'（'+llmErr.slice(0,60)+'）':''); } }
       $('#rdMsg').textContent=msg;
       renderReaderCompare();
-      if(typeof autoSaveToGist==='function') autoSaveToGist(true);
+      if(typeof autoSaveToRepo==='function') autoSaveToRepo(true);
     });
   };
 }
@@ -3565,7 +3528,7 @@ function renderDetailConstructions(){
   });
 }
 
-// 編集を qualityScore に通し、記事のstructへ書き戻して一覧・散布図・Gistへ反映
+// 編集を qualityScore に通し、記事のstructへ書き戻して一覧・散布図・保存データへ反映
 // isEdit=true（ユーザーが手で修正）なら、この記事を「確定例」として較正に使えるようマーク
 function recomputeDetail(isEdit){
   var d=DETAIL_STATE.result; if(!d) return;
@@ -3595,7 +3558,7 @@ function recomputeDetail(isEdit){
   // マッピング・一覧・相関へ即反映＋保存
   if(typeof renderQuality==='function') renderQuality();
   if(typeof renderCorr==='function') renderCorr();
-  if(typeof autoSaveToGist==='function') autoSaveToGist(true);
+  if(typeof autoSaveToRepo==='function') autoSaveToRepo(true);
 }
 
 function drawRadar(q){
