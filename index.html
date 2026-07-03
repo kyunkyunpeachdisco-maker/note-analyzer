@@ -467,14 +467,26 @@
 
 <script>
 "use strict";
+/* ====================== localStorageキー移行（na_* → note-analyzer-*、一度きり） ====================== */
+(function(){
+  try{
+    if(localStorage.getItem('note-analyzer-key-migrated')) return;
+    var map={'na_github_pat':'note-analyzer-github-pat','na_gist_id':'note-analyzer-gist-id','na_gist_url':'note-analyzer-gist-url','na_repo_slug':'note-analyzer-repo-slug'};
+    for(var k in map){
+      var v=localStorage.getItem(k);
+      if(v!==null){ if(localStorage.getItem(map[k])===null) localStorage.setItem(map[k],v); localStorage.removeItem(k); }
+    }
+    localStorage.setItem('note-analyzer-key-migrated','1');
+  }catch(e){}
+})();
 /* ====================== 状態・ユーティリティ ====================== */
 var DATA = null;       // {meta, articles}
 var ARTS = [];         // 派生指標を付与した記事配列
 /* Gist同期 */
-var naGhPat   = localStorage.getItem('na_github_pat')||'';
-var naGistId  = localStorage.getItem('na_gist_id')||'';
-var naGistUrl = localStorage.getItem('na_gist_url')||'';
-var naRepoSlug = localStorage.getItem('na_repo_slug')||''; // 📦の保存先（owner/repo・各ユーザーが自分のリポジトリを指定）
+var naGhPat   = localStorage.getItem('note-analyzer-github-pat')||'';
+var naGistId  = localStorage.getItem('note-analyzer-gist-id')||'';
+var naGistUrl = localStorage.getItem('note-analyzer-gist-url')||'';
+var naRepoSlug = localStorage.getItem('note-analyzer-repo-slug')||''; // 📦の保存先（owner/repo・各ユーザーが自分のリポジトリを指定）
 var HAS_VIEWS = false;
 var PERF_KEY = 'views';   // 主指標（ビューが無ければスキ）
 var PERF_LABEL = 'ビュー';
@@ -1914,7 +1926,7 @@ function naGistMsg(s){
 $('#gistSettings').onclick=function(){
   var pat=prompt('GitHub Personal Access Token（gistスコープ）', naGhPat);
   if(pat==null) return;
-  naGhPat=pat.trim(); localStorage.setItem('na_github_pat', naGhPat);
+  naGhPat=pat.trim(); localStorage.setItem('note-analyzer-github-pat', naGhPat);
   naGistMsg('PAT設定済み');
 };
 
@@ -1934,9 +1946,9 @@ $('#saveGist').onclick=function(){
     {method:gid?'PATCH':'POST',headers:naGistHeaders(),body:body})
   .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,80));});return r.json();})
   .then(function(j){
-    if(!gid){naGistId=j.id; localStorage.setItem('na_gist_id',naGistId);}
+    if(!gid){naGistId=j.id; localStorage.setItem('note-analyzer-gist-id',naGistId);}
     var url='https://gist.github.com/'+j.owner.login+'/'+j.id;
-    naGistUrl=url; localStorage.setItem('na_gist_url',url);
+    naGistUrl=url; localStorage.setItem('note-analyzer-gist-url',url);
     $('#gistUrl').value=url;
     naGistMsg('保存しました ✅  '+url);
     $('#saveGist').disabled=false;
@@ -1980,7 +1992,7 @@ function ensureDataBranch(slug){
 $('#saveRepo').onclick=function(){
   var slug=naRepoTarget();
   if(!slug){ alert('保存先リポジトリを「owner/repo」形式で入力してください（例: yourname/my-note-data）。\n非公開リポジトリ推奨。Claude Codeでそのリポジトリを開くと評価データを直接参照できます'); var f=$('#repoSlug'); if(f)f.focus(); return; }
-  naRepoSlug=slug; localStorage.setItem('na_repo_slug', slug); // 形式が正しければ即保存（PAT未設定でも設定は残す）
+  naRepoSlug=slug; localStorage.setItem('note-analyzer-repo-slug', slug); // 形式が正しければ即保存（PAT未設定でも設定は残す）
   if(!naGhPat){ alert('先に「⚙️ Gist設定」でPATを入力してください。\nリポジトリ保存には '+slug+' の Contents 読み書き権限が必要です（fine-grained PAT推奨。gistスコープのみのPATでは403になります）'); return; }
   if(!DATA){ alert('先にデータを読み込んでください'); return; }
   var btn=$('#saveRepo'); btn.disabled=true;
@@ -2020,9 +2032,9 @@ $('#loadGist').onclick=function(){
     var key=Object.keys(files).find(function(f){return f.endsWith('.json');});
     if(!key)throw new Error('JSONファイルがGistに見つかりません');
     // GistIDとURLをlocalStorageに保存（次回起動時の自動読み込みに使用）
-    if(gid!==naGistId){ naGistId=gid; localStorage.setItem('na_gist_id',naGistId); }
+    if(gid!==naGistId){ naGistId=gid; localStorage.setItem('note-analyzer-gist-id',naGistId); }
     var loadedUrl='https://gist.github.com/'+meta.owner.login+'/'+gid;
-    naGistUrl=loadedUrl; localStorage.setItem('na_gist_url',loadedUrl);
+    naGistUrl=loadedUrl; localStorage.setItem('note-analyzer-gist-url',loadedUrl);
     $('#gistUrl').value=loadedUrl;
     return fetch(files[key].raw_url).then(function(r){return r.text();});
   }).then(function(text){
