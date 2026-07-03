@@ -3,10 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>note アナライザー</title>
+<title>note アナライザー - 自分のnoteを多角的に分析</title>
+<meta name="description" content="自分のnoteを多角的に分析するダッシュボード">
+<meta name="theme-color" content="#0e1116">
+<link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta property="og:title" content="note アナライザー">
 <meta property="og:description" content="自分のnoteを多角的に分析するダッシュボード">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://kyunkyunpeachdisco-maker.github.io/note-analyzer/">
+<meta property="og:image" content="https://kyunkyunpeachdisco-maker.github.io/note-analyzer/icons/ogp.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://kyunkyunpeachdisco-maker.github.io/note-analyzer/icons/ogp.png">
 <style>
   :root{
     --bg:#0e1116; --panel:#161b22; --panel2:#1c232c; --line:#2a3340;
@@ -194,8 +202,8 @@
     <h2 class="sec">データを読み込む</h2>
     <p class="desc">ブックマークレットで出力したJSONを貼り付けるか、ファイルを選択してください。スマホからはGist URLで読み込めます。</p>
     <div class="panel">
-      <strong style="font-size:14px">☁️ Gist同期</strong>
-      <p class="mut" style="margin:6px 0">PCでブックマークレット実行後「Gistに保存」→スマホで「Gistから読み込み」。初回はGitHub PATを設定してください。</p>
+      <strong style="font-size:14px">☁️ データ同期（Gist / Claude連携リポジトリ）</strong>
+      <p class="mut" style="margin:6px 0">端末間の同期はGist（PCで「Gistに保存」→スマホで「Gistから読み込み」）。Claude Codeに評価データを直接読ませるなら📦リポジトリ保存。初回はGitHub PATを設定してください。</p>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
         <button class="btn ghost" id="gistSettings">⚙️ Gist設定</button>
         <button class="btn" id="saveGist">↑ Gistに保存</button>
@@ -204,13 +212,13 @@
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
         <input id="gistUrl" placeholder="GistのURL（↓読み込み時に自動入力）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
-        <input id="repoSlug" placeholder="📦の保存先リポジトリ owner/repo（非公開推奨）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
+        <input id="repoSlug" placeholder="📦の保存先 例: yourname/note-analyzer-data（URL貼り付けも可）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
       </div>
       <details style="margin-top:8px">
         <summary style="cursor:pointer;color:var(--mut);font-size:13px">📦 Claude連携のセットアップ（リンク付き・3ステップ）</summary>
         <ol style="margin:8px 0 0;padding-left:20px;color:var(--mut);font-size:13px;line-height:1.9">
           <li><a href="https://github.com/new?name=note-analyzer-data&visibility=private&description=note-analyzer%20data%20for%20Claude" target="_blank" rel="noopener" style="color:var(--accent)">データ置き場リポジトリを作る</a>（リンクを開くと名前と非公開が入力済み。そのまま「Create repository」を押すだけ）</li>
-          <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:var(--accent)">PAT（fine-grained）を発行</a>：Repository access→<b>Only select repositories</b>→手順1のリポジトリを選択／Permissions→<b>Contents: Read and write</b>（Gist保存も同じトークンで行うなら Account permissions→<b>Gists: Read and write</b> も）→ 発行された <code>github_pat_…</code> を上の「⚙️ Gist設定」に貼る<br>
+          <li><a href="https://github.com/settings/personal-access-tokens/new?name=note-analyzer" target="_blank" rel="noopener" style="color:var(--accent)">PAT（fine-grained）を発行</a>：Token nameは例: <b>note-analyzer</b>（リンクから開けば入力済み）／Expirationは<b>90 days</b>か Custom で1年後／Repository access→<b>Only select repositories</b>→手順1のリポジトリ（既存のリポジトリでも可）を選択／Permissions→<b>Contents: Read and write</b>（Gist保存も同じトークンで行うなら Account permissions→<b>Gists: Read and write</b> も）→ 発行された <code>github_pat_…</code> を上の「⚙️ Gist設定」に貼る（<b>画面を閉じると二度と表示されません</b>）<br>
           <span style="font-size:12px">お手軽版：<a href="https://github.com/settings/tokens/new?scopes=gist,repo&description=note-analyzer" target="_blank" rel="noopener" style="color:var(--accent)">クラシックトークン（スコープ設定済みリンク）</a>でも可。ただし全リポジトリに効く強い権限なので fine-grained 推奨</span></li>
           <li>上の入力欄に <code>自分のID/リポジトリ名</code> を入れて「📦 Claude用にリポジトリへ保存」を押す</li>
         </ol>
@@ -1948,8 +1956,13 @@ function b64EncodeUnicode(str){
   return btoa(bin);
 }
 function naRepoTarget(){
-  var slug=((($('#repoSlug')||{}).value)||naRepoSlug||'').trim().replace(/^https:\/\/github\.com\//,'').replace(/\/+$/,'');
-  return /^[\w.-]+\/[\w.-]+$/.test(slug)? slug : null;
+  // URL貼り付け（https://github.com/owner/repo, .git付き, /tree/…付き）でも owner/repo に正規化する
+  var slug=((($('#repoSlug')||{}).value)||naRepoSlug||'').trim()
+    .replace(/^https?:\/\/(www\.)?github\.com\//,'')
+    .replace(/^github\.com\//,'')
+    .replace(/\.git$/,'');
+  var m=slug.match(/^([\w.-]+\/[\w.-]+)/);
+  return m? m[1] : null;
 }
 function naRepoApi(slug,p){ return 'https://api.github.com/repos/'+slug+p; }
 function ensureDataBranch(slug){
