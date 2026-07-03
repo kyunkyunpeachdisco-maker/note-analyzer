@@ -205,7 +205,7 @@
       <strong style="font-size:14px">☁️ データ同期（Gist / Claude連携リポジトリ）</strong>
       <p class="mut" style="margin:6px 0">端末間の同期はGist（PCで「Gistに保存」→スマホで「Gistから読み込み」）。Claude Codeに評価データを直接読ませるなら📦リポジトリ保存。初回はGitHub PATを設定してください。</p>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
-        <button class="btn ghost" id="gistSettings">⚙️ Gist設定</button>
+        <button class="btn ghost" id="gistSettings">⚙️ GitHub PAT設定</button>
         <button class="btn" id="saveGist">↑ Gistに保存</button>
         <button class="btn ghost" id="loadGist">↓ Gistから読み込み</button>
         <button class="btn ghost" id="saveRepo" title="下で指定した自分のリポジトリのdataブランチ（data/note-analyzer.json）に保存。Claude Codeのセッションをそのリポジトリで開くと評価データを直接参照できる（要: そのリポジトリのContents書き込み権限つきPAT）">📦 Claude用にリポジトリへ保存</button>
@@ -218,7 +218,7 @@
         <summary style="cursor:pointer;color:var(--mut);font-size:13px">📦 Claude連携のセットアップ（リンク付き・3ステップ）</summary>
         <ol style="margin:8px 0 0;padding-left:20px;color:var(--mut);font-size:13px;line-height:1.9">
           <li><a href="https://github.com/new?name=note-analyzer-data&visibility=private&description=note-analyzer%20data%20for%20Claude" target="_blank" rel="noopener" style="color:var(--accent)">データ置き場リポジトリを作る</a>（リンクを開くと名前と非公開が入力済み。そのまま「Create repository」を押すだけ）</li>
-          <li><a href="https://github.com/settings/personal-access-tokens/new?name=note-analyzer" target="_blank" rel="noopener" style="color:var(--accent)">PAT（fine-grained）を発行</a>：Token nameは例: <b>note-analyzer</b>（リンクから開けば入力済み）／Expirationは<b>90 days</b>か Custom で1年後／Repository access→<b>Only select repositories</b>→手順1のリポジトリ（既存のリポジトリでも可）を選択／Permissions→<b>Contents: Read and write</b>（Gist保存も同じトークンで行うなら Account permissions→<b>Gists: Read and write</b> も）→ 発行された <code>github_pat_…</code> を上の「⚙️ Gist設定」に貼る（<b>画面を閉じると二度と表示されません</b>）<br>
+          <li><a href="https://github.com/settings/personal-access-tokens/new?name=note-analyzer" target="_blank" rel="noopener" style="color:var(--accent)">PAT（fine-grained）を発行</a>：Token nameは例: <b>note-analyzer</b>（リンクから開けば入力済み）／Expirationは<b>90 days</b>か Custom で1年後／Repository access→<b>Only select repositories</b>→手順1のリポジトリ（既存のリポジトリでも可）を選択／Permissions→<b>Contents: Read and write</b>（Gist保存も同じトークンで行うなら Account permissions→<b>Gists: Read and write</b> も）→ 発行された <code>github_pat_…</code> を上の「⚙️ GitHub PAT設定」に貼る（<b>画面を閉じると二度と表示されません</b>）<br>
           <span style="font-size:12px">お手軽版：<a href="https://github.com/settings/tokens/new?scopes=gist,repo&description=note-analyzer" target="_blank" rel="noopener" style="color:var(--accent)">クラシックトークン（スコープ設定済みリンク）</a>でも可。ただし全リポジトリに効く強い権限なので fine-grained 推奨</span></li>
           <li>上の入力欄に <code>自分のID/リポジトリ名</code> を入れて「📦 Claude用にリポジトリへ保存」を押す</li>
         </ol>
@@ -1924,14 +1924,14 @@ function naGistMsg(s){
 }
 
 $('#gistSettings').onclick=function(){
-  var pat=prompt('GitHub Personal Access Token（gistスコープ）', naGhPat);
+  var pat=prompt('GitHub Personal Access Token（Gist保存とリポジトリ保存の共通トークン）', naGhPat);
   if(pat==null) return;
   naGhPat=pat.trim(); localStorage.setItem('note-analyzer-github-pat', naGhPat);
   naGistMsg('PAT設定済み');
 };
 
 $('#saveGist').onclick=function(){
-  if(!naGhPat){ alert('先にGist設定でGitHub PATを入力してください'); $('#gistSettings').click(); return; }
+  if(!naGhPat){ alert('先に「⚙️ GitHub PAT設定」でGitHub PATを入力してください'); $('#gistSettings').click(); return; }
   if(!DATA){ alert('先にデータを読み込んでください'); return; }
   // URL欄を空にして保存すると既存Gistを切り離し、新規Gistを作成する（公開→シークレットの移行用。
   // 起動時にURL欄は自動復元されるため、空＝ユーザーが意図的に消した場合のみ）
@@ -1959,7 +1959,7 @@ $('#saveGist').onclick=function(){
    Claude Codeのセッションは設定したリポジトリのみ参照できる（Gistは不可）。
    各自が指定したリポジトリ（owner/repo・非公開推奨）の data ブランチの
    data/note-analyzer.json にデータを置くことで、そのリポジトリで開いた
-   セッションから評価データを直接読めるようにする。PATはGist設定と同じ欄
+   セッションから評価データを直接読めるようにする。PATは「⚙️ GitHub PAT設定」の共通欄
    （指定リポジトリの Contents 読み書き権限が必要。fine-grained推奨） */
 var NA_REPO={branch:'data', path:'data/note-analyzer.json'};
 function b64EncodeUnicode(str){
@@ -1993,7 +1993,7 @@ $('#saveRepo').onclick=function(){
   var slug=naRepoTarget();
   if(!slug){ alert('保存先リポジトリを「owner/repo」形式で入力してください（例: yourname/my-note-data）。\n非公開リポジトリ推奨。Claude Codeでそのリポジトリを開くと評価データを直接参照できます'); var f=$('#repoSlug'); if(f)f.focus(); return; }
   naRepoSlug=slug; localStorage.setItem('note-analyzer-repo-slug', slug); // 形式が正しければ即保存（PAT未設定でも設定は残す）
-  if(!naGhPat){ alert('先に「⚙️ Gist設定」でPATを入力してください。\nリポジトリ保存には '+slug+' の Contents 読み書き権限が必要です（fine-grained PAT推奨。gistスコープのみのPATでは403になります）'); return; }
+  if(!naGhPat){ alert('先に「⚙️ GitHub PAT設定」でPATを入力してください。\nリポジトリ保存には '+slug+' の Contents 読み書き権限が必要です（fine-grained PAT推奨。gistスコープのみのPATでは403になります）'); return; }
   if(!DATA){ alert('先にデータを読み込んでください'); return; }
   var btn=$('#saveRepo'); btn.disabled=true;
   syncStructToData();
