@@ -2825,11 +2825,18 @@ function analyzeText(text, model, calib){
      .then(function(j){var raw=(j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts&&j.candidates[0].content.parts[0]&&j.candidates[0].content.parts[0].text)||'';var d=qParseJSON(raw);if(!d)throw new Error('JSON解析失敗');return d;});
   }
   var key=qKeyGet();
+  // max_tokens: 較正ルールの網羅要求（verifiability 5-8件・主結論必須等）で出力が伸びたため
+  // 12000では長文記事のJSONが途中で切れる（→JSON解析失敗→全サンプル失敗）。24000に拡大
   return fetch('https://api.anthropic.com/v1/messages',{method:'POST',
     headers:{'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:model||'claude-opus-4-8',max_tokens:12000,system:Q_SYSTEM,messages:[{role:'user',content:userMsg}]})})
+    body:JSON.stringify({model:model||'claude-opus-4-8',max_tokens:24000,system:Q_SYSTEM,messages:[{role:'user',content:userMsg}]})})
    .then(function(r){ if(!r.ok)return r.text().then(function(t){throw new Error('API '+r.status+': '+t.slice(0,120));}); return r.json(); })
-   .then(function(j){ var raw=(j.content&&j.content[0]&&j.content[0].text)||''; var d=qParseJSON(raw); if(!d)throw new Error('JSON解析失敗'); return d; });
+   .then(function(j){
+     var raw=(j.content&&j.content[0]&&j.content[0].text)||'';
+     if(j.stop_reason==='max_tokens') throw new Error('出力が上限で切れました（記事が長い場合に発生。再試行するか記事を分割してください）');
+     var d=qParseJSON(raw); if(!d)throw new Error('JSON解析失敗');
+     return d;
+   });
 }
 
 // ② ユーザー較正：確定済み（手で修正した）自記事を few-shot 例として基準に与える
