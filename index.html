@@ -1957,20 +1957,37 @@ function ensureDataBranch(slug){
 }
 // 保存の共通実装（ボタンと自動保存の両方から使う）。dataブランチ確保→sha取得→PUT
 var _dataBranchOk=''; // ensureDataBranch済みのslugをキャッシュ（自動保存のAPI呼び出し削減）
+var _lastSavedPayload=null; // 直前に保存した内容（同一内容の空コミットを防ぐ）
+function naRepoSha(slug){
+  // 親ディレクトリ一覧からshaを取る。GET /contents/<file> はファイルが約1MBを超えると
+  // 失敗する（sha無しPUT→422事故の原因になる）ため、サイズに影響されない一覧方式を使う
+  return fetch(naRepoApi(slug,'/contents/data?ref='+NA_REPO.branch),{headers:naGhHeaders()})
+    .then(function(r){ return r.ok? r.json() : []; })
+    .then(function(list){
+      if(!Array.isArray(list)) return null;
+      var f=list.filter(function(x){ return x.path===NA_REPO.path; })[0];
+      return f? f.sha : null;
+    }).catch(function(){ return null; });
+}
 function naRepoSave(slug, silent){
   syncStructToData();
   var payload=JSON.stringify(DATA,null,2);
+  if(payload===_lastSavedPayload){ if(!silent) naSyncMsg('☁️ 変更なし'); return Promise.resolve(false); }
   var ensure=(_dataBranchOk===slug)? Promise.resolve(true) : ensureDataBranch(slug).then(function(){ _dataBranchOk=slug; return true; });
-  return ensure.then(function(){
-    // 既存ファイルのsha取得（初回は404で新規作成）
-    return fetch(naRepoApi(slug,'/contents/'+NA_REPO.path+'?ref='+NA_REPO.branch),{headers:naGhHeaders()})
-      .then(function(r){ return r.ok? r.json().then(function(j){return j.sha;}) : null; }).catch(function(){ return null; });
-  }).then(function(sha){
+  function put(sha){
     var body={message:'note-analyzer data update ('+((DATA.meta&&DATA.meta.count)||'?')+'記事)', content:b64EncodeUnicode(payload), branch:NA_REPO.branch};
     if(sha) body.sha=sha;
     return fetch(naRepoApi(slug,'/contents/'+NA_REPO.path),{method:'PUT',headers:naGhHeaders(),body:JSON.stringify(body)});
+  }
+  return ensure.then(function(){ return naRepoSha(slug); })
+  .then(put)
+  .then(function(r){
+    // sha不一致・sha欠落（409/422）は最新shaを取り直して1回だけリトライ（自動保存との競合対策）
+    if(r.status===409||r.status===422) return naRepoSha(slug).then(put);
+    return r;
   }).then(function(r){
     if(!r.ok) return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,100));});
+    _lastSavedPayload=payload;
     if(!silent) naSyncMsg('☁️ 保存');
     return true;
   });
