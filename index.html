@@ -484,7 +484,7 @@ var ARTS = [];         // 派生指標を付与した記事配列
 /* リポジトリ同期 */
 var naGhPat   = localStorage.getItem('note-analyzer-github-pat')||'';
 var naRepoSlug = localStorage.getItem('note-analyzer-repo-slug')||''; // 保存先（owner/repo・各ユーザーが自分のリポジトリを指定）
-var NA_REPO={branch:'data', path:'data/note-analyzer.json'}; // 保存先のブランチとパス（起動時の自動読み込みでも使うためここで定義）
+var NA_REPO={branch:'data', path:'data/note-analyzer.json', reportPath:'data/report.md'}; // 保存先のブランチとパス（起動時の自動読み込みでも使うためここで定義）
 // Gist同期は廃止（v1.0.11）。旧キーを掃除する
 try{ localStorage.removeItem('note-analyzer-gist-id'); localStorage.removeItem('note-analyzer-gist-url'); }catch(e){}
 var HAS_VIEWS = false;
@@ -1958,14 +1958,16 @@ function ensureDataBranch(slug){
 // 保存の共通実装（ボタンと自動保存の両方から使う）。dataブランチ確保→sha取得→PUT
 var _dataBranchOk=''; // ensureDataBranch済みのslugをキャッシュ（自動保存のAPI呼び出し削減）
 var _lastSavedKey=null; // 直前に保存した「保存先+内容」（同一内容の空コミットを防ぐ。保存先が変わったら再保存する）
-function naRepoSha(slug){
+function naRepoSha(slug, path){
   // 親ディレクトリ一覧からshaを取る。GET /contents/<file> はファイルが約1MBを超えると
   // 失敗する（sha無しPUT→422事故の原因になる）ため、サイズに影響されない一覧方式を使う
-  return fetch(naRepoApi(slug,'/contents/data?ref='+NA_REPO.branch),{headers:naGhHeaders()})
+  path=path||NA_REPO.path;
+  var dir=path.indexOf('/')>=0? path.slice(0,path.lastIndexOf('/')) : '';
+  return fetch(naRepoApi(slug,'/contents/'+dir+'?ref='+NA_REPO.branch),{headers:naGhHeaders()})
     .then(function(r){ return r.ok? r.json() : []; })
     .then(function(list){
       if(!Array.isArray(list)) return null;
-      var f=list.filter(function(x){ return x.path===NA_REPO.path; })[0];
+      var f=list.filter(function(x){ return x.path===path; })[0];
       return f? f.sha : null;
     }).catch(function(){ return null; });
 }
@@ -1989,6 +1991,28 @@ function naRepoSave(slug, silent){
     if(!r.ok) return r.text().then(function(t){throw new Error('GitHub API '+r.status+': '+t.slice(0,100));});
     _lastSavedKey=slug+'\n'+payload;
     if(!silent) naSyncMsg('☁️ 保存');
+    // 画面の全タブ相当のMarkdownレポートも併せて保存。失敗しても保存全体は成功扱い（データ本体は保存済み）
+    return naRepoSaveReport(slug)
+      .catch(function(e){ naSyncMsg('⚠️ レポート(report.md)保存失敗: '+(e.message||e)+'（データ本体は保存済み）'); })
+      .then(function(){ return true; });
+  });
+}
+// data/report.md（buildRepoReportのMarkdown）をdataブランチにPUTする。sha取得→PUT→409/422で1回リトライ
+function naRepoSaveReport(slug){
+  var md;
+  try{ md=buildRepoReport(); }catch(e){ return Promise.reject(e); }
+  if(!md) return Promise.resolve(false);
+  function put(sha){
+    var body={message:'note-analyzer report update', content:b64EncodeUnicode(md), branch:NA_REPO.branch};
+    if(sha) body.sha=sha;
+    return fetch(naRepoApi(slug,'/contents/'+NA_REPO.reportPath),{method:'PUT',headers:naGhHeaders(),body:JSON.stringify(body)});
+  }
+  return naRepoSha(slug, NA_REPO.reportPath).then(put)
+  .then(function(r){
+    if(r.status===409||r.status===422) return naRepoSha(slug, NA_REPO.reportPath).then(put);
+    return r;
+  }).then(function(r){
+    if(!r.ok) throw new Error('GitHub API '+r.status);
     return true;
   });
 }
@@ -2040,11 +2064,323 @@ function ensureRepoGuide(slug){
       +'- `_qext[]` … URL追加した外部記事の評価\n'
       +'- `_qreader[]` … コア読者記事の評価\n'
       +'- `meta` … 収集メタ（tagStats, coreReaderProfiles）\n\n'
+      +'`data` ブランチの `data/report.md` は、アプリ画面の全タブの表示内容をMarkdown化したものです。\n'
+      +'分析・レビューを頼まれたらまずこれを読んでください。生データは data/note-analyzer.json にあります。\n\n'
       +'このファイルは note-analyzer の初回保存時に自動作成されました。\n';
     return fetch(naRepoApi(slug,'/contents/CLAUDE.md'),{method:'PUT',headers:naGhHeaders(),
       body:JSON.stringify({message:'note-analyzer: データの在り処の案内ファイルを追加', content:b64EncodeUnicode(guide)})
     }).then(function(r2){ return r2.ok; }).catch(function(){ return false; });
   }).catch(function(){ return false; });
+}
+
+/* ====================== Markdownレポート（リポジトリ保存用） ====================== */
+// アプリの各タブが画面に表示している内容と同じデータ・同じ数値をMarkdownで出す。
+// Claude Codeがデータリポジトリを開いたとき、data/report.md だけで画面と同じ情報を読めるようにするのが目的。
+// 新しい分析は行わない（各タブのrender系・katex系と同じ計算ロジックを使う）
+function buildRepoReport(){
+  if(!ARTS.length) return '';
+  var md=[];
+  function mdEsc(s){ return String(s==null?'':s).replace(/\s*\n\s*/g,' ').replace(/\|/g,'\\|').replace(/([\[\]])/g,'\\$1'); }
+  function mdLink(title,url){ return url? '['+mdEsc(title)+']('+url+')' : mdEsc(title); }
+  function tbl(header,rows){
+    var out=['| '+header.join(' | ')+' |','|'+header.map(function(){return ' --- |';}).join('')];
+    rows.forEach(function(r){ out.push('| '+r.join(' | ')+' |'); });
+    return out.join('\n');
+  }
+  function pairMd(vv,lv){ return HAS_VIEWS? f1(vv)+' / '+f1(lv) : f1(lv); }
+  var name=(DATA.meta&&DATA.meta.urlname)||'';
+  var asof=DATA.meta&&DATA.meta.exportedAt?fmtDateTime(DATA.meta.exportedAt):null;
+  var analyzed=ARTS.filter(function(a){return a.struct;});
+
+  md.push('# note-analyzer レポート');
+  md.push('');
+  md.push('- アカウント: @'+mdEsc(name));
+  md.push('- データ時点: '+(asof||'—'));
+  md.push('- 記事数: '+num(ARTS.length));
+  md.push('- 解析済み記事数: '+num(analyzed.length));
+  md.push('- 成績指標: '+PERF_LABEL+(HAS_VIEWS?'':'（ビュー未収集）'));
+
+  // ── 概要（renderOverviewのカードと気づきポイントと同じ計算）──
+  md.push(''); md.push('## 概要'); md.push('');
+  var totalViews=ARTS.reduce(function(s,a){return s+(a.views||0);},0);
+  var totalLikes=ARTS.reduce(function(s,a){return s+(a.likes||0);},0);
+  var totalComments=ARTS.reduce(function(s,a){return s+(a.comments||0);},0);
+  var avgLikeRate=mean(ARTS.map(function(a){return a.likeRate;}));
+  var medLikeRate=median(ARTS.map(function(a){return a.likeRate;}));
+  var dates=ARTS.map(function(a){return a.publishAt?new Date(a.publishAt).getTime():null;}).filter(Boolean);
+  var spanDays=dates.length>1?(Math.max.apply(null,dates)-Math.min.apply(null,dates))/86400000:null;
+  var freq=spanDays?(ARTS.length/(spanDays/30)):null;
+  md.push(tbl(['指標','値'],[
+    ['記事数', num(ARTS.length)],
+    ['総ビュー', HAS_VIEWS?num(totalViews):'—'],
+    ['総スキ', num(totalLikes)],
+    ['総コメント', num(totalComments)],
+    ['平均スキ率', avgLikeRate!=null?(avgLikeRate*100).toFixed(2)+'%':'—'],
+    ['中央値スキ率', medLikeRate!=null?(medLikeRate*100).toFixed(2)+'%':'—'],
+    ['投稿ペース', freq!=null?f1(freq)+' 本/月':'—']
+  ]));
+  var insights=[];
+  var byPerf=ARTS.slice().sort(function(a,b){return (b.perf||0)-(a.perf||0);});
+  if(byPerf[0]) insights.push('最も'+PERF_LABEL+'が多いのは「'+mdEsc(byPerf[0].title)+'」（'+num(byPerf[0].perf)+'）');
+  var gemsAll=findGems();
+  if(gemsAll.length) insights.push('「刺さってるのに届いてない」記事が '+gemsAll.length+'件（お宝記事の節を参照）');
+  if(HAS_VIEWS){
+    var bestRate=ARTS.slice().filter(function(a){return a.likeRate!=null;}).sort(function(a,b){return b.likeRate-a.likeRate;})[0];
+    if(bestRate) insights.push('スキ率が最も高いのは「'+mdEsc(bestRate.title)+'」（'+(bestRate.likeRate*100).toFixed(1)+'%）');
+  }
+  var everTop=ARTS.slice().filter(function(a){return a.ageDays>90 && a.perfPerDay!=null;}).sort(function(a,b){return b.perfPerDay-a.perfPerDay;})[0];
+  if(everTop) insights.push('公開90日超でも伸び続けている代表格は「'+mdEsc(everTop.title)+'」（日割り'+f1(everTop.perfPerDay)+PERF_LABEL+'）');
+  if(insights.length){
+    md.push(''); md.push('気づきポイント:'); md.push('');
+    insights.forEach(function(t){ md.push('- '+t); });
+  }
+
+  // ── 記事一覧（記事一覧タブの列のうち主要列。ビュー降順）──
+  md.push(''); md.push('## 記事一覧'); md.push('');
+  function artQualityMd(s){
+    if(!s) return '—';
+    if(s.mode==='失敗') return '失敗';
+    var t=(s.score==null?'—':String(s.score));
+    if(s.genre) t+=' '+s.genre;
+    if(s.pseudo) t+=' 偽'+s.pseudo;
+    if(s.lowConf) t+=' ⚠低信頼';
+    return t;
+  }
+  var listKey=HAS_VIEWS?'views':'likes';
+  var listRows=ARTS.slice().sort(function(a,b){
+    var x=a[listKey],y=b[listKey];
+    if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1;
+    return y-x;
+  }).map(function(a){
+    return [mdLink(a.title,a.url),
+      a.publishAt?a.publishAt.slice(0,10):'—',
+      num(a.views), num(a.likes),
+      a.likeRate!=null?(a.likeRate*100).toFixed(1)+'%':'—',
+      artQualityMd(a.struct)];
+  });
+  md.push(tbl(['タイトル','公開日','ビュー','スキ','スキ率','構造の質'], listRows));
+
+  // ── お宝記事（お宝タブと同じ抽出：スキ率が中央値以上×ビューが中央値未満）──
+  md.push(''); md.push('## お宝記事'); md.push('');
+  if(!HAS_VIEWS){
+    md.push('ビュー数が無いため品質×リーチ分析（埋もれた佳作）は未算出。');
+  } else if(!gemsAll.length){
+    md.push('該当なし。バランス良く届いています。');
+  } else {
+    md.push('「刺さってるのに届いてない」再宣伝候補（スキ率が中央値以上 × ビューが中央値未満）: '+gemsAll.length+'件');
+    md.push('');
+    md.push(tbl(['タイトル','ビュー','スキ率'], gemsAll.map(function(a){
+      return [mdLink(a.title,a.url), num(a.views), (a.likeRate*100).toFixed(1)+'%'];
+    })));
+  }
+
+  // ── タグ分析（タグタブの全タグ表と同じ集計。中央値スキ降順）──
+  md.push(''); md.push('## タグ分析'); md.push('');
+  var tags=tagAgg();
+  if(!tags.length){
+    md.push('タグがありません。');
+  } else {
+    var allMedLikes=median(ARTS.map(function(a){return a.likes;}));
+    var comps=tags.map(function(t){return t.competition;}).filter(function(x){return x!=null;});
+    var medComp=comps.length?median(comps):null;
+    var winners=tags.filter(function(t){ return t.lift!=null && t.lift>=1 && (medComp==null||t.competition==null||t.competition<=medComp); })
+                    .sort(function(a,b){return (b.lift||0)-(a.lift||0);}).slice(0,8);
+    if(winners.length){
+      md.push('狙い目タグ（中央値スキが全体以上 × 競合少）: '+winners.map(function(t){
+        return '#'+mdEsc(t.tag)+'（中央値スキ'+f1(t.medLikes)+'＝全体の'+t.lift.toFixed(1)+'倍'+(t.competition!=null?'・競合'+num(t.competition):'')+'）';
+      }).join('、'));
+    } else {
+      md.push('「全体以上の成績×競合少」に当てはまるタグはまだ無し。');
+    }
+    md.push('');
+    md.push('基準：全記事の中央値スキ '+f1(allMedLikes)+'。リフト＝タグ記事の中央値スキ÷全記事の中央値スキ。集計は中央値で統一（平均は参考）。');
+    md.push('');
+    var tagHeader=['タグ','記事数','中央値スキ','平均スキ','中央値スキ率','リフト'];
+    if(HAS_VIEWS) tagHeader.push('中央値ビュー');
+    tagHeader.push('競合度'); tagHeader.push('効率');
+    var tagRows=tags.slice().sort(function(a,b){return (b.medLikes||0)-(a.medLikes||0);}).map(function(r){
+      var cells=['#'+mdEsc(r.tag), num(r.count), f1(r.medLikes), f1(r.avgLikes), pctTxt(r.medLikeRate),
+        r.lift!=null?'×'+r.lift.toFixed(1):'—'];
+      if(HAS_VIEWS) cells.push(f1(r.medViews));
+      cells.push(r.competition!=null?num(r.competition):'—');
+      cells.push(r.efficiency!=null?num(r.efficiency):'—');
+      return cells;
+    });
+    md.push(tbl(tagHeader, tagRows));
+  }
+
+  // ── 構造（構成タブと同じ四分位バケット＋相関）──
+  md.push(''); md.push('## 構造'); md.push('');
+  var bDefs=[
+    {title:'本文の長さ', b:quantileBuckets(function(a){return a.charCount;}, function(a){return a.perf;}, ['短い','やや短','やや長','長い'])},
+    {title:'画像頻度（1000字あたり）', b:quantileBuckets(function(a){return a.imgPer1k;}, function(a){return a.perf;}, ['画像少','やや少','やや多','画像多'])},
+    {title:'見出し間隔（字／見出し）', b:quantileBuckets(function(a){return a.headInterval;}, function(a){return a.perf;}, ['見出し密','やや密','やや疎','見出し疎'])}
+  ];
+  var anyBucket=false;
+  bDefs.forEach(function(bd){
+    if(!bd.b) return;
+    anyBucket=true;
+    md.push('### '+bd.title+' × '+PERF_LABEL);
+    md.push('');
+    md.push(tbl(['帯','n','中央値'+PERF_LABEL,'平均'+PERF_LABEL], bd.b.map(function(b){
+      var vals=b.vals.filter(function(x){return x!=null;});
+      return [mdEsc(b.label.replace(/<br>/g,' ')), String(vals.length), f1(median(vals)), f1(mean(vals))];
+    })));
+    md.push('');
+  });
+  if(!anyBucket){ md.push('構成データが不足しています（記事4件以上で算出）。'); md.push(''); }
+  var structCorrs=[
+    {label:'文字数', get:function(a){return a.charCount;}},
+    {label:'画像頻度(1000字あたり)', get:function(a){return a.imgPer1k;}},
+    {label:'見出し間隔(字/見出し)', get:function(a){return a.headInterval;}}
+  ];
+  var corrRows=[];
+  structCorrs.forEach(function(sc){
+    var xs=[],ys=[];
+    ARTS.forEach(function(a){ var x=sc.get(a); if(x!=null&&a.perf!=null){xs.push(x);ys.push(a.perf);} });
+    var r=pearson(xs,ys);
+    var strength=r==null?'—':(Math.abs(r)>0.3?(r>0?'正の相関':'負の相関'):(Math.abs(r)>0.1?'弱い相関':'無相関'));
+    corrRows.push([sc.label, r!=null?r.toFixed(3):'—', strength]);
+  });
+  md.push('### 構成要素と'+PERF_LABEL+'の相関');
+  md.push('');
+  md.push(tbl(['要素','相関係数 r','強さ'], corrRows));
+
+  // ── タイトル（タイトルタブと同じ特徴別中央値比較）──
+  md.push(''); md.push('## タイトル'); md.push('');
+  var feats=['数字入り','疑問形','カギカッコ','【】','記号区切り','長め(20字↑)'];
+  var titleRows=feats.map(function(f){
+    var wV=[],wL=[],oV=[],oL=[],withF=[];
+    ARTS.forEach(function(a){ var has=titleFeatures(a.title)[f]; (has?wV:oV).push(a.views); (has?wL:oL).push(a.likes); if(has)withF.push(a.perf); });
+    return {f:f, withMed:median(HAS_VIEWS?wV:wL), woMed:median(HAS_VIEWS?oV:oL),
+            withMedV:median(wV),withMedL:median(wL),woMedV:median(oV),woMedL:median(oL),
+            nWith:withF.filter(function(x){return x!=null;}).length};
+  });
+  var tWinners=titleRows.filter(function(r){ return r.withMed!=null&&r.woMed&&r.withMed/r.woMed>1.15; });
+  var tLosers=titleRows.filter(function(r){ return r.withMed!=null&&r.woMed&&r.withMed/r.woMed<0.85; });
+  if(tWinners.length) md.push('- '+tWinners.map(function(r){return r.f;}).join('・')+' を入れると'+PERF_LABEL+'が伸びやすい');
+  if(tLosers.length) md.push('- '+tLosers.map(function(r){return r.f;}).join('・')+' は'+PERF_LABEL+'が伸びにくい');
+  if(!tWinners.length&&!tLosers.length) md.push('- タイトルの型と'+PERF_LABEL+'に強い偏りは出ていない');
+  md.push('');
+  var pairLbl=HAS_VIEWS?'(ビュー/スキ)':'(スキ)';
+  md.push(tbl(['特徴','該当','あり中央値'+pairLbl,'なし中央値'+pairLbl,'効果'], titleRows.map(function(r){
+    var lift=(r.withMed!=null&&r.woMed)?(r.withMed/r.woMed-1):null;
+    var eff=lift==null?'—':(lift>0.15?'+'+(lift*100).toFixed(0)+'%':(lift<-0.15?(lift*100).toFixed(0)+'%':'±'));
+    return [r.f, String(r.nWith), pairMd(r.withMedV,r.withMedL), pairMd(r.woMedV,r.woMedL), eff];
+  })));
+  md.push('');
+  md.push('効果は中央値ベースの比較（1記事のバズに左右されにくい）。');
+
+  // ── エバーグリーン（エバーグリーンタブと同じ日割りトップ＋リライト候補）──
+  md.push(''); md.push('## エバーグリーン'); md.push('');
+  var everArr=ARTS.filter(function(a){return a.perfPerDay!=null && a.ageDays!=null;});
+  if(!everArr.length){
+    md.push('公開日・'+PERF_LABEL+'が不足しています。');
+  } else {
+    var medPPD=median(everArr.map(function(a){return a.perfPerDay;}));
+    var everRanked=everArr.slice().sort(function(a,b){return b.perfPerDay-a.perfPerDay;}).slice(0,10);
+    md.push('### 日割り'+PERF_LABEL+' トップ（伸び続ける記事）');
+    md.push('');
+    md.push(tbl(['タイトル','経過日数','累計'+PERF_LABEL,'日割り'+PERF_LABEL,'判定'], everRanked.map(function(a){
+      return [mdLink(a.title,a.url), Math.round(a.ageDays)+'日', num(a.perf), f1(a.perfPerDay),
+        a.ageDays>90?'エバーグリーン':'初速型'];
+    })));
+    var fade=everArr.filter(function(a){return a.ageDays>180 && a.perfPerDay<medPPD;}).sort(function(a,b){return a.perfPerDay-b.perfPerDay;}).slice(0,8);
+    if(fade.length){
+      md.push('');
+      md.push('### リライト候補（古くて失速）');
+      md.push('');
+      md.push(tbl(['タイトル','経過日数','日割り'+PERF_LABEL], fade.map(function(a){
+        return [mdLink(a.title,a.url), Math.round(a.ageDays)+'日', f1(a.perfPerDay)];
+      })));
+    }
+  }
+
+  // ── ファン（コア読者タブと同じlikers集計）──
+  md.push(''); md.push('## ファン'); md.push('');
+  var hasLikers=ARTS.some(function(a){return a.likers&&a.likers.length;});
+  if(!hasLikers){
+    md.push('スキした人のデータがありません（collector.js の COLLECT_LIKERS を有効にして再取得）。');
+  } else {
+    var counter={};
+    ARTS.forEach(function(a){ (a.likers||[]).forEach(function(u){ counter[u]=(counter[u]||0)+1; }); });
+    var people=Object.keys(counter).map(function(u){return {u:u,n:counter[u]};}).sort(function(a,b){return b.n-a.n;});
+    var totalFans=people.length;
+    var repeatFans=people.filter(function(p){return p.n>=2;}).length;
+    var coreFans=people.filter(function(p){return p.n>=3;}).length;
+    md.push(tbl(['指標','値'],[
+      ['スキしてくれた延べ人数', num(totalFans)],
+      ['リピーター(2回↑)', num(repeatFans)+'（'+pct(repeatFans,totalFans)+'）'],
+      ['コアファン(3回↑)', num(coreFans)+'（'+pct(coreFans,totalFans)+'）'],
+      ['一見さん率', pct(totalFans-repeatFans,totalFans)]
+    ]));
+    var profiles=(DATA.meta&&DATA.meta.coreReaderProfiles)||[];
+    var profileMap={}; profiles.forEach(function(p){ profileMap[p.urlname]=p; });
+    md.push('');
+    md.push('### コア読者 トップ');
+    md.push('');
+    if(profiles.length){
+      md.push(tbl(['ユーザー','スキ回数','フォロワー','記事数','中央値スキ','よく使うタグ'], people.slice(0,20).map(function(p){
+        var pr=profileMap[p.u]||{};
+        var tagTxt=(pr.tags&&pr.tags.length)?pr.tags.slice(0,5).map(function(t){return mdEsc(t.name);}).join('・'):'—';
+        return [mdLink('@'+(pr.nickname||p.u),'https://note.com/'+p.u), String(p.n),
+          pr.followerCount!=null?num(pr.followerCount):'—',
+          pr.articleCount!=null?num(pr.articleCount):'—',
+          pr.medLikes!=null?num(pr.medLikes):'—', tagTxt];
+      })));
+    } else {
+      md.push(tbl(['ユーザー','スキした記事数'], people.slice(0,20).map(function(p){
+        return [mdLink('@'+p.u,'https://note.com/'+p.u), String(p.n)];
+      })));
+    }
+  }
+
+  // ── 構造の質（質タブの一覧と同じ値＋各記事の推論評価の抜粋）──
+  md.push(''); md.push('## 構造の質'); md.push('');
+  var qOwn=analyzed.map(function(a){ return {label:a.title, url:a.url, reach:a.perf, ext:false, reader:false, struct:a.struct}; });
+  var qExt=QEXT.map(function(e){ return {label:e.label, url:e.url, reach:e.reach, ext:true, reader:false, struct:e.struct}; });
+  var qRdr=(typeof QREADER!=='undefined'?QREADER:[]).filter(function(r){return r.struct;}).map(function(r){ return {label:r.label, url:r.url, reach:r.likes, ext:false, reader:true, struct:r.struct}; });
+  var qPts=qOwn.concat(qExt).concat(qRdr);
+  if(!qPts.length){
+    md.push('未解析（構造解析を実行するとここに評価が載ります）。');
+  } else {
+    var fmtQ=function(v,suf){ return v==null?'—':(v+(suf||'')); };
+    md.push(tbl(['記事','ジャンル','総合','構造制御','推論の質','接地','独自構築','偽の発見','低信頼','スコア幅'],
+      qPts.slice().sort(function(a,b){ var x=a.struct.score,y=b.struct.score; if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1; return y-x; })
+      .map(function(p){
+        var s=p.struct;
+        var ens=s.ensemble;
+        return [(p.ext?'🔗 ':'')+(p.reader?'👥 ':'')+mdLink(p.label,p.url),
+          s.genre?mdEsc(s.genre):(s.mode==='失敗'?'失敗':'—'),
+          s.score==null?'—':String(s.score),
+          fmtQ(s.ctrlScore), fmtQ(s.reasonScore), fmtQ(s.groundScore,'%'),
+          s.buildScore!=null?s.buildScore+'('+s.conCount+')':'—',
+          String(s.pseudo||0),
+          s.lowConf?'⚠低信頼':'—',
+          (ens&&ens.spread!=null)?'±'+Math.round(ens.spread/2)+'（'+ens.n+'回）':'—'];
+      })));
+    md.push('');
+    md.push('接地＝表れ型の割合(%)。独自構築の括弧は検出件数。スコア幅＝複数回解析時の総合スコアの振れ（±spread/2）。');
+    // 各記事の推論評価（struct.raw.reasoning の主張とverdict）
+    var anyReason=false;
+    qPts.forEach(function(p){
+      var raw=p.struct&&p.struct.raw;
+      var rs=(raw&&raw.reasoning?raw.reasoning:[]).filter(function(x){return !x._excluded;});
+      if(!rs.length) return;
+      if(!anyReason){ md.push(''); md.push('### 記事別の推論評価（主張 → 推論の質）'); anyReason=true; }
+      md.push('');
+      md.push('#### '+(p.ext?'🔗 ':'')+(p.reader?'👥 ':'')+mdEsc(p.label));
+      md.push('');
+      rs.forEach(function(rz){ md.push('- '+mdEsc(rz.target||'')+' → '+(rz.verdict||'—')); });
+    });
+  }
+
+  md.push('');
+  md.push('---');
+  md.push('');
+  md.push('このレポートは note-analyzer の「リポジトリに保存」時に自動生成されました（アプリ画面の各タブと同一の計算）。生データ: data/note-analyzer.json');
+  md.push('');
+  return md.join('\n');
 }
 
 /* ====================== KaTeX出力（note本文に貼る用） ====================== */
