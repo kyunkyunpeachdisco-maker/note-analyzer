@@ -399,14 +399,19 @@
     <div class="panel" id="qCorr" style="display:none"></div>
     <div class="panel">
       <strong style="font-size:14px">外部記事を追加（他人の記事など）</strong>
-      <p class="mut" style="margin:6px 0">URLを入れると reader プロキシ（r.jina.ai）経由で本文取得を試みます（第三者サービス・公開記事のみ・取得できない時は本文を直接貼ってください）。スキ数は分かれば手入力。</p>
-      <input id="qUrl" placeholder="https://note.com/.../n/...（任意）" style="width:100%;font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:6px">
-      <textarea id="qText" placeholder="または本文を直接貼り付け" style="width:100%;min-height:90px;font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px"></textarea>
-      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:6px">
-        <input id="qLabel" placeholder="ラベル（記事名）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:140px">
-        <input id="qReach" type="number" placeholder="スキ数(任意)" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;width:120px">
+      <p class="mut" style="margin:6px 0">note記事はURLを貼るだけで、本文・タイトル・スキ数を自動取得します（r.jina.ai経由・公開記事のみ）。note以外のURLは本文とタイトルのみ。取得できない場合は下の手動入力に本文を貼ってください。</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <input id="qUrl" placeholder="https://note.com/.../n/..." style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
         <button class="btn" id="qAdd">追加して解析</button>
       </div>
+      <details id="qManual">
+        <summary class="mut" style="cursor:pointer;font-size:13px">手動入力（URLで取得できない時・自動取得の上書き用）</summary>
+        <textarea id="qText" placeholder="本文を直接貼り付け（入力するとURLの本文取得より優先）" style="width:100%;min-height:90px;font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:6px"></textarea>
+        <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:6px">
+          <input id="qLabel" placeholder="ラベル（未入力なら自動取得）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:140px">
+          <input id="qReach" type="number" placeholder="スキ数（未入力なら自動取得）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;width:180px">
+        </div>
+      </details>
       <span class="mut" id="qExtMsg"></span>
     </div>
     <div class="panel">
@@ -3068,6 +3073,25 @@ function runPool(items, worker, conc, onprog){
 function fetchReader(url){
   return fetch('https://r.jina.ai/'+url,{headers:{'accept':'text/plain'}}).then(function(r){ if(!r.ok)throw new Error('reader '+r.status); return r.text(); });
 }
+// note記事URLからキー（n/以降のID）を抽出
+function noteKeyFromUrl(url){
+  var m=String(url||'').match(/note\.com\/[^\/]+\/n\/(n[0-9a-z]+)/i);
+  return m? m[1] : null;
+}
+// noteの公開APIからタイトル・スキ数を取得（CORS非対応のためjina経由・失敗しても本文取得とは独立に許容）
+function fetchNoteMeta(url){
+  var key=noteKeyFromUrl(url);
+  if(!key) return Promise.resolve(null);
+  return fetch('https://r.jina.ai/https://note.com/api/v3/notes/'+key,{headers:{'X-Return-Format':'text'}})
+    .then(function(r){ if(!r.ok) throw new Error('meta '+r.status); return r.text(); })
+    .then(function(t){ var d=(JSON.parse(t)||{}).data||{}; return {title:d.name||'', likes:(typeof d.like_count==='number'? d.like_count : null)}; })
+    .catch(function(){ return null; });
+}
+// jina readerの応答ヘッダ行からタイトルを抽出（note以外のURL用フォールバック）
+function jinaTitle(text){
+  var m=String(text||'').match(/^Title:\s*(.+)$/m);
+  return m? m[1].trim() : '';
+}
 
 /* ====================== 相関係数 ====================== */
 function pearson(xs, ys){
@@ -3218,15 +3242,25 @@ function bindQuality(){
   $('#qAdd').onclick=function(){
     if(!ensureKey())return;
     var url=$('#qUrl').value.trim(), txt=$('#qText').value.trim();
-    var label=$('#qLabel').value.trim()||url||'外部記事';
     var reach=$('#qReach').value!==''?Number($('#qReach').value):null;
     var model=$('#qModel').value;
-    var getText = txt? Promise.resolve(txt) : (url? fetchReader(url) : Promise.reject(new Error('URLか本文を入れてください')));
+    if(!url && !txt){ qext('URLを入れるか、手動入力に本文を貼ってください'); var dm=$('#qManual'); if(dm)dm.open=true; return; }
     $('#qAdd').disabled=true; qext('取得・解析中…');
-    getText.then(function(text){ return analyzeAndScore(String(text), model); })
-      .then(function(st){ QEXT.push({label:label,url:url,reach:reach,external:true,struct:st});
-        autoSaveToRepo(true); $('#qAdd').disabled=false; qext('追加しました'); $('#qText').value=''; $('#qUrl').value=''; $('#qLabel').value=''; $('#qReach').value=''; renderQuality(); renderCorr(); })
-      .catch(function(e){ $('#qAdd').disabled=false; qext('失敗: '+(e.message||e)+'（取得不可なら本文を直接貼ってください）'); });
+    var getMeta = (txt||!url)? Promise.resolve(null) : fetchNoteMeta(url); // 本文手入力時はメタ取得もスキップ（上書き意図とみなす）
+    var getText = txt? Promise.resolve(txt) : fetchReader(url);
+    Promise.all([getText, getMeta]).then(function(rs){
+      var text=String(rs[0]), meta=rs[1];
+      var label=$('#qLabel').value.trim() || (meta&&meta.title) || jinaTitle(text) || url || '外部記事';
+      var likes=(reach!=null)? reach : (meta? meta.likes : null);
+      return analyzeAndScore(text, model).then(function(st){
+        QEXT.push({label:label,url:url,reach:likes,external:true,struct:st});
+        autoSaveToRepo(true); $('#qAdd').disabled=false;
+        qext('追加しました（'+label+(likes!=null?'・スキ'+likes:'')+'）');
+        $('#qText').value=''; $('#qUrl').value=''; $('#qLabel').value=''; $('#qReach').value=''; renderQuality(); renderCorr(); });
+    }).catch(function(e){
+      $('#qAdd').disabled=false; qext('失敗: '+(e.message||e)+'（取得できない場合は手動入力に本文を貼ってください）');
+      var dm2=$('#qManual'); if(dm2)dm2.open=true;
+    });
   };
 }
 
