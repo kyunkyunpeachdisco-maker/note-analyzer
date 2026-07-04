@@ -408,9 +408,9 @@
     <div class="panel" id="qCorr" style="display:none"></div>
     <div class="panel">
       <strong style="font-size:14px">外部記事を追加（他人の記事など）</strong>
-      <p class="mut" style="margin:6px 0">note記事はURLを貼るだけで、本文・タイトル・スキ数を自動取得します（r.jina.ai経由・公開記事のみ）。note以外のURLは本文とタイトルのみ。取得できない場合は下の手動入力に本文を貼ってください。</p>
+      <p class="mut" style="margin:6px 0">note記事はURLを貼るだけで、本文・タイトル・スキ数を自動取得します（r.jina.ai経由・公開記事のみ）。複数記事は1行に1つずつ貼るとまとめて解析します。note以外のURLは本文とタイトルのみ。取得できない場合は下の手動入力に本文を貼ってください。</p>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
-        <input id="qUrl" placeholder="https://note.com/.../n/..." style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px">
+        <textarea id="qUrl" rows="2" placeholder="https://note.com/.../n/...（複数なら1行に1つ）" style="font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;flex:1;min-width:200px;resize:vertical"></textarea>
         <button class="btn" id="qAdd">追加して解析</button>
       </div>
       <details id="qManual">
@@ -3383,27 +3383,60 @@ function bindQuality(){
       autoSaveToRepo();
     });
   };
-  $('#qAdd').onclick=function(){
-    if(!ensureKey())return;
-    var url=$('#qUrl').value.trim(), txt=$('#qText').value.trim();
-    var reach=$('#qReach').value!==''?Number($('#qReach').value):null;
-    var model=$('#qModel').value;
-    if(!url && !txt){ qext('URLを入れるか、手動入力に本文を貼ってください'); var dm=$('#qManual'); if(dm)dm.open=true; return; }
-    $('#qAdd').disabled=true; qext('取得・解析中…');
+  // 外部記事1件分の取得＋解析（単発・一括の両方から使う）。manual=trueならラベル・スキ数の手入力を反映
+  function qAddOne(url, txt, model, manual){
     var getMeta = (txt||!url)? Promise.resolve(null) : fetchNoteMeta(url); // 本文手入力時はメタ取得もスキップ（上書き意図とみなす）
     var getText = txt? Promise.resolve(txt) : fetchReader(url);
-    Promise.all([getText, getMeta]).then(function(rs){
+    return Promise.all([getText, getMeta]).then(function(rs){
       var text=String(rs[0]), meta=rs[1];
-      var label=$('#qLabel').value.trim() || (meta&&meta.title) || jinaTitle(text) || url || '外部記事';
+      var reach=(manual && $('#qReach').value!=='')?Number($('#qReach').value):null;
+      var label=(manual?$('#qLabel').value.trim():'') || (meta&&meta.title) || jinaTitle(text) || url || '外部記事';
+      // noteの404はreader経由だとHTTP 200で返るため、タイトルで検出して失敗扱いにする
+      if(!txt && /ご指定のページが見つかりません/.test(label)) throw new Error('記事が見つかりません(404)');
       var likes=(reach!=null)? reach : (meta? meta.likes : null);
       return analyzeAndScore(text, model).then(function(st){
         QEXT.push({label:label,url:url,reach:likes,author:(meta&&meta.author)||null,external:true,struct:st});
-        autoSaveToRepo(true); $('#qAdd').disabled=false;
-        qext('追加しました（'+label+(likes!=null?'・スキ'+likes:'')+'）');
-        $('#qText').value=''; $('#qUrl').value=''; $('#qLabel').value=''; $('#qReach').value=''; renderQuality(); renderCorr(); });
-    }).catch(function(e){
-      $('#qAdd').disabled=false; qext('失敗: '+(e.message||e)+'（取得できない場合は手動入力に本文を貼ってください）');
-      var dm2=$('#qManual'); if(dm2)dm2.open=true;
+        renderQuality(); renderCorr(); autoSaveToRepo(true);
+        return {label:label, likes:likes};
+      });
+    });
+  }
+  $('#qAdd').onclick=function(){
+    if(!ensureKey())return;
+    var txt=$('#qText').value.trim();
+    // 空白・改行・カンマ区切りで複数URL対応
+    var urls=$('#qUrl').value.trim().split(/[\s,]+/).filter(function(u){return u;});
+    var model=$('#qModel').value;
+    if(!urls.length && !txt){ qext('URLを入れるか、手動入力に本文を貼ってください'); var dm=$('#qManual'); if(dm)dm.open=true; return; }
+    $('#qAdd').disabled=true;
+    if(txt || urls.length<=1){
+      // 従来どおり単発（本文貼り付け時は複数URLを無視して1件目のみ使用）
+      qext('取得・解析中…');
+      qAddOne(urls[0]||'', txt||null, model, true).then(function(r){
+        $('#qAdd').disabled=false;
+        qext('追加しました（'+r.label+(r.likes!=null?'・スキ'+r.likes:'')+'）');
+        $('#qText').value=''; $('#qUrl').value=''; $('#qLabel').value=''; $('#qReach').value='';
+      }).catch(function(e){
+        $('#qAdd').disabled=false; qext('失敗: '+(e.message||e)+'（取得できない場合は手動入力に本文を貼ってください）');
+        var dm2=$('#qManual'); if(dm2)dm2.open=true;
+      });
+      return;
+    }
+    // 複数URL：キュー処理（並列2）。1件の失敗ではバッチを止めず、成功分はその都度追加済み（qAddOne内）
+    var ok=0, fails=[];
+    qext('0/'+urls.length+'件 解析中…');
+    runPool(urls, function(u){
+      return qAddOne(u, null, model, false)
+        .then(function(){ ok++; })
+        .catch(function(e){ fails.push({url:u, err:String(e&&e.message||e)}); });
+    }, 2, function(d,t){ qext(d+'/'+t+'件 解析中…'); }).then(function(){
+      $('#qAdd').disabled=false;
+      var msg='完了'+ok+'件';
+      if(fails.length) msg+='・失敗'+fails.length+'件: '+fails.map(function(f){return f.url+' ('+f.err+')';}).join(' / ');
+      qext(msg);
+      // 失敗したURLだけ入力欄に残して再試行しやすく
+      $('#qUrl').value=fails.map(function(f){return f.url;}).join('\n');
+      if(ok){ $('#qLabel').value=''; $('#qReach').value=''; }
     });
   };
 }
