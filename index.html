@@ -3537,7 +3537,9 @@ function renderQuality(){
   pts.slice().sort(function(a,b){ var x=a.struct.score, y=b.struct.score; if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1; return y-x; }).forEach(function(p){
     var s=p.struct; var r=el('tr');
     var delBtn=p.ext&&p._src?'<button class="qext-del btn ghost" style="padding:0 7px;font-size:11px;margin-right:5px" title="この外部記事を削除">✕</button>':'';
-    r.innerHTML='<td style="text-align:left">'+delBtn+(p.ext?'🔗 ':'')+(p.reader?'👥 ':'')+esc(p.label)+'</td>'+
+    var lblHtml=esc(p.label);
+    if((p.ext||p.reader)&&p.url) lblHtml='<a href="'+esc(p.url)+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted" title="元記事を開く">'+lblHtml+'</a>';
+    r.innerHTML='<td style="text-align:left">'+delBtn+(p.ext?'🔗 ':'')+(p.reader?'👥 ':'')+lblHtml+'</td>'+
       '<td>'+(s.genre?esc(s.genre):(s.mode==='失敗'?'<span class="mut">失敗</span>':'—'))+'</td>'+
       '<td>'+qBadge({score:s.score,pseudo:s.pseudo,mode:s.mode})+'</td>'+
       '<td>'+fmt(s.ctrlScore)+'</td>'+
