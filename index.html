@@ -345,7 +345,7 @@
     <div class="panel" id="fans"></div>
     <div class="panel">
       <strong style="font-size:14px">コア読者の構造・文体比較（自分 vs 読者層）</strong>
-      <p class="mut" style="margin:6px 0">コア読者が自分で書いた人気記事を取得し、<strong>文体指標（無料・決定的）</strong>と任意で<strong>LLM構造指標</strong>を、あなたの記事と比較します（公開記事のみ・r.jina.ai経由。読者記事URLはv0.6.0以降のcollectorで収集されます）。モデル・サンプル数は「構造の質」タブの設定を使います。<br>※読者側は各読者の<strong>人気記事のみのサンプル</strong>（あなた側は全記事）のため、読者側が系統的に有利な<strong>上振れ比較</strong>です。差はその前提で読んでください。</p>
+      <p class="mut" style="margin:6px 0">コア読者が自分で書いた人気記事を取得し、<strong>文体指標</strong>（APIキー不要・本文から自動集計）と任意で<strong>LLM構造指標</strong>を、あなたの記事と比較します（公開記事のみ・r.jina.ai経由。読者記事URLはv0.6.0以降のcollectorで収集されます）。モデル・サンプル数は「構造の質」タブの設定を使います。<br>※読者側は各読者の<strong>人気記事のみのサンプル</strong>（あなた側は全記事）のため、読者側が系統的に有利な<strong>上振れ比較</strong>です。差はその前提で読んでください。</p>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
         <label class="mut" style="font-size:13px;display:flex;align-items:center;gap:4px">上位
           <input type="number" id="rdReaders" value="10" min="1" step="1" style="width:64px;font-size:16px;background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px">人</label>
@@ -354,7 +354,7 @@
         <span class="mut" style="font-size:11px">（記事は各読者の人気上位・最大5）</span>
       </div>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
-        <button class="btn" id="rdRun" title="文体指標のみ（無料・決定的）">読者を解析（文体・無料）</button>
+        <button class="btn" id="rdRun" title="文体指標のみ（APIキー不要・何度実行しても同じ結果）">読者を解析（文体・無料）</button>
         <button class="btn ghost" id="rdRunLLM" title="読者記事にLLM構造解析も実行（API課金）">構造解析実施（LLM・課金）</button>
         <button class="btn ghost" id="rdCancel" style="display:none">⏹ 中断</button>
         <span class="mut" id="rdMsg"></span>
@@ -1235,7 +1235,7 @@ function renderTags(){
     if(tagR.length){
       more+='<h3 style="font-size:14px;margin:14px 0 6px">タグと成績の相関（記事単位・n='+ARTS.length+'）</h3>';
       more+='<p class="desc">タグの有無×成績の相関。r&gt;0＝そのタグが付いた記事ほど伸びる。3記事以上のタグのみ。</p>';
-      more+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>記事数</th><th>リフト</th><th>r×スキ</th>'+(HAS_VIEWS?'<th>r×スキ率</th>':'')+'</tr></thead><tbody>';
+      more+='<div class="tablewrap"><table><thead><tr><th>タグ</th><th>記事数</th><th title="このタグでの中央値スキ ÷ 全記事の中央値スキ。1以上＝あなたの平均より強いタグ">スキ倍率</th><th title="相関係数（−1〜+1）。＋ならこのタグが付いた記事ほどスキが多い傾向、−なら逆">相関(スキ)</th>'+(HAS_VIEWS?'<th title="相関係数（−1〜+1）。＋ならこのタグが付いた記事ほどスキ率が高い傾向、−なら逆">相関(スキ率)</th>':'')+'</tr></thead><tbody>';
       tagR.slice(0,10).forEach(function(x){
         more+='<tr><td>#'+esc(x.tag)+'</td><td>'+x.count+'</td><td>'+(x.lift!=null?'×'+x.lift.toFixed(1):'—')+'</td><td>'+vizRCell(x.rL)+'</td>'+(HAS_VIEWS?'<td>'+vizRCell(x.rR)+'</td>':'')+'</tr>';
       });
@@ -1278,14 +1278,14 @@ function renderTags(){
     {k:'avgLikes',label:'平均スキ',val:function(r){return r.avgLikes;}},
     {k:'medLikeRate',label:'中央値スキ率',val:function(r){return r.medLikeRate;}},
     {k:'avgLikeRate',label:'平均スキ率',val:function(r){return r.avgLikeRate;}},
-    {k:'lift',label:'リフト',val:function(r){return r.lift;}}
+    {k:'lift',label:'スキ倍率',val:function(r){return r.lift;}}
   ];
   if(HAS_VIEWS) tagCols.push({k:'medViews',label:'中央値ビュー',val:function(r){return r.medViews;}});
   tagCols.push({k:'competition',label:'競合度',val:function(r){return r.competition;}});
-  tagCols.push({k:'efficiency',label:'効率',val:function(r){return r.efficiency;}});
+  tagCols.push({k:'efficiency',label:'競合あたりビュー',val:function(r){return r.efficiency;}});
   var tagColTips={count:'このタグが付いた自記事の数', medLikes:'タグ記事のスキの中央値（既定の代表値）', avgLikes:'タグ記事のスキの平均（参考・外れ値に弱い）',
-    medLikeRate:'タグ記事のスキ率（スキ÷ビュー）の中央値。ビュー収集時のみ', avgLikeRate:'タグ記事のスキ率の平均', lift:'中央値スキ÷全記事の中央値スキ。1.0=全体並み・1.5=1.5倍伸びる',
-    medViews:'タグ記事のビューの中央値', competition:'noteでこのタグが付いた記事の総数（競合の多さ）', efficiency:'中央値ビュー÷競合×1000（競合1000件あたりのビュー）。参考値：ビューの流入経路は区別できないため、タグ経由の流入とは限らない'};
+    medLikeRate:'タグ記事のスキ率（スキ÷ビュー）の中央値。ビュー収集時のみ', avgLikeRate:'タグ記事のスキ率の平均', lift:'このタグでの中央値スキ ÷ 全記事の中央値スキ。1以上＝あなたの平均より強いタグ（1.5＝1.5倍伸びる）',
+    medViews:'タグ記事のビューの中央値', competition:'noteでこのタグが付いた記事の総数（競合の多さ）', efficiency:'中央値ビュー÷競合記事数×1000（競合1000件あたりのビュー）。参考値：ビューの流入経路は区別できないため、タグ経由の流入とは限らない'};
   if(!tagSortState || !tagCols.some(function(c){return c.k===tagSortState.key;})) tagSortState={key:'medLikes',dir:-1};
   var rows=tags.slice().sort(function(a,b){
     var x=tagCols.filter(function(c){return c.k===tagSortState.key;})[0];
@@ -1306,10 +1306,10 @@ function renderTags(){
     htr.appendChild(th);
   });
   thead.appendChild(htr); t.innerHTML=''; t.appendChild(thead);
-  var winSet={}; winners.forEach(function(w){ winSet[w.tag]=1; }); // 「勝」の基準はサマリーと同一（リフト≥1×競合少）
+  var winSet={}; winners.forEach(function(w){ winSet[w.tag]=1; }); // 「勝ち筋」の基準はサマリーと同一（スキ倍率≥1×競合少）
   var tb=el('tbody');
   rows.forEach(function(r){
-    var cells='<td>#'+esc(r.tag)+(winSet[r.tag]?' <span class="pill good">勝</span>':'')+'</td>'+
+    var cells='<td>#'+esc(r.tag)+(winSet[r.tag]?' <span class="pill good" title="ニッチ勝ち筋タグ：あなたの中央値スキが全記事の中央値以上 × 競合が中央値以下 × 2記事以上">勝ち筋</span>':'')+'</td>'+
       '<td>'+num(r.count)+'</td>'+
       '<td>'+f1(r.medLikes)+'</td>'+
       '<td>'+f1(r.avgLikes)+'</td>'+
@@ -1382,9 +1382,9 @@ function renderStylo(){
   var perfCols=[]; if(HAS_VIEWS) perfCols.push({key:'views',label:'ビュー'}); perfCols.push({key:'likes',label:'スキ'});
   function perfVal(a,k){ return k==='likeRate'?a.likeRate:a[k]; }
   var rCell=vizRCell; // 共有の発散バーセル（指標レイヤ横で定義）
-  var perfHead=perfCols.map(function(pc){return '<th>r×'+pc.label+'</th>';}).join('');
-  var h='<strong style="font-size:14px">文体指標（無料・決定的・本文から機械計算）</strong>';
-  h+='<div class="muted" style="font-size:12px;margin:4px 0 8px">文の長さ・段落・見出し密度・漢字比率など「書き方の形」。AIのブレと無関係で毎回同じ値。右はビュー/スキとの相関（n='+styAll.length+'）。</div>';
+  var perfHead=perfCols.map(function(pc){return '<th title="相関係数（−1〜+1）。＋ならこの指標が高い記事ほど'+pc.label+'も高い傾向、−なら逆">相関('+pc.label+')</th>';}).join('');
+  var h='<strong style="font-size:14px">文体指標（本文から自動集計）</strong>';
+  h+='<div class="muted" style="font-size:12px;margin:4px 0 8px">文の長さ・段落・見出し密度・漢字比率など「書き方の形」。APIキー不要で、何度実行しても同じ値になります。右はビュー/スキとの相関（n='+styAll.length+'）。</div>';
   h+='<div class="tablewrap"><table><thead><tr><th>指標</th><th>中央値</th>'+perfHead+'<th>n</th></tr></thead><tbody>';
   STYLO_FIELDS.forEach(function(f){
     var vals=styAll.map(function(a){return a._stylo?a._stylo[f.key]:null;});
@@ -2342,13 +2342,13 @@ function buildRepoReport(){
     md.push('');
     md.push('※「タグ記事群の成績が良い」という意味で、タグ自体の効果とは限らない（題材・時期と交絡）。');
     md.push('');
-    md.push('基準：全記事の中央値スキ '+f1(allMedLikes)+'。リフト＝タグ記事の中央値スキ÷全記事の中央値スキ。集計は中央値で統一（平均は参考）。対象は2記事以上のタグ（3記事未満は「参考」）。');
+    md.push('基準：全記事の中央値スキ '+f1(allMedLikes)+'。スキ倍率＝タグ記事の中央値スキ÷全記事の中央値スキ。集計は中央値で統一（平均は参考）。対象は2記事以上のタグ（3記事未満は「参考」）。');
     md.push('');
-    md.push('効率＝中央値ビュー÷競合×1000。参考値（ビューの流入経路は区別できないため、タグ経由の流入とは限らない）。推薦には使わない。');
+    md.push('競合あたりビュー＝中央値ビュー÷競合記事数×1000。参考値（ビューの流入経路は区別できないため、タグ経由の流入とは限らない）。推薦には使わない。');
     md.push('');
-    var tagHeader=['タグ','記事数','中央値スキ','平均スキ','中央値スキ率','リフト'];
+    var tagHeader=['タグ','記事数','中央値スキ','平均スキ','中央値スキ率','スキ倍率'];
     if(HAS_VIEWS) tagHeader.push('中央値ビュー');
-    tagHeader.push('競合度'); tagHeader.push('効率');
+    tagHeader.push('競合度'); tagHeader.push('競合あたりビュー');
     var tagRows=tags.slice().sort(function(a,b){return (b.medLikes||0)-(a.medLikes||0);}).map(function(r){
       var cells=['#'+mdEsc(r.tag), num(r.count), f1(r.medLikes), f1(r.avgLikes), pctTxt(r.medLikeRate),
         r.lift!=null?'×'+r.lift.toFixed(1):'—'];
@@ -2717,13 +2717,15 @@ function katexFans(name,asof){
 }
 function katexQuality(name,asof){
   var own=ARTS.filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, score:a.struct.score, mode:a.struct.mode, verify:a.struct.verify, reach:a.perf}; });
-  var ext=QEXT.map(function(e){ return {label:e.label, score:e.struct.score, mode:e.struct.mode, verify:e.struct.verify, reach:e.reach}; });
+  var ext=QEXT.map(function(e){ return {label:e.label, score:e.struct.score, mode:e.struct.mode, verify:e.struct.verify, reach:e.reach, ext:true}; });
   var pts=own.concat(ext);
   if(!pts.length) return null;
   pts.sort(function(a,b){return (b.score==null?-1:b.score)-(a.score==null?-1:a.score);});
   var t='\\begin{array}{|l|r|l|r|r|}\n\\hline\n\\text{記事} & \\text{総合} & \\text{ジャンル} & \\text{接地\\%} & \\text{'+katText(PERF_LABEL)+'} \\\\ \\hline\n';
   pts.slice(0,10).forEach(function(p){
-    t+='\\text{'+katText(katClip(p.label,18))+'} & '+(p.score==null?'-':p.score)+' & \\text{'+katText(p.mode)+'} & '+(p.verify!=null?p.verify+'\\%':'-')+' & '+(p.reach!=null?katNum(p.reach):'-')+' \\\\ \\hline\n';
+    // ビュー列（HAS_VIEWS時）に外部記事のスキ数を混ぜない：スキと明示する
+    var perfCell=p.reach==null?'-':((p.ext&&HAS_VIEWS)?'\\text{スキ}\\,'+katNum(p.reach):katNum(p.reach));
+    t+='\\text{'+katText(katClip(p.label,18))+'} & '+(p.score==null?'-':p.score)+' & \\text{'+katText(p.mode)+'} & '+(p.verify!=null?p.verify+'\\%':'-')+' & '+perfCell+' \\\\ \\hline\n';
   });
   t+='\\end{array}';
   return '$$\n\\textbf{\\text{🧭 構造の質}}\n$$\n\n$$\n'+t+'\n$$';
@@ -3256,7 +3258,7 @@ function renderCorr(){
     var nn=pool.filter(function(a){return getVal(a)!=null;}).length;
     return '<tr><td>'+label+'</td>'+cells+'<td>'+nn+'</td></tr>';
   }
-  var perfHead=perfCols.map(function(pc){return '<th>r×'+pc.label+'</th>';}).join('');
+  var perfHead=perfCols.map(function(pc){return '<th title="相関係数（−1〜+1）。＋ならこの指標が高い記事ほど'+pc.label+'も高い傾向、−なら逆">相関('+pc.label+')</th>';}).join('');
   // ── 打ち手：質は世間の評価と相関するか（結論を一言で）──
   function corrOf(getVal, key){
     var rows=own.filter(function(a){ return getVal(a)!=null && a[key]!=null; });
@@ -3466,6 +3468,12 @@ function qPlotAxes(){
 }
 function qAxisLabel(k){ var m=qPlotAxes().filter(function(a){return a.key===k;})[0]; return m?m.label:k; }
 function qIsPerfAxis(k){ return k==='views'||k==='likes'||k==='likeRate'||k==='reach'; }
+// 成績列のセル：ビュー列（HAS_VIEWS時）にスキ数を混ぜない。ビューが無い記事（外部・読者）はスキと明示して表示
+function qPerfCellHtml(p){
+  if(!HAS_VIEWS) return p.likes==null?'—':num(p.likes);
+  if(p.views!=null) return num(p.views);
+  return p.likes==null?'—':'<span class="mut">スキ '+num(p.likes)+'</span>';
+}
 
 function renderQuality(){
   var own=(ARTS||[]).filter(function(a){return a.struct;}).map(function(a){ return {label:a.title, reach:a.perf, views:a.views, likes:a.likes, likeRate:a.likeRate, ext:false, struct:a.struct, text:a.text, url:a.url, tags:a.tags, publishAt:a.publishAt, charCount:a.charCount, comments:a.comments, ageDays:a.ageDays}; });
@@ -3536,7 +3544,7 @@ function renderQuality(){
       '<td>'+fmt(s.reasonScore)+'</td>'+
       '<td>'+fmt(s.groundScore,'%')+'</td>'+
       '<td>'+(s.buildScore!=null?s.buildScore+'<small style="color:var(--mut);margin-left:2px">('+s.conCount+')</small>':'—')+'</td>'+
-      '<td>'+(p.reach==null?'—':num(p.reach))+'</td>'+
+      '<td>'+qPerfCellHtml(p)+'</td>'+
       '<td'+(s.pseudo?' style="color:#f87171"':'')+'>'+(s.pseudo||0)+'</td>';
     if(s.raw){ r.style.cursor='pointer'; r.title='クリックで詳細・項目修正'; (function(pp){r.onclick=function(){showDetail(pp.struct,pp.label,pp.text,pp);};})(p); }
     var del=r.querySelector('.qext-del');
@@ -3580,6 +3588,16 @@ function drawQ(pts){
     chip.onclick=function(){ QPLOT.hide[g]=!QPLOT.hide[g]; drawQ(pts); };
     leg.appendChild(chip);
   });
+  // ジャンルの全選択/全解除（1つずつタップしなくて済むように）
+  var legGenres=Q_GENRES.filter(function(g){return genresPresent[g];});
+  if(legGenres.length>1){
+    var allChip=document.createElement('span'); allChip.className='viz-chip'; allChip.textContent='全選択'; allChip.title='すべてのジャンルを表示';
+    allChip.onclick=function(){ QPLOT.hide={}; drawQ(pts); };
+    leg.appendChild(allChip);
+    var noneChip=document.createElement('span'); noneChip.className='viz-chip'; noneChip.textContent='全解除'; noneChip.title='すべてのジャンルを非表示';
+    noneChip.onclick=function(){ legGenres.forEach(function(g){ QPLOT.hide[g]=true; }); drawQ(pts); };
+    leg.appendChild(noneChip);
+  }
   // 外部記事チップ：タップで一覧・散布図・分布から表示/非表示（相関等の判断系は元々自記事のみ）
   if(QEXT.length){
     var extChip=document.createElement('span'); extChip.className='viz-chip'+(QPLOT.hideExt?' off':''); extChip.title='タップで外部記事の表示/非表示';
@@ -3707,7 +3725,11 @@ function drawQ(pts){
   };
   if(dropped){
     var dn=document.createElement('div'); dn.className='viz-note'; dn.style.marginTop='4px';
-    dn.textContent='軸の値が無い'+dropped+'件は非表示（下の一覧表にはすべて載っています）';
+    var dropMsg='軸の値が無い'+dropped+'件は非表示（下の一覧表にはすべて載っています）';
+    // 外部・読者記事はビュー/スキ率を持たないため、その軸選択時に消える理由と出し方を明示
+    var dropExt=shown.filter(function(p){ return (p.ext||p.reader) && (val(p,QPLOT.x)==null||val(p,QPLOT.y)==null); }).length;
+    if(dropExt) dropMsg+='。外部・読者記事はビュー・スキ率が取得できないため、スキ軸か質の軸を選ぶと表示されます';
+    dn.textContent=dropMsg;
     host.appendChild(dn);
   }
 }
