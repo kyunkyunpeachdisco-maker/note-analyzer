@@ -3228,7 +3228,9 @@ function fetchNoteMeta(url){
   if(!key) return Promise.resolve(null);
   return fetch('https://r.jina.ai/https://note.com/api/v3/notes/'+key,{headers:{'X-Return-Format':'text'}})
     .then(function(r){ if(!r.ok) throw new Error('meta '+r.status); return r.text(); })
-    .then(function(t){ var d=(JSON.parse(t)||{}).data||{}; return {title:d.name||'', likes:(typeof d.like_count==='number'? d.like_count : null), author:(d.user&&(d.user.nickname||d.user.urlname))||null}; })
+    .then(function(t){ var d=(JSON.parse(t)||{}).data||{};
+      var tags=(d.hashtag_notes||[]).map(function(h){ return (h&&h.hashtag&&h.hashtag.name)?String(h.hashtag.name).replace(/^#/,''):''; }).filter(function(s){return s;});
+      return {title:d.name||'', likes:(typeof d.like_count==='number'? d.like_count : null), author:(d.user&&(d.user.nickname||d.user.urlname))||null, tags:tags}; })
     .catch(function(){ return null; });
 }
 // jina readerの応答ヘッダ行からタイトルを抽出（note以外のURL用フォールバック）
@@ -3395,7 +3397,7 @@ function bindQuality(){
       if(!txt && /ご指定のページが見つかりません/.test(label)) throw new Error('記事が見つかりません(404)');
       var likes=(reach!=null)? reach : (meta? meta.likes : null);
       return analyzeAndScore(text, model).then(function(st){
-        QEXT.push({label:label,url:url,reach:likes,author:(meta&&meta.author)||null,external:true,struct:st});
+        QEXT.push({label:label,url:url,reach:likes,author:(meta&&meta.author)||null,tags:(meta&&meta.tags&&meta.tags.length)?meta.tags:null,external:true,struct:st});
         renderQuality(); renderCorr(); autoSaveToRepo(true);
         return {label:label, likes:likes};
       });
@@ -4013,6 +4015,13 @@ function qDetailBasicHtml(m){
     if(author) parts.push('著者 '+esc(author));
     var lk=(m.likes!=null)?m.likes:(src.reach!=null?src.reach:(src.likes!=null?src.likes:null));
     if(lk!=null) parts.push('スキ '+num(lk));
+    // 外部記事のタグ（保存済みのもののみ。多い場合は先頭5個＋他N）
+    var xtags=src.tags||m.tags||null;
+    if(m.ext && xtags && xtags.length){
+      var tagTxt=xtags.slice(0,5).map(function(tg){return '#'+esc(String(tg));}).join(' ');
+      if(xtags.length>5) tagTxt+=' 他'+(xtags.length-5);
+      parts.push(tagTxt);
+    }
   } else {
     parts.push('自記事');
     if(m.views!=null) parts.push('ビュー '+num(m.views));
