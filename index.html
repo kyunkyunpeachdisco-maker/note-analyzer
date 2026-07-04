@@ -454,6 +454,7 @@
       <button class="btn ghost" id="qDetailCopy" style="padding:6px 10px;font-size:12px" title="記事＋この評価＋ロジックをまとめてコピー。Claude Code等に貼って『評価が妥当か・ロジックを見直して』と頼める">📋 Claude Code用</button>
       <button class="btn ghost" id="qDetailClose">閉じる</button>
     </div>
+    <div class="muted" id="qDetailBasic" style="margin:-6px 0 10px;font-size:12.5px;display:none"></div>
     <div id="qDetailGenre" style="margin-bottom:10px"></div>
     <div class="verdict" id="qDetailVerdict"></div>
     <div id="qDetailSignals" style="margin:8px 0"></div>
@@ -2747,7 +2748,10 @@ function showCopyModal(title, note, text){
   copy.onclick=function(){ ta.select(); try{document.execCommand('copy');}catch(e){} if(navigator.clipboard)navigator.clipboard.writeText(text); copy.textContent='✓ コピーしました'; setTimeout(function(){copy.textContent='📋 コピー';},1500); };
   var close=document.createElement('button'); close.className='btn ghost'; close.textContent='閉じる';
   close.onclick=function(){ document.body.removeChild(ov); };
-  ov.onclick=function(e){ if(e.target===ov) document.body.removeChild(ov); };
+  // モーダル内でテキスト選択→オーバーレイ上でマウスアップした時に閉じないよう、mousedownもオーバーレイ上の場合のみ閉じる
+  var downOnOv=false;
+  ov.onmousedown=function(e){ downOnOv=(e.target===ov); };
+  ov.onclick=function(e){ if(e.target===ov && downOnOv) document.body.removeChild(ov); downOnOv=false; };
   row.appendChild(copy); row.appendChild(close);
   box.appendChild(h); box.appendChild(p); box.appendChild(ta); box.appendChild(row);
   ov.appendChild(box); document.body.appendChild(ov);
@@ -2787,7 +2791,10 @@ function showKeyModal(info){
     localStorage.setItem(info.lsKey,inp.value.trim()); ov.remove();
   };
   ov.querySelector('#naKeyClose').onclick=function(){ ov.remove(); };
-  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  // テキスト選択がオーバーレイ上で終わっても閉じない（mousedown＋clickの両方がオーバーレイの時のみ閉じる）
+  var downOnOv=false;
+  ov.onmousedown=function(e){ downOnOv=(e.target===ov); };
+  ov.onclick=function(e){ if(e.target===ov && downOnOv) ov.remove(); downOnOv=false; };
 }
 function qKeyPrompt(){ showKeyModal(API_KEY_INFO.claude); }
 function gemKeyPrompt(){ showKeyModal(API_KEY_INFO.gemini); }
@@ -3220,7 +3227,7 @@ function fetchNoteMeta(url){
   if(!key) return Promise.resolve(null);
   return fetch('https://r.jina.ai/https://note.com/api/v3/notes/'+key,{headers:{'X-Return-Format':'text'}})
     .then(function(r){ if(!r.ok) throw new Error('meta '+r.status); return r.text(); })
-    .then(function(t){ var d=(JSON.parse(t)||{}).data||{}; return {title:d.name||'', likes:(typeof d.like_count==='number'? d.like_count : null)}; })
+    .then(function(t){ var d=(JSON.parse(t)||{}).data||{}; return {title:d.name||'', likes:(typeof d.like_count==='number'? d.like_count : null), author:(d.user&&(d.user.nickname||d.user.urlname))||null}; })
     .catch(function(){ return null; });
 }
 // jina readerの応答ヘッダ行からタイトルを抽出（note以外のURL用フォールバック）
@@ -3389,7 +3396,7 @@ function bindQuality(){
       var label=$('#qLabel').value.trim() || (meta&&meta.title) || jinaTitle(text) || url || '外部記事';
       var likes=(reach!=null)? reach : (meta? meta.likes : null);
       return analyzeAndScore(text, model).then(function(st){
-        QEXT.push({label:label,url:url,reach:likes,external:true,struct:st});
+        QEXT.push({label:label,url:url,reach:likes,author:(meta&&meta.author)||null,external:true,struct:st});
         autoSaveToRepo(true); $('#qAdd').disabled=false;
         qext('追加しました（'+label+(likes!=null?'・スキ'+likes:'')+'）');
         $('#qText').value=''; $('#qUrl').value=''; $('#qLabel').value=''; $('#qReach').value=''; renderQuality(); renderCorr(); });
@@ -3537,9 +3544,10 @@ function renderQuality(){
   pts.slice().sort(function(a,b){ var x=a.struct.score, y=b.struct.score; if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1; return y-x; }).forEach(function(p){
     var s=p.struct; var r=el('tr');
     var delBtn=p.ext&&p._src?'<button class="qext-del btn ghost" style="padding:0 7px;font-size:11px;margin-right:5px" title="この外部記事を削除">✕</button>':'';
-    var lblHtml=esc(p.label);
-    if((p.ext||p.reader)&&p.url) lblHtml='<a href="'+esc(p.url)+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline dotted" title="元記事を開く">'+lblHtml+'</a>';
-    r.innerHTML='<td style="text-align:left">'+delBtn+(p.ext?'🔗 ':'')+(p.reader?'👥 ':'')+lblHtml+'</td>'+
+    // タイトルは行クリック（詳細モーダル）用に素のまま。元記事リンクは🔗/👥/↗アイコン側に付ける（クリック競合の回避）
+    var srcMark=p.ext?'🔗':(p.reader?'👥':(p.url?'↗':''));
+    var srcHtml=srcMark?(p.url?'<a href="'+esc(p.url)+'" target="_blank" rel="noopener" class="qsrc-link" title="元記事を開く" style="text-decoration:none;margin-right:5px">'+srcMark+'</a>':srcMark+' '):'';
+    r.innerHTML='<td style="text-align:left">'+delBtn+srcHtml+esc(p.label)+'</td>'+
       '<td>'+(s.genre?esc(s.genre):(s.mode==='失敗'?'<span class="mut">失敗</span>':'—'))+'</td>'+
       '<td>'+qBadge({score:s.score,pseudo:s.pseudo,mode:s.mode})+'</td>'+
       '<td>'+fmt(s.ctrlScore)+'</td>'+
@@ -3553,6 +3561,9 @@ function renderQuality(){
     if(del){ (function(pp){ del.onclick=function(ev){ ev.stopPropagation();
       var i=QEXT.indexOf(pp._src); if(i>=0){ QEXT.splice(i,1); renderQuality(); renderCorr(); if(typeof autoSaveToRepo==='function') autoSaveToRepo(true); }
     }; })(p); }
+    // 元記事リンクのクリックで行クリック（詳細モーダル）を発火させない
+    var srcLnk=r.querySelector('a.qsrc-link');
+    if(srcLnk){ srcLnk.onclick=function(ev){ ev.stopPropagation(); }; }
     tb.appendChild(r);
   });
   t.appendChild(tb);
@@ -3907,7 +3918,7 @@ function renderReaderCompare(){
         '<td>'+fmt2(s.ctrlScore)+'</td><td>'+fmt2(s.reasonScore)+'</td><td>'+fmt2(s.groundScore,'%')+'</td><td>'+fmt2(s.buildScore)+'</td>'+
         '<td>'+(rr.likes!=null?num(rr.likes):'—')+'</td>';
       if(s.raw){ tr2.style.cursor='pointer'; tr2.title='クリックで詳細・項目修正';
-        tr2.onclick=function(ev){ if(ev.target.tagName==='A')return; showDetail(s, rr.label, null, {url:rr.url, likes:rr.likes, ext:true}); }; }
+        tr2.onclick=function(ev){ if(ev.target.tagName==='A')return; showDetail(s, rr.label, null, {url:rr.url, likes:rr.likes, reader:true, _src:rr}); }; }
       rtb.appendChild(tr2);
     });
     tbl.appendChild(rtb); tw.appendChild(tbl); box.appendChild(tw);
@@ -3949,6 +3960,36 @@ bindReaderCompare();
 var DETAIL_STATE={result:null,struct:null,text:null,label:'',meta:null};
 var SEL_STYLE='background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:4px 6px;font-size:13px';
 
+// URLから著者表記を導出（note記事は @urlname、それ以外はドメイン名）
+function qAuthorFromUrl(u){
+  var m=String(u||'').match(/^https?:\/\/note\.com\/([^\/?#]+)\/n\//);
+  if(m) return '@'+m[1];
+  var m2=String(u||'').match(/^https?:\/\/(?:www\.)?([^\/?#]+)/);
+  return (m2&&m2[1]!=='note.com')?m2[1]:null;
+}
+// 詳細モーダルの基本データ行（種別・著者・成績・元記事リンク。値が無い項目は出さない）
+function qDetailBasicHtml(m){
+  if(!m) return '';
+  var src=m._src||{};
+  var url=m.url||src.url||null;
+  var parts=[];
+  if(m.ext||m.reader){
+    parts.push(m.ext?'外部記事':'コア読者記事');
+    var author=src.author||m.author||(m.reader?(src.reader||null):null)||qAuthorFromUrl(url);
+    if(author) parts.push('著者 '+esc(author));
+    var lk=(m.likes!=null)?m.likes:(src.reach!=null?src.reach:(src.likes!=null?src.likes:null));
+    if(lk!=null) parts.push('スキ '+num(lk));
+  } else {
+    parts.push('自記事');
+    if(m.views!=null) parts.push('ビュー '+num(m.views));
+    if(m.likes!=null) parts.push('スキ '+num(m.likes));
+    if(m.likeRate!=null) parts.push('スキ率 '+(m.likeRate*100).toFixed(1)+'%');
+    if(m.publishAt) parts.push('公開 '+fmtDateTime(m.publishAt).split(' ')[0]);
+    if(m.charCount!=null) parts.push(num(m.charCount)+'字');
+  }
+  if(url) parts.push('<a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:var(--accent)">元記事を開く ↗</a>');
+  return parts.join('<span style="opacity:.45;margin:0 6px">|</span>');
+}
 function showDetail(struct,label,text,meta){
   DETAIL_STATE.result=struct.raw;
   DETAIL_STATE.struct=struct;
@@ -3956,6 +3997,8 @@ function showDetail(struct,label,text,meta){
   DETAIL_STATE.label=label||'';
   DETAIL_STATE.meta=meta||null;
   $('#qDetailLabel').textContent=label;
+  var basic=$('#qDetailBasic');
+  if(basic){ var bh=qDetailBasicHtml(meta); basic.innerHTML=bh; basic.style.display=bh?'':'none'; }
   redrawDetail(false);
   $('#qDetailModal').style.display='block';
   document.body.style.overflow='hidden';
@@ -4007,7 +4050,10 @@ function redrawDetail(isEdit){
   recomputeDetail(isEdit);
 }
 $('#qDetailClose').onclick=function(){ $('#qDetailModal').style.display='none'; document.body.style.overflow=''; };
-$('#qDetailModal').onclick=function(e){ if(e.target===$('#qDetailModal')){ $('#qDetailModal').style.display='none'; document.body.style.overflow=''; } };
+// モーダル内でテキスト選択→オーバーレイ上でマウスアップした時に閉じないよう、mousedownもオーバーレイ上の場合のみ閉じる
+var _qDetailDownOnOv=false;
+$('#qDetailModal').onmousedown=function(e){ _qDetailDownOnOv=(e.target===$('#qDetailModal')); };
+$('#qDetailModal').onclick=function(e){ if(e.target===$('#qDetailModal') && _qDetailDownOnOv){ $('#qDetailModal').style.display='none'; document.body.style.overflow=''; } _qDetailDownOnOv=false; };
 $('#qDetailCopy').onclick=function(){
   var txt=buildEvalExport(), btn=$('#qDetailCopy'), old=btn.textContent;
   function done(){ btn.textContent='✓ コピー'; setTimeout(function(){ btn.textContent=old; },1500); }
@@ -4386,7 +4432,10 @@ function showKarte(a){
   document.body.style.overflow='hidden';
 }
 $('#karteClose').onclick=closeKarte;
-$('#karteModal').onclick=function(e){ if(e.target===$('#karteModal')) closeKarte(); };
+// テキスト選択がオーバーレイ上で終わっても閉じない（mousedown＋clickの両方がオーバーレイの時のみ閉じる）
+var _karteDownOnOv=false;
+$('#karteModal').onmousedown=function(e){ _karteDownOnOv=(e.target===$('#karteModal')); };
+$('#karteModal').onclick=function(e){ if(e.target===$('#karteModal') && _karteDownOnOv) closeKarte(); _karteDownOnOv=false; };
 
 /* ====================== 入口記事分析（近似） ====================== */
 // 読者ごとに「スキした記事のうち公開日（publishAt）が最も古い記事」を入口記事とみなして集計。
