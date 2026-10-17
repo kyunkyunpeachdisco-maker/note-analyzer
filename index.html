@@ -888,7 +888,9 @@ function renderUnderperformers(){
   h+=tbl;
   box.innerHTML=h;
 }
-function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+/* 外から来たURL（記事データ・AIの出力）は http(s) のものだけリンクにする（javascript: などで動かされないように） */
+function safeUrl(u){u=String(u==null?'':u).trim();return /^https?:\/\//i.test(u)?esc(u):'#';}
 /* 詳細データ（平均値・相関係数など補助情報）を折りたたむ共通ラッパ。情報は消さず視界から外す。 */
 function detailsBlock(summary, innerHTML){
   if(!innerHTML) return '';
@@ -936,7 +938,7 @@ function renderArticles(){
   if(isMobile){ tableWrap.style.display='none'; cardsEl.style.display='block'; if(cardSortEl){cardSortEl.style.display='';} if(cardSortDirEl){cardSortDirEl.style.display='';} }
   else { tableWrap.style.display=''; cardsEl.style.display='none'; if(cardSortEl){cardSortEl.style.display='none';} if(cardSortDirEl){cardSortDirEl.style.display='none';} }
   var cols=[
-    {k:'title',label:'タイトル',tip:'タイトルをタップでカルテ（1記事の詳細分析）。↗でnoteを開く',fmt:function(a){return '<span class="karte-open" data-aid="'+attrEsc(aid(a))+'" style="cursor:pointer;color:var(--accent)">'+esc(a.title)+'</span>'+(a.url?' <a href="'+a.url+'" target="_blank" rel="noopener" title="noteで開く" style="font-size:12px">↗</a>':'');}},
+    {k:'title',label:'タイトル',tip:'タイトルをタップでカルテ（1記事の詳細分析）。↗でnoteを開く',fmt:function(a){return '<span class="karte-open" data-aid="'+attrEsc(aid(a))+'" style="cursor:pointer;color:var(--accent)">'+esc(a.title)+'</span>'+(a.url?' <a href="'+safeUrl(a.url)+'" target="_blank" rel="noopener" title="noteで開く" style="font-size:12px">↗</a>':'');}},
     {k:'views',label:'ビュー',tip:'閲覧数（ダッシュボードで収集時のみ取得可）',fmt:function(a){return num(a.views);}},
     {k:'likes',label:'スキ',tip:'スキされた回数',fmt:function(a){return num(a.likes);}},
     {k:'comments',label:'コメ',tip:'コメント数',fmt:function(a){return num(a.comments);}},
@@ -1006,7 +1008,7 @@ function renderArticles(){
     cardsHtml+='<div class="art-card">'+
       '<input type="checkbox" data-aid="'+esc(aid(a))+'" '+checked+' '+disabled+'>'+
       '<div>'+
-        '<div class="art-card-title"><span class="karte-open" data-aid="'+attrEsc(aid(a))+'" style="cursor:pointer">'+esc(a.title)+'</span>'+(a.url?' <a href="'+a.url+'" target="_blank" rel="noopener" title="noteで開く" style="font-size:12px;color:var(--accent)">↗</a>':'')+'</div>'+
+        '<div class="art-card-title"><span class="karte-open" data-aid="'+attrEsc(aid(a))+'" style="cursor:pointer">'+esc(a.title)+'</span>'+(a.url?' <a href="'+safeUrl(a.url)+'" target="_blank" rel="noopener" title="noteで開く" style="font-size:12px;color:var(--accent)">↗</a>':'')+'</div>'+
         '<div class="art-card-stats">'+
           (HAS_VIEWS?stat('ビュー',num(a.views)):'')+
           stat('スキ',num(a.likes))+
@@ -1088,7 +1090,7 @@ function renderGems(){
   else{
     html+='<div class="tablewrap"><table><thead><tr><th>タイトル</th><th>ビュー</th><th>スキ</th><th>スキ率</th></tr></thead><tbody>';
     gems.forEach(function(a){
-      html+='<tr><td><a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a> <span class="pill gem">佳作</span></td><td>'+num(a.views)+'</td><td>'+num(a.likes)+'</td><td>'+(a.likeRate*100).toFixed(1)+'%</td></tr>';
+      html+='<tr><td><a href="'+safeUrl(a.url)+'" target="_blank" rel="noopener">'+esc(a.title)+'</a> <span class="pill gem">佳作</span></td><td>'+num(a.views)+'</td><td>'+num(a.likes)+'</td><td>'+(a.likeRate*100).toFixed(1)+'%</td></tr>';
     });
     html+='</tbody></table></div>';
   }
@@ -1581,7 +1583,7 @@ function renderEvergreen(){
   h+='<div class="tablewrap"><table><thead><tr><th>タイトル</th><th>経過日数</th>'+metricHd+'<th>日割り'+PERF_LABEL+'</th><th>判定</th></tr></thead><tbody>';
   top.forEach(function(a){
     var tag = a.ageDays>90 ? '<span class="pill good">エバーグリーン</span>' : '<span class="pill warn">初速型</span>';
-    h+='<tr><td><a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a></td><td>'+Math.round(a.ageDays)+'日</td>'+metricCells(a)+'<td>'+f1(a.perfPerDay)+'</td><td>'+tag+'</td></tr>';
+    h+='<tr><td><a href="'+safeUrl(a.url)+'" target="_blank" rel="noopener">'+esc(a.title)+'</a></td><td>'+Math.round(a.ageDays)+'日</td>'+metricCells(a)+'<td>'+f1(a.perfPerDay)+'</td><td>'+tag+'</td></tr>';
   });
   h+='</tbody></table></div>';
   // リライト候補：古い記事同士（180日超）の中で日割りが低い（#2 全年齢混合だと古い記事が自動的に失速判定になるため同年齢帯で比較）
@@ -1592,7 +1594,7 @@ function renderEvergreen(){
     h+='<h3 style="font-size:14px;margin:18px 0 4px">リライト候補（古くて失速）</h3>';
     h+='<p class="desc">※比較基準は公開180日超の記事同士の日割り'+PERF_LABEL+'中央値（'+f1(medPPDOld)+'）。全記事との比較では古い記事が一律不利になるため、同年齢帯内で比較。</p>';
     h+='<div class="tablewrap"><table><thead><tr><th>タイトル</th><th>経過日数</th>'+metricHd+'<th>日割り'+PERF_LABEL+'</th></tr></thead><tbody>';
-    fade.forEach(function(a){ h+='<tr><td><a href="'+a.url+'" target="_blank" rel="noopener">'+esc(a.title)+'</a></td><td>'+Math.round(a.ageDays)+'日</td>'+metricCells(a)+'<td>'+f1(a.perfPerDay)+'</td></tr>'; });
+    fade.forEach(function(a){ h+='<tr><td><a href="'+safeUrl(a.url)+'" target="_blank" rel="noopener">'+esc(a.title)+'</a></td><td>'+Math.round(a.ageDays)+'日</td>'+metricCells(a)+'<td>'+f1(a.perfPerDay)+'</td></tr>'; });
     h+='</tbody></table></div>';
   }
   box.innerHTML=h;
@@ -1623,7 +1625,7 @@ function renderFans(){
     h+='<p class="desc">読者ごとに「スキした記事のうち公開日（publishAt）が最も古い記事」を<b>入口記事（近似）</b>とみなして集計。転換率＝入口読者のうちリピーター（2記事以上にスキ）になった割合。プロフィール固定記事・サイトマップ選定の参考に。<br>※スキの時刻は取得できないため、公開日が最古の記事を入口とみなす近似です（古い記事を後から遡ってスキした場合は誤差になります）。</p>';
     h+='<div class="tablewrap"><table><thead><tr><th>記事</th><th>入口にした読者数</th><th>うち現リピーター</th><th>転換率</th></tr></thead><tbody>';
     entry.main.forEach(function(r){
-      h+='<tr><td><a href="'+r.a.url+'" target="_blank" rel="noopener">'+esc(r.a.title)+'</a></td><td>'+num(r.entry)+'</td><td>'+num(r.repeat)+'</td><td>'+pct(r.repeat,r.entry)+'</td></tr>';
+      h+='<tr><td><a href="'+safeUrl(r.a.url)+'" target="_blank" rel="noopener">'+esc(r.a.title)+'</a></td><td>'+num(r.entry)+'</td><td>'+num(r.repeat)+'</td><td>'+pct(r.repeat,r.entry)+'</td></tr>';
     });
     if(entry.others.count){
       h+='<tr><td class="muted">その他'+entry.others.count+'記事（入口読者1人・n不足のため合算）</td><td>'+num(entry.others.entry)+'</td><td>'+num(entry.others.repeat)+'</td><td>'+pct(entry.others.repeat,entry.others.entry)+'</td></tr>';
@@ -3584,7 +3586,7 @@ function renderQuality(){
     var delBtn=p.ext&&p._src?'<button class="qext-del btn ghost" style="padding:0 7px;font-size:11px;margin-right:5px" title="この外部記事を削除">✕</button>':'';
     // タイトルは行クリック（詳細モーダル）用に素のまま。元記事リンクは🔗/👥/↗アイコン側に付ける（クリック競合の回避）
     var srcMark=p.ext?'🔗':(p.reader?'👥':(p.url?'↗':''));
-    var srcHtml=srcMark?(p.url?'<a href="'+esc(p.url)+'" target="_blank" rel="noopener" class="qsrc-link" title="元記事を開く" style="text-decoration:none;margin-right:5px">'+srcMark+'</a>':srcMark+' '):'';
+    var srcHtml=srcMark?(p.url?'<a href="'+safeUrl(p.url)+'" target="_blank" rel="noopener" class="qsrc-link" title="元記事を開く" style="text-decoration:none;margin-right:5px">'+srcMark+'</a>':srcMark+' '):'';
     r.innerHTML='<td style="text-align:left">'+delBtn+srcHtml+esc(p.label)+'</td>'+
       '<td>'+(s.genre?esc(s.genre):(s.mode==='失敗'?'<span class="mut">失敗</span>':'—'))+'</td>'+
       '<td>'+qBadge({score:s.score,pseudo:s.pseudo,mode:s.mode})+'</td>'+
@@ -3950,7 +3952,7 @@ function renderReaderCompare(){
     rdStruct.slice().sort(function(a,b){return (b.struct.score||0)-(a.struct.score||0);}).forEach(function(rr){
       var s=rr.struct; var tr2=document.createElement('tr');
       var fmt2=function(v,suf){return v==null?'—':v+(suf||'');};
-      tr2.innerHTML='<td style="text-align:left">'+(rr.url?'<a href="'+esc(rr.url)+'" target="_blank" rel="noopener">'+esc(clip(rr.label,32))+'</a>':esc(clip(rr.label,32)))+'</td>'+
+      tr2.innerHTML='<td style="text-align:left">'+(rr.url?'<a href="'+safeUrl(rr.url)+'" target="_blank" rel="noopener">'+esc(clip(rr.label,32))+'</a>':esc(clip(rr.label,32)))+'</td>'+
         '<td style="text-align:left">'+esc(rr.reader||'—')+'</td>'+
         '<td>'+qBadge(s)+'</td>'+
         '<td>'+fmt2(s.ctrlScore)+'</td><td>'+fmt2(s.reasonScore)+'</td><td>'+fmt2(s.groundScore,'%')+'</td><td>'+fmt2(s.buildScore)+'</td>'+
@@ -4032,7 +4034,7 @@ function qDetailBasicHtml(m){
     if(m.publishAt) parts.push('公開 '+fmtDateTime(m.publishAt).split(' ')[0]);
     if(m.charCount!=null) parts.push(num(m.charCount)+'字');
   }
-  if(url) parts.push('<a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:var(--accent)">元記事を開く ↗</a>');
+  if(url) parts.push('<a href="'+safeUrl(url)+'" target="_blank" rel="noopener" style="color:var(--accent)">元記事を開く ↗</a>');
   return parts.join('<span style="opacity:.45;margin:0 6px">|</span>');
 }
 function showDetail(struct,label,text,meta){
@@ -4150,7 +4152,7 @@ function renderDetailMoves(){
   moves.forEach(function(m,i){
     if(!m.id) m.id=i+1;
     var card=document.createElement('div'); card.className='dcard'; if(m._excluded) card.style.opacity='.45';
-    card.innerHTML='<div class="dcard-h"><span class="dnum">'+m.id+'</span><span>'+esc(m.summary||'')+'</span></div>'+
+    card.innerHTML='<div class="dcard-h"><span class="dnum">'+esc(m.id)+'</span><span>'+esc(m.summary||'')+'</span></div>'+
       (m.quote?'<div class="quote-detail">'+esc(m.quote||'')+'</div>':'')+
       (m.reason?'<div class="muted" style="font-size:12px;margin-top:4px">'+esc(m.reason||'')+'</div>':'');
     var ctrls=document.createElement('div'); ctrls.className='dctrls';
@@ -4372,7 +4374,7 @@ function bindKarteOpens(root){
 function closeKarte(){ $('#karteModal').style.display='none'; document.body.style.overflow=''; }
 function showKarte(a){
   var host=$('#karteBody'); if(!host) return;
-  $('#karteTitle').innerHTML=esc(a.title)+(a.url?' <a href="'+a.url+'" target="_blank" rel="noopener" style="font-size:12px">note↗</a>':'');
+  $('#karteTitle').innerHTML=esc(a.title)+(a.url?' <a href="'+safeUrl(a.url)+'" target="_blank" rel="noopener" style="font-size:12px">note↗</a>':'');
   var h='';
   // ── 相対位置（全記事中・ビュー/スキ/スキ率それぞれ）──
   var mets=[];
